@@ -1,0 +1,29 @@
+import { View, Text, StyleSheet, SafeAreaView } from 'react-native';
+// Correct import for the floating button component
+import FloatingActionButton from '@/components/FloatingActionButton';
+
+export default function HomeScreen() {
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      {/* Render the floating button */}
+      <FloatingActionButton />
+
+      <View style={styles.content}>
+        <Text>홈 화면 콘텐츠</Text>
+        <Text>화면 왼쪽 상단에 햄버거 버튼만 보입니다.</Text>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});
