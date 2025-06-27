@@ -51,7 +51,11 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           android: {
             extraMavenRepos: [
               "https://devrepo.kakao.com/nexus/content/groups/public/"
-            ]
+            ],
+            newArchEnabled: true
+          },
+          ios: {
+            newArchEnabled: true
           }
         }
       ],
@@ -63,9 +67,11 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           nativeAppKey: KAKAO_NATIVE_APP_KEY,
           android: {
             // Your Android-specific Kakao settings, if any
+             authCodeHandlerActivity: true
           },
           ios: {
             // Your iOS-specific Kakao settings, if any
+            handleKakaoOpenUrl: true,
           }
         }
       ]
