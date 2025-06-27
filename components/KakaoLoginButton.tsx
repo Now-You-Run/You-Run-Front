@@ -12,11 +12,12 @@ const onKakaoLogin = async () => {
 
 export default function KakaoLoginButton() { 
     return (
-        <Pressable onPress={onKakaoLogin} style={styles.loginButton}> {}
-            <Text style={styles.buttonText}>카카오 로그인</Text> {}
+        <Pressable onPress={onKakaoLogin} style={styles.loginButton}>
+            <Text style={styles.buttonText}>카카오 로그인</Text>
         </Pressable>
     );
 }
+
 
 const styles = StyleSheet.create({
   safeArea: {
