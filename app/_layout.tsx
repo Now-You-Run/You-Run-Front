@@ -7,7 +7,7 @@ import { useFonts } from 'expo-font'; // 커스텀 폰트 로드를 위한 Expo 
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native'; // React Navigation 테마
 import { StatusBar } from 'expo-status-bar'; // Expo의 상태바 관리 컴포넌트
 import { PaceProvider } from '@/context/PaceContext';
-
+import { RunningProvider } from '@/context/RunningContext';
 
 function RootLayoutNav() {
   const { isMenuVisible, closeMenu } = useDrawer();
@@ -34,6 +34,7 @@ export default function RootLayout() {
   }
 
   return (
+    <RunningProvider>
       <DrawerProvider>
         <PaceProvider>
           <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
@@ -42,5 +43,6 @@ export default function RootLayout() {
           </ThemeProvider>
         </PaceProvider>
       </DrawerProvider>
+    </RunningProvider>
   );
 }
