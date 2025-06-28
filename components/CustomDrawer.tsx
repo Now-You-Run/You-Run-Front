@@ -1,5 +1,5 @@
-import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { useRouter, Href } from 'expo-router'; // Href를 import 합니다.
+import { useRouter } from 'expo-router'; // Href를 import 합니다.
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 
@@ -33,7 +33,7 @@ export default function CustomDrawer({ closeMenu }: CustomDrawerProps) {
                 <Pressable style={styles.menuItem} onPress={() => navigateTo('/(drawer)/gps-entire')}>
                     <Text style={styles.menuText}>Gps-Entire</Text>
                 </Pressable>
-                <Pressable style={styles.menuItem} onPress={() => navigateTo('/(drawer)/running')}>
+                <Pressable style={styles.menuItem} onPress={() => navigateTo('/(drawer)/modeSelect')}>
                     <Text style={styles.menuText}>Running</Text>
                 </Pressable>
                 <Pressable style={styles.menuItem} onPress={() => navigateTo('/(drawer)/3d-test')}>
