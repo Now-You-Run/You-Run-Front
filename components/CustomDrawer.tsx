@@ -1,5 +1,5 @@
-import { useRouter } from 'expo-router'; // Href를 import 합니다.
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { useRouter, Href } from 'expo-router'; // Href를 import 합니다.
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 
@@ -27,10 +27,10 @@ export default function CustomDrawer({ closeMenu }: CustomDrawerProps) {
                 </View>
 
                 {/* 이제 navigateTo에 전달하는 경로에 오타가 있으면 타입스크립트가 오류를 알려줍니다. */}
-                <Pressable style={styles.menuItem} onPress={() => navigateTo('/(drawer)/test')}>
+                <Pressable style={styles.menuItem} onPress={() => navigateTo('/(drawer)/explore')}>
                     <Text style={styles.menuText}>Explore</Text>
                 </Pressable>
-                {/* <Pressable style={styles.menuItem} onPress={() => navigateTo('/(drawer)/gps-entire')}>
+                <Pressable style={styles.menuItem} onPress={() => navigateTo('/(drawer)/gps-entire')}>
                     <Text style={styles.menuText}>Gps-Entire</Text>
                 </Pressable>
                 <Pressable style={styles.menuItem} onPress={() => navigateTo('/(drawer)/running')}>
@@ -41,10 +41,10 @@ export default function CustomDrawer({ closeMenu }: CustomDrawerProps) {
                 </Pressable>
                 <Pressable style={styles.menuItem} onPress={() => navigateTo('/(drawer)/map-draw-test')}>
                     <Text style={styles.menuText}>map-draw-Test</Text>
-                </Pressable>
-                <Pressable style={styles.menuItem} onPress={() => navigateTo('/(drawer)/login')}>
-                    <Text style={styles.menuText}>login</Text>
-                </Pressable>                          */}
+                </Pressable>  
+                <Pressable style={styles.menuItem} onPress={() => navigateTo('/(drawer)/bot-pace')}>
+                    <Text style={styles.menuText}>bot-pace</Text>
+                </Pressable>                
                 <Pressable style={[styles.menuItem, styles.closeButton]} onPress={closeMenu}>
                     <Text style={styles.menuText}>닫기</Text>
                 </Pressable>
