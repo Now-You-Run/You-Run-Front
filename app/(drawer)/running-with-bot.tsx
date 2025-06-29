@@ -1,4 +1,4 @@
-// 러닝 기능
+// 봇과 러닝 기능
 
 import { useRunning } from '@/context/RunningContext';
 import { useNavigation } from '@react-navigation/native';

@@ -13,14 +13,18 @@ export default function ModeSelect() {
       <View style={styles.container}>
         <Pressable
           style={styles.button}
-          onPress={() => router.push({ pathname: '/running', params: { mode: 'normal' } })}
+          onPress={() =>
+            router.push({ pathname: '/running', params: { mode: 'normal' } })
+          }
         >
           <Text style={styles.buttonText}>일반 모드</Text>
         </Pressable>
 
         <Pressable
           style={styles.button}
-          onPress={() => router.push({ pathname: '/trackSetup', params: { mode: 'track' } })}
+          onPress={() =>
+            router.push({ pathname: '/trackSetup', params: { mode: 'track' } })
+          }
         >
           <Text style={styles.buttonText}>트랙 모드</Text>
         </Pressable>
@@ -36,7 +40,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    justifyContent: 'center',   // 중앙 정렬
+    justifyContent: 'center', // 중앙 정렬
     alignItems: 'center',
     paddingHorizontal: 20,
   },

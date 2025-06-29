@@ -1,3 +1,5 @@
+// 러닝 요약
+
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';

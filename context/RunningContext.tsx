@@ -1,4 +1,5 @@
 // context/RunningContext.tsx
+// addToPath 오류 수정
 
 import * as Location from 'expo-location';
 import React, {

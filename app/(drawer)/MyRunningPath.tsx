@@ -1,3 +1,5 @@
+// 트랙 경로 불러오기
+
 import { deletePath, loadPaths, RunningTrack } from '@/storage/RunningStorage';
 import { useNavigation } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';

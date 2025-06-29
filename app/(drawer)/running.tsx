@@ -1,3 +1,5 @@
+// 러닝 기능
+
 import { useRunning } from '@/context/RunningContext';
 import { savePath } from '@/storage/RunningStorage';
 import * as Location from 'expo-location';

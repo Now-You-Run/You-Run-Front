@@ -1,3 +1,5 @@
+// 트랙 경로 저장
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 const PATH_KEY = '@running_paths'; // 저장 Key
 
