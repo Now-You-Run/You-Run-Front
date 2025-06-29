@@ -13,10 +13,10 @@ const LOCATION_TASK_NAME = 'background-location-task';
 
 // 간단한 1D 칼만 필터 구현
 class KalmanFilter1D {
-  private R: number;  // 프로세스 노이즈 공분산
-  private Q: number;  // 측정 노이즈 공분산
-  private x: number;  // 상태 추정값
-  private P: number;  // 오차 공분산
+  private R: number; // 프로세스 노이즈 공분산
+  private Q: number; // 측정 노이즈 공분산
+  private x: number; // 상태 추정값
+  private P: number; // 오차 공분산
 
   constructor(R = 0.01, Q = 0.1) {
     this.R = R;
@@ -54,12 +54,13 @@ interface RunningState {
   isActive: boolean;
   elapsedTime: number;
   path: Coord[];
-  currentSpeed: number;    // 필터링된 순간 속도 (km/h)
-  totalDistance: number;   // 필터링된 누적 거리 (km)
+  currentSpeed: number; // 필터링된 순간 속도 (km/h)
+  totalDistance: number; // 필터링된 누적 거리 (km)
   startRunning: () => void;
   stopRunning: () => void;
   resumeRunning: () => void;
   resetRunning: () => void;
+  addToPath: (coords: Coord) => void;
 }
 
 const RunningContext = createContext<RunningState | undefined>(undefined);
@@ -67,6 +68,7 @@ const RunningContext = createContext<RunningState | undefined>(undefined);
 export const RunningProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
+  // 상태 선언
   const [isActive, setIsActive] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [path, setPath] = useState<Coord[]>([]);
@@ -74,27 +76,30 @@ export const RunningProvider: React.FC<{ children: React.ReactNode }> = ({
   const [totalDistance, setTotalDistance] = useState(0);
 
   const timerInterval = useRef<number | null>(null);
-  const locationSubscription = useRef<Location.LocationSubscription | null>(null);
+  const locationSubscription = useRef<Location.LocationSubscription | null>(
+    null
+  );
   const lastCoordRef = useRef<Coord | null>(null);
 
   // 칼만 필터 인스턴스
   const speedFilter = useRef(new KalmanFilter1D(0.01, 0.1));
-  const distFilter  = useRef(new KalmanFilter1D(0.01, 0.1));
-
-  
+  const distFilter = useRef(new KalmanFilter1D(0.01, 0.1));
 
   // 하버사인 공식으로 두 좌표 간 거리 계산 (km)
   const haversineDistance = (
-    lat1: number, lon1: number,
-    lat2: number, lon2: number
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
   ): number => {
     const R = 6371;
     const dLat = (lat2 - lat1) * (Math.PI / 180);
     const dLon = (lon2 - lon1) * (Math.PI / 180);
     const a =
       Math.sin(dLat / 2) ** 2 +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-      Math.sin(dLon / 2) ** 2;
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) ** 2;
     return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
@@ -102,10 +107,11 @@ export const RunningProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     if (isActive) {
       timerInterval.current = setInterval(() => {
-        setElapsedTime(t => t + 1);
+        setElapsedTime((t) => t + 1);
       }, 1000);
     } else if (timerInterval.current) {
       clearInterval(timerInterval.current);
+      timerInterval.current = null;
     }
     return () => {
       if (timerInterval.current) clearInterval(timerInterval.current);
@@ -114,7 +120,7 @@ export const RunningProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // 위치 구독 시작
   const startLocationTracking = async () => {
-    // 1) foreground 위치 구독 (권한 실패와 무관하게 실행)
+    // foreground 위치 구독 (권한 요청은 별도)
     locationSubscription.current = await Location.watchPositionAsync(
       {
         accuracy: Location.Accuracy.BestForNavigation,
@@ -122,44 +128,46 @@ export const RunningProvider: React.FC<{ children: React.ReactNode }> = ({
         distanceInterval: 1,
       },
       (location) => {
-        //console.log('📍 위치 업데이트 콜백:', location.coords);
         const { latitude, longitude, speed } = location.coords;
 
-        // 1) 이전 좌표 읽어오기
         const prev = lastCoordRef.current;
 
         if (prev) {
-          // 2) raw distance 계산 → 필터 → 누적
-          const rawDist = haversineDistance( prev.latitude, prev.longitude, latitude, longitude);
+          const rawDist = haversineDistance(
+            prev.latitude,
+            prev.longitude,
+            latitude,
+            longitude
+          );
           const filtDist = distFilter.current.filter(rawDist);
-          setTotalDistance(d => d + filtDist);
+          setTotalDistance((d) => d + filtDist);
         }
-        
-        // 3) 이제 "이전 좌표"를 최신으로 갱신
-        lastCoordRef.current = {latitude, longitude};
 
-        // 4) path 업데이트
-        setPath(prev =>[...prev, {latitude,longitude}]);
+        lastCoordRef.current = { latitude, longitude };
 
-        // 5) 속도 필터링
-        const rawSpeedKmH = speed != null ? speed *3.6:0;
+        // 경로에 좌표 추가
+        addToPath({ latitude, longitude });
+
+        // 속도 필터링
+        const rawSpeedKmH = speed != null ? speed * 3.6 : 0;
         const filtSpeed = speedFilter.current.filter(rawSpeedKmH);
 
-        const speedThreshold = 0.5;       // 0.5km/h 이하인 건 모두 0으로 처리
-        const displaySpeed = filtSpeed > speedThreshold ? filtSpeed : 0; // 음수 speed 방지
+        const speedThreshold = 0.5; // 0.5km/h 이하인 건 0 처리
+        const displaySpeed = filtSpeed > speedThreshold ? filtSpeed : 0;
         setCurrentSpeed(displaySpeed);
-
       }
     );
 
-    // 2) foreground 권한 요청 (구독은 이미 시작됨)
-    const { status: fgStatus } = await Location.requestForegroundPermissionsAsync();
+    // foreground 권한 요청
+    const { status: fgStatus } =
+      await Location.requestForegroundPermissionsAsync();
     if (fgStatus !== 'granted') {
       console.warn('Foreground permission not granted!');
     }
 
-    // 3) background 권한 요청 및 백그라운드 위치 업데이트
-    const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
+    // background 권한 요청
+    const { status: bgStatus } =
+      await Location.requestBackgroundPermissionsAsync();
     if (bgStatus === 'granted') {
       await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
         accuracy: Location.Accuracy.BestForNavigation,
@@ -172,7 +180,9 @@ export const RunningProvider: React.FC<{ children: React.ReactNode }> = ({
         },
       });
     } else {
-      console.warn('Background permission not granted, continuing foreground only.');
+      console.warn(
+        'Background permission not granted, continuing foreground only.'
+      );
     }
   };
 
@@ -180,6 +190,7 @@ export const RunningProvider: React.FC<{ children: React.ReactNode }> = ({
   const stopLocationTracking = async () => {
     if (locationSubscription.current) {
       locationSubscription.current.remove();
+      locationSubscription.current = null;
     }
     const hasStarted = await Location.hasStartedLocationUpdatesAsync(
       LOCATION_TASK_NAME
@@ -187,6 +198,11 @@ export const RunningProvider: React.FC<{ children: React.ReactNode }> = ({
     if (hasStarted) {
       await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
     }
+  };
+
+  // 경로에 좌표 추가 함수 (내부에서 사용)
+  const addToPath = (coords: Coord) => {
+    setPath((prev) => [...prev, coords]);
   };
 
   const startRunning = () => {
@@ -201,28 +217,25 @@ export const RunningProvider: React.FC<{ children: React.ReactNode }> = ({
   const stopRunning = () => {
     setIsActive(false);
     stopLocationTracking();
-    // 여기에서 path/elapsedTime 등을 서버에 저장할 수 있습니다.
+    // 서버 저장 등 추가 로직 가능
   };
 
-    const resumeRunning = () => {
-    // 재개: 데이터 초기화 없이 다시 타이머·위치추적 시작
+  const resumeRunning = () => {
     setIsActive(true);
     startLocationTracking();
   };
 
-
-  const resetRunning = ()=>{
-    // 위치 구독 멈추고
+  const resetRunning = () => {
     stopLocationTracking();
-    // 타이머 지우고
     if (timerInterval.current) clearInterval(timerInterval.current);
-    //상태들 초기화
+    timerInterval.current = null;
+
     setIsActive(false);
     setElapsedTime(0);
     setPath([]);
     setCurrentSpeed(0);
     setTotalDistance(0);
-  }
+  };
 
   return (
     <RunningContext.Provider
@@ -230,6 +243,7 @@ export const RunningProvider: React.FC<{ children: React.ReactNode }> = ({
         isActive,
         elapsedTime,
         path,
+        addToPath,
         currentSpeed,
         totalDistance,
         startRunning,
