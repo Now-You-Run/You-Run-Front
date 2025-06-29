@@ -1,15 +1,29 @@
+// 러닝 기능
+
 import { useRunning } from '@/context/RunningContext';
+import { savePath } from '@/storage/RunningStorage';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import MapView, { Polyline, Region } from 'react-native-maps';
+
+interface Coord {
+  latitude: number;
+  longitude: number;
+}
 
 // ==================================================================
 // 헬퍼 함수 (계산 로직)
 // ==================================================================
-
 
 // 순간 페이스: 1km 달리는 데 걸리는 시간
 const calculateInstantPace = (speedKmh: number): string => {
@@ -17,7 +31,7 @@ const calculateInstantPace = (speedKmh: number): string => {
   const secPerKm = 3600 / speedKmh;
   const m = Math.floor(secPerKm / 60);
   const s = Math.round(secPerKm % 60);
-  return `${m}'${String(s).padStart(2,'0')}"`;
+  return `${m}'${String(s).padStart(2, '0')}"`;
 };
 
 /** 초를 mm:ss 형식 문자열로 변환 */
@@ -32,12 +46,22 @@ const formatTime = (totalSeconds: number) => {
 // ==================================================================
 
 export default function RunningScreen() {
+  const [isSavedModalVisible, setIsSavedModalVisible] = useState(false);
+  const [summaryData, setSummaryData] = useState<{
+    path: Coord[];
+    totalDistance: number;
+    elapsedTime: number;
+  } | null>(null);
+
   const router = useRouter();
 
   // mode : 'normal' | 'track', trackDistance : km 단위 문자열
-  const {mode, trackDistance}  = 
-  useLocalSearchParams<{ mode?: string; trackDistance? : string }>();
-  const trackKm = mode ==='track' && trackDistance ? parseFloat(trackDistance) : undefined;
+  const { mode, trackDistance } = useLocalSearchParams<{
+    mode?: string;
+    trackDistance?: string;
+  }>();
+  const trackKm =
+    mode === 'track' && trackDistance ? parseFloat(trackDistance) : undefined;
 
   const {
     isActive,
@@ -47,21 +71,20 @@ export default function RunningScreen() {
     totalDistance,
     startRunning,
     stopRunning,
-    resumeRunning,  
+    resumeRunning,
     resetRunning,
   } = useRunning();
 
+  // 화면용 속도/페이스
+  const displaySpeed = currentSpeed > 0.1 ? currentSpeed : 0;
+  const instantPace = calculateInstantPace(displaySpeed);
 
-    // 화면용 속도/페이스
-    const displaySpeed = currentSpeed > 0.1 ? currentSpeed : 0;
-    const instantPace = calculateInstantPace(displaySpeed);
-  
   // 트랙모드일 때 3구간 정의
   const sections = useMemo(() => {
     if (mode === 'track' && trackKm) {
       return [
         { name: '본격 구간', end: trackKm * 0.2 },
-        { name: '마무리 구간', end: trackKm * 0.8},
+        { name: '마무리 구간', end: trackKm * 0.8 },
       ];
     }
     return [];
@@ -72,116 +95,104 @@ export default function RunningScreen() {
 
   // 구간별/기본 100m마다 음성 안내
   useEffect(() => {
-    if (mode === 'track' && sectionIndex <  sections.length) {
+    if (mode === 'track' && sectionIndex < sections.length) {
       const sec = sections[sectionIndex];
       if (totalDistance >= sec.end) {
         Speech.speak(`${sec.name}입니다. 속도를 조절해주세요.`);
-        setSectionIndex(i =>i+1);
+        setSectionIndex((i) => i + 1);
       }
-    } 
-    else if (mode !== 'track' && totalDistance >= nextAnnounceKm) {
-    // 일반 모드 100m마다
-    const meters = Math.round(nextAnnounceKm * 1000);
-    Speech.speak(`${meters}미터 지점에 도달했습니다.`);
-    setNextAnnounceKm(km => km + 0.1);
-  }
+    } else if (mode !== 'track' && totalDistance >= nextAnnounceKm) {
+      // 일반 모드 100m마다
+      const meters = Math.round(nextAnnounceKm * 1000);
+      Speech.speak(`${meters}미터 지점에 도달했습니다.`);
+      setNextAnnounceKm((km) => km + 0.1);
+    }
   }, [totalDistance, mode, sections, sectionIndex, nextAnnounceKm]);
 
+  // 지도를 중앙에 맞출 때 쓸 region 상태
+  const [mapRegion, setMapRegion] = useState<Region>();
 
+  // “일시정지” 상태 관리
+  const [isPaused, setIsPaused] = useState(false);
 
-    // 지도를 중앙에 맞출 때 쓸 region 상태
-    const [mapRegion, setMapRegion] = useState<Region>();
+  // —–– 마운트 시 위치 권한 요청 & 초기Region 설정
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+      const loc = await Location.getCurrentPositionAsync();
+      setMapRegion({
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      });
+    })();
+  }, []);
 
-    // “일시정지” 상태 관리
-    const [isPaused, setIsPaused] = useState(false);
+  // —–– path가 바뀔 때마다 지도를 최신 좌표로 이동
+  useEffect(() => {
+    if (path.length > 0) {
+      const last = path[path.length - 1];
+      setMapRegion({
+        latitude: last.latitude,
+        longitude: last.longitude,
+        latitudeDelta: 0.005,
+        longitudeDelta: 0.005,
+      });
+    }
+  }, [path]);
 
-    // —–– 마운트 시 위치 권한 요청 & 초기Region 설정
-    useEffect(() => {
-        (async () => {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') return;
-        const loc = await Location.getCurrentPositionAsync();
-        setMapRegion({
-            latitude: loc.coords.latitude,
-            longitude: loc.coords.longitude,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
-        });
-        })();
-    }, []);
-
-    // —–– path가 바뀔 때마다 지도를 최신 좌표로 이동
-    useEffect(() => {
-        if (path.length > 0) {
-            const last = path[path.length - 1];
-            setMapRegion({
-                latitude: last.latitude,
-                longitude: last.longitude,
-                latitudeDelta: 0.005,
-                longitudeDelta: 0.005,
-            });
-        }
-    }, [path]);
-
- /** 메인 버튼(시작/정지/재개) 눌렀을 때 */
+  /** 메인 버튼(시작/정지/재개) 눌렀을 때 */
   const onMainPress = () => {
     if (isActive) {
-        // 달리는 중 → 일시정지
-        stopRunning();
-        setIsPaused(true);
-        Speech.speak('일시 정지 합니다.')
+      // 달리는 중 → 일시정지
+      stopRunning();
+      setIsPaused(true);
+      Speech.speak('일시 정지 합니다.');
     } else if (isPaused) {
       // 일시정지 중 → 재개
-        resumeRunning();
-        setIsPaused(false);
-        Speech.speak('러닝을 재개합니다.')
+      resumeRunning();
+      setIsPaused(false);
+      Speech.speak('러닝을 재개합니다.');
     } else {
-        // 처음 (또는 완전 종료 후) → 새로 시작
-        startRunning();
-        setIsPaused(false);
+      // 처음 (또는 완전 종료 후) → 새로 시작
+      startRunning();
+      setIsPaused(false);
 
-         // 여기에서 트랙 모드용 상태를 초기화!
-        setSectionIndex(0);       
-        setNextAnnounceKm(0.1);   
-        
-        Speech.speak('러닝을 시작합니다.')
-        // 트랙모드라면 첫 구간 안내도 즉시
-        if (mode === 'track' ) {
-          Speech.speak('웜업 구간입니다. 속도를 조절해주세요.');
-        }
+      // 여기에서 트랙 모드용 상태를 초기화!
+      setSectionIndex(0);
+      setNextAnnounceKm(0.1);
+
+      Speech.speak('러닝을 시작합니다.');
+      // 트랙모드라면 첫 구간 안내도 즉시
+      if (mode === 'track') {
+        Speech.speak('웜업 구간입니다. 속도를 조절해주세요.');
+      }
     }
-  }
-
+  };
 
   /** “종료” 클릭 → 요약 화면으로 이동 (path, 거리, 시간 전달) */
-  const handleFinish = useCallback(() => {
-    // 1) 달리기 멈추기
+  const handleFinish = useCallback(async () => {
     stopRunning();
-    Speech.speak('러닝을 종료합니다.')
-    // 2) 전달할 데이터 스냅샷
-    const snapshot = { path, totalDistance, elapsedTime };
-    // 3) 컨텍스트 완전 초기화
-    resetRunning();
-    // 4) replace 네비게이션 (push가 아니라 replace!)
-    router.replace({
-        pathname: '/summary',
-        params: { data: JSON.stringify(snapshot) },
-    });
-  },[stopRunning,resetRunning, router, path, totalDistance, elapsedTime]);
+    Speech.speak('러닝을 종료합니다.');
 
-   useEffect(() => {
+    // 로컬 경로 저장
+    await savePath(path);
+
+    const snapshot = { path: [...path], totalDistance, elapsedTime };
+    setSummaryData(snapshot);
+    setIsSavedModalVisible(true);
+  }, [stopRunning, path, totalDistance, elapsedTime]);
+
+  useEffect(() => {
     if (mode === 'track' && trackKm && totalDistance >= trackKm) {
       handleFinish();
     }
   }, [totalDistance, mode, trackKm, handleFinish]);
 
-
-
-    // 버튼에 들어갈 텍스트 결정
-    const mainLabel = isActive ? '정지': isPaused  ? '재개'  : '시작';
-
-
-
+  // 버튼에 들어갈 텍스트 결정
+  const mainLabel = isActive ? '정지' : isPaused ? '재개' : '시작';
 
   return (
     <View style={styles.container}>
@@ -190,7 +201,7 @@ export default function RunningScreen() {
         style={StyleSheet.absoluteFill}
         initialRegion={{
           latitude: 37.5665,
-          longitude: 126.9780,
+          longitude: 126.978,
           latitudeDelta: 0.0922,
           longitudeDelta: 0.0421,
         }}
@@ -216,12 +227,12 @@ export default function RunningScreen() {
         {/* 버튼 행: 시작↔정지, (일시정지 후) 종료 */}
         <View style={styles.buttonRow}>
           <Pressable
-              onPress={onMainPress}
+            onPress={onMainPress}
             style={[
               styles.controlButton,
               { backgroundColor: isActive ? '#ff4d4d' : '#007aff' },
             ]}
-            >
+          >
             <Text style={styles.controlText}>{mainLabel}</Text>
           </Pressable>
 
@@ -235,6 +246,38 @@ export default function RunningScreen() {
             </Pressable>
           )}
         </View>
+        {/* ✅ 저장 완료 모달 */}
+        <Modal
+          transparent
+          visible={isSavedModalVisible}
+          animationType="fade"
+          onRequestClose={() => setIsSavedModalVisible(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalText}>
+                넌! 런! 오늘도 잘 달렸습니다! 경로가 자동으로 저장됩니다!
+              </Text>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={async () => {
+                  setIsSavedModalVisible(false);
+                  if (summaryData) {
+                    await router.replace({
+                      pathname: '/summary',
+                      params: { data: JSON.stringify(summaryData) },
+                    });
+                    // 네비게이션 완료 후 초기화
+                    resetRunning();
+                    setSummaryData(null);
+                  }
+                }}
+              >
+                <Text style={styles.modalButtonText}>확인</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </View>
     </View>
   );
@@ -244,6 +287,33 @@ export default function RunningScreen() {
 // 스타일
 // ==================================================================
 const styles = StyleSheet.create({
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    padding: 20,
+    marginHorizontal: 30,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  modalText: {
+    fontSize: 18,
+    marginBottom: 20,
+  },
+  modalButton: {
+    backgroundColor: '#007aff',
+    paddingVertical: 10,
+    paddingHorizontal: 30,
+    borderRadius: 8,
+  },
+  modalButtonText: {
+    color: 'white',
+    fontSize: 16,
+  },
   container: {
     flex: 1,
     justifyContent: 'flex-end',

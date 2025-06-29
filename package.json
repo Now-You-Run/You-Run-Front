@@ -48,7 +48,8 @@
     "react-native-web": "~0.20.0",
     "react-native-webview": "13.13.5",
     "read-pkg-up": "^10.1.0",
-    "three": "^0.166.1"
+    "three": "^0.166.1",
+    "@react-native-async-storage/async-storage": "2.1.2"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
