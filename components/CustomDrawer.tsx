@@ -63,21 +63,6 @@ export default function CustomDrawer({ closeMenu }: CustomDrawerProps) {
           onPress={() => navigateTo("/(drawer)/level-calculation")}
         >
           <Text style={styles.menuText}>level-calculation</Text>
-          onPress={() => navigateTo('/(drawer)/explore')}
-        >
-          <Text style={styles.menuText}>Explore</Text>
-        </Pressable>
-        <Pressable
-          style={styles.menuItem}
-          onPress={() => navigateTo('/(drawer)/gps-entire')}
-        >
-          <Text style={styles.menuText}>Gps-Entire</Text>
-        </Pressable>
-        <Pressable
-          style={styles.menuItem}
-          onPress={() => navigateTo('/(drawer)/map-draw-test')}
-        >
-          <Text style={styles.menuText}>map-draw-Test</Text>
         </Pressable>
         <Pressable
           style={styles.menuItem}
