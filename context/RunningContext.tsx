@@ -1,5 +1,4 @@
 // context/RunningContext.tsx
-// addToPath 오류 수정
 
 import * as Location from 'expo-location';
 import React, {
@@ -85,6 +84,9 @@ export const RunningProvider: React.FC<{ children: React.ReactNode }> = ({
   // 칼만 필터 인스턴스
   const speedFilter = useRef(new KalmanFilter1D(0.01, 0.1));
   const distFilter = useRef(new KalmanFilter1D(0.01, 0.1));
+  const latFilter = useRef(new KalmanFilter1D(0.01, 0.1));
+  const lngFilter = useRef(new KalmanFilter1D(0.01, 0.1));
+
 
   // 하버사인 공식으로 두 좌표 간 거리 계산 (km)
   const haversineDistance = (
@@ -131,23 +133,30 @@ export const RunningProvider: React.FC<{ children: React.ReactNode }> = ({
       (location) => {
         const { latitude, longitude, speed } = location.coords;
 
+        // 좌표 필터링 적용
+        const filteredLat = latFilter.current.filter(latitude);
+        const filteredLng = lngFilter.current.filter(longitude);
+
+        const filteredCoord = { latitude: filteredLat, longitude: filteredLng };
+
+
         const prev = lastCoordRef.current;
 
         if (prev) {
           const rawDist = haversineDistance(
             prev.latitude,
             prev.longitude,
-            latitude,
-            longitude
+            filteredLat,
+            filteredLng
           );
           const filtDist = distFilter.current.filter(rawDist);
           setTotalDistance((d) => d + filtDist);
         }
 
-        lastCoordRef.current = { latitude, longitude };
+        lastCoordRef.current = filteredCoord;
 
         // 경로에 좌표 추가
-        addToPath({ latitude, longitude });
+        addToPath(filteredCoord);
 
         // 속도 필터링
         const rawSpeedKmH = speed != null ? speed * 3.6 : 0;
