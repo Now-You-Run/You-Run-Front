@@ -89,6 +89,12 @@ export default function CustomDrawer({ closeMenu }: CustomDrawerProps) {
           <Text style={styles.menuText}>Check My Tracks</Text>
         </Pressable>
         <Pressable
+          style={styles.menuItem}
+          onPress={() => navigateTo('/(drawer)/myPage')}
+        >
+          <Text style={styles.menuText}>마이페이지</Text>
+        </Pressable>
+        <Pressable
           style={[styles.menuItem, styles.closeButton]}
           onPress={closeMenu}
         >
