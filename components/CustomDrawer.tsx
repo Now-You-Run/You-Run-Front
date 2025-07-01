@@ -1,6 +1,6 @@
-import { useRouter } from 'expo-router'; // Href를 import 합니다.
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from "expo-router"; // Href를 import 합니다.
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface CustomDrawerProps {
   closeMenu: () => void;
@@ -34,13 +34,16 @@ export default function CustomDrawer({ closeMenu }: CustomDrawerProps) {
 
         <Pressable
           style={styles.menuItem}
-          onPress={() => navigateTo('/(drawer)/MyRunningPath')}
+          onPress={() => navigateTo("/(drawer)/MyRunningPath")}
         >
           <Text style={styles.menuText}>🗺️ My 맵</Text>
         </Pressable>
 
         <Pressable
           style={styles.menuItem}
+          onPress={() => navigateTo("/(drawer)/rankingScreen")}
+        >
+          <Text style={styles.menuText}>ranking screen</Text>
           onPress={() => navigateTo('/(drawer)/myPage')}
         >
           <Text style={styles.menuText}>마이페이지</Text>
@@ -59,31 +62,31 @@ export default function CustomDrawer({ closeMenu }: CustomDrawerProps) {
 // ... styles는 이전과 동일
 const styles = StyleSheet.create({
   overlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   drawerContainer: {
-    position: 'absolute',
+    position: "absolute",
     left: 0,
     top: 0,
     bottom: 0,
-    width: '75%',
-    backgroundColor: 'white',
+    width: "75%",
+    backgroundColor: "white",
     padding: 20,
   },
   profileSection: {
     marginBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: "#eee",
     paddingBottom: 20,
   },
   profileText: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   menuItem: {
     paddingVertical: 15,
@@ -92,8 +95,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   closeButton: {
-    marginTop: 'auto',
+    marginTop: "auto",
     borderTopWidth: 1,
-    borderTopColor: '#eee',
+    borderTopColor: "#eee",
   },
 });
