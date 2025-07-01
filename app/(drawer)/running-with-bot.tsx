@@ -5,12 +5,14 @@ import { useNavigation } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Image,
   Modal,
   Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  Animated,
 } from 'react-native';
 import MapView, { Marker, Polyline, Region } from 'react-native-maps';
 import Running3DModel from './Running3DModel'; // 3D 모델 컴포넌트 임포트
@@ -80,12 +82,35 @@ export default function RunningScreen() {
     longitude: number;
   } | null>(null);
   const [mapRegion, setMapRegion] = useState<Region | undefined>();
+  
+  // 봇 애니메이션을 위한 상태
+  const bounceAnim = useRef(new Animated.Value(0)).current;
 
   const distance = useMemo(() => calculateTotalDistance(path), [path]);
   const pace = useMemo(
     () => calculatePace(distance, elapsedTime),
     [distance, elapsedTime]
   );
+
+  // 봇 바운스 애니메이션
+  useEffect(() => {
+    const bounceAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(bounceAnim, {
+          toValue: -10,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(bounceAnim, {
+          toValue: 0,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    bounceAnimation.start();
+    return () => bounceAnimation.stop();
+  }, [bounceAnim]);
 
   useEffect(() => {
     (async () => {
@@ -158,6 +183,7 @@ export default function RunningScreen() {
     stopRunning(); // 기존 멈춤 처리
     setIsFinishedModalVisible(true); // ✅ 모달 표시
   };
+
   if (!origin) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -212,6 +238,24 @@ export default function RunningScreen() {
         <Running3DModel path={path} origin={origin} heading={heading} />
       )}
 
+      {/* 봇 캐릭터 추가 */}
+      <View style={styles.botContainer}>
+        <Animated.View
+          style={[
+            styles.botWrapper,
+            {
+              transform: [{ translateY: bounceAnim }],
+            },
+          ]}
+        >
+          <Image
+            source={require('@/assets/images/bot.png')}
+            style={styles.botImage}
+            resizeMode="contain"
+          />
+        </Animated.View>
+      </View>
+
       <View style={styles.overlay}>
         <Text style={styles.distance}>{distance.toFixed(2)} km</Text>
         <View style={styles.statsContainer}>
@@ -231,33 +275,27 @@ export default function RunningScreen() {
           </Text>
         </Pressable>
       </View>
-      {/* ✅ 종료 후 '고생하셨습니다!' 모달 */}
-      <Modal
-        transparent
-        visible={isFinishedModalVisible}
-        animationType="fade"
-        onRequestClose={() => setIsFinishedModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalText}>🏃‍♂️ 넌! 런!</Text>
-            <TouchableOpacity
-              style={styles.modalButton}
-              onPress={() => {
-                setIsFinishedModalVisible(false);
-                navigation.navigate('index'); // 끝나면 홈으로
-              }}
-            >
-              <Text style={styles.modalButtonText}>홈으로</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  // 봇 관련 스타일
+  botContainer: {
+    position: 'absolute',
+    top: 60,
+    right: 20,
+    zIndex: 10,
+  },
+  botWrapper: {
+    alignItems: 'center',
+  },
+  botImage: {
+    width: 60,
+    height: 60,
+    marginBottom: 5,
+  },
+  // 기존 스타일들
   modalContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -273,6 +311,7 @@ const styles = StyleSheet.create({
   },
   modalText: {
     fontSize: 18,
+    fontWeight: 'bold',
     marginBottom: 20,
   },
   modalButton: {
