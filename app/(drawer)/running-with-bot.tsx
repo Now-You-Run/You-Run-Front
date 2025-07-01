@@ -1,21 +1,27 @@
-// 봇과 러닝 기능
-
 import { useRunning } from '@/context/RunningContext';
+import { loadPaths } from '@/storage/RunningStorage';
 import { useNavigation } from '@react-navigation/native';
 import * as Location from 'expo-location';
+import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Image,
   Modal,
   Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  Animated,
 } from 'react-native';
 import MapView, { Marker, Polyline, Region } from 'react-native-maps';
 import Running3DModel from './Running3DModel'; // 3D 모델 컴포넌트 임포트
+
+import { Alert } from 'react-native';
+
+// km/h = 60 / (pace_minutes + pace_seconds / 60)
+function paceToKmh(minutes: number, seconds: number): number {
+  const totalMinutes = minutes + seconds / 60;
+  return totalMinutes === 0 ? 0 : 60 / totalMinutes;
+}
 
 // 두 GPS 좌표 간 거리 (km) 계산
 const haversineDistance = (
@@ -68,7 +74,58 @@ const formatTime = (sec: number) => {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 };
 
+// 경로 부드럽게 smoothing (옵션)
+function smoothPath(
+  path: { latitude: number; longitude: number }[],
+  windowSize: number = 5
+) {
+  if (path.length < windowSize) return path;
+
+  const smoothed: { latitude: number; longitude: number }[] = [];
+
+  for (let i = 0; i < path.length; i++) {
+    let latSum = 0;
+    let lonSum = 0;
+    let count = 0;
+    for (
+      let j = Math.max(0, i - Math.floor(windowSize / 2));
+      j <= Math.min(path.length - 1, i + Math.floor(windowSize / 2));
+      j++
+    ) {
+      latSum += path[j].latitude;
+      lonSum += path[j].longitude;
+      count++;
+    }
+    smoothed.push({
+      latitude: latSum / count,
+      longitude: lonSum / count,
+    });
+  }
+
+  return smoothed;
+}
+
 export default function RunningScreen() {
+  const { trackId, avgPaceMinutes, avgPaceSeconds } = useLocalSearchParams<{
+    trackId?: string;
+    avgPaceMinutes?: string;
+    avgPaceSeconds?: string;
+  }>();
+
+  const botPace = useMemo(() => {
+    if (avgPaceMinutes && avgPaceSeconds) {
+      return {
+        minutes: parseInt(avgPaceMinutes, 10),
+        seconds: parseInt(avgPaceSeconds, 10),
+      };
+    }
+    return { minutes: 0, seconds: 0 };
+  }, [avgPaceMinutes, avgPaceSeconds]);
+
+  const [externalPath, setExternalPath] = useState<
+    { latitude: number; longitude: number }[] | null
+  >(null);
+
   const navigation = useNavigation();
   const [isFinishedModalVisible, setIsFinishedModalVisible] = useState(false);
   const [heading, setHeading] = useState(0);
@@ -82,9 +139,6 @@ export default function RunningScreen() {
     longitude: number;
   } | null>(null);
   const [mapRegion, setMapRegion] = useState<Region | undefined>();
-  
-  // 봇 애니메이션을 위한 상태
-  const bounceAnim = useRef(new Animated.Value(0)).current;
 
   const distance = useMemo(() => calculateTotalDistance(path), [path]);
   const pace = useMemo(
@@ -92,25 +146,115 @@ export default function RunningScreen() {
     [distance, elapsedTime]
   );
 
-  // 봇 바운스 애니메이션
+  // Bot 러닝 위치 상태
+  const [botPosition, setBotPosition] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+
+  // 속도 계산 (m/s)
+  const speedKmh = paceToKmh(botPace.minutes, botPace.seconds);
+  const speedMps = speedKmh / 3.6;
+
+  // 애니메이션 상태 refs
+  const animationRef = useRef<number | null>(null);
+  const indexRef = useRef(0);
+  const lastTimeRef = useRef<number | null>(null);
+
+  // 자동 경로 이동 함수
+  const startBotRunning = () => {
+    if (!externalPath || externalPath.length < 2) {
+      Alert.alert('경로가 충분하지 않습니다.');
+      return;
+    }
+
+    indexRef.current = 0;
+    lastTimeRef.current = null;
+
+    const step = (timestamp: number) => {
+      if (lastTimeRef.current === null) {
+        lastTimeRef.current = timestamp;
+      }
+      const elapsed = (timestamp - lastTimeRef.current) / 1000; // 초
+      lastTimeRef.current = timestamp;
+
+      const nextIndex = indexRef.current + 1;
+      if (nextIndex >= externalPath.length) {
+        cancelAnimationFrame(animationRef.current!);
+        animationRef.current = null;
+        return;
+      }
+
+      const current = externalPath[indexRef.current];
+      const next = externalPath[nextIndex];
+
+      const distance =
+        haversineDistance(
+          current.latitude,
+          current.longitude,
+          next.latitude,
+          next.longitude
+        ) * 1000; // m
+
+      const travel = speedMps * elapsed;
+
+      if (travel >= distance) {
+        indexRef.current = nextIndex;
+        setBotPosition(next);
+      } else {
+        const ratio = travel / distance;
+        setBotPosition({
+          latitude:
+            current.latitude + (next.latitude - current.latitude) * ratio,
+          longitude:
+            current.longitude + (next.longitude - current.longitude) * ratio,
+        });
+      }
+
+      animationRef.current = requestAnimationFrame(step);
+    };
+
+    animationRef.current = requestAnimationFrame(step);
+  };
+
+  // 시작 버튼 누르면 botRunning 시작 (기존 startRunning 대체)
+  const handleStart = () => {
+    startBotRunning();
+  };
+
+  // 러닝 종료 처리
+  const handleStopRunning = async () => {
+    stopRunning();
+    setIsFinishedModalVisible(true);
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
+  };
+
+  // 트랙 아이디에 따라 경로 불러오기
   useEffect(() => {
-    const bounceAnimation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(bounceAnim, {
-          toValue: -10,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(bounceAnim, {
-          toValue: 0,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    bounceAnimation.start();
-    return () => bounceAnimation.stop();
-  }, [bounceAnim]);
+    if (!trackId) return;
+
+    (async () => {
+      try {
+        const savedTracks = await loadPaths();
+        const track = savedTracks.find((t) => t.id === trackId);
+        if (track) {
+          setExternalPath(track.path);
+          setOrigin(track.path[0]);
+          setMapRegion({
+            latitude: track.path[0].latitude,
+            longitude: track.path[0].longitude,
+            latitudeDelta: 0.005,
+            longitudeDelta: 0.005,
+          });
+        }
+      } catch (e) {
+        console.warn('트랙 로드 실패:', e);
+      }
+    })();
+  }, [trackId]);
 
   useEffect(() => {
     (async () => {
@@ -144,45 +288,7 @@ export default function RunningScreen() {
     }
   }, [path]);
 
-  useEffect(() => {
-    if (isActive) {
-      (async () => {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          console.warn('위치 권한이 거부되었습니다.');
-          return;
-        }
-
-        locationSubscription.current = await Location.watchPositionAsync(
-          {
-            accuracy: Location.Accuracy.BestForNavigation,
-            timeInterval: 1000,
-            distanceInterval: 10,
-          },
-          (location) => {
-            addToPath(location.coords);
-            if (location.coords.heading != null) {
-              setHeading(location.coords.heading);
-            }
-          }
-        );
-      })();
-    } else {
-      locationSubscription.current?.remove();
-      locationSubscription.current = null;
-    }
-
-    return () => {
-      locationSubscription.current?.remove();
-      locationSubscription.current = null;
-    };
-  }, [isActive]);
-
-  // ✅ 러닝 종료 시 경로 저장 처리
-  const handleStopRunning = async () => {
-    stopRunning(); // 기존 멈춤 처리
-    setIsFinishedModalVisible(true); // ✅ 모달 표시
-  };
+  // 위치 구독 중지는 없앰 (실제 GPS 데이터 아님)
 
   if (!origin) {
     return (
@@ -209,13 +315,22 @@ export default function RunningScreen() {
         pitchEnabled
         showsUserLocation
       >
-        <Polyline coordinates={path} strokeColor="#007aff" strokeWidth={5} />
-        {path.length > 0 && (
-          <Marker
-            coordinate={path[path.length - 1]}
-            anchor={{ x: 0.5, y: 0.5 }}
-            flat
-          >
+        {externalPath && (
+          <Polyline
+            coordinates={externalPath}
+            strokeColor="rgba(255, 0, 0, 0.5)"
+            strokeWidth={4}
+            lineDashPattern={[5, 5]}
+          />
+        )}
+
+        <Polyline
+          coordinates={smoothPath(path, 5)}
+          strokeColor="#007aff"
+          strokeWidth={5}
+        />
+        {botPosition && (
+          <Marker coordinate={botPosition} anchor={{ x: 0.5, y: 0.5 }} flat>
             <View
               style={{
                 width: 0,
@@ -227,7 +342,7 @@ export default function RunningScreen() {
                 borderLeftColor: 'transparent',
                 borderRightColor: 'transparent',
                 borderBottomColor: 'rgba(0, 122, 255, 0.6)',
-                transform: [{ rotate: `${heading * (Math.PI / 180)}rad` }],
+                transform: [{ rotate: `0rad` }],
               }}
             />
           </Marker>
@@ -235,26 +350,13 @@ export default function RunningScreen() {
       </MapView>
 
       {origin && (
-        <Running3DModel path={path} origin={origin} heading={heading} />
+        <Running3DModel
+          path={externalPath ?? path}
+          origin={origin}
+          heading={heading}
+          botPosition={botPosition}
+        />
       )}
-
-      {/* 봇 캐릭터 추가 */}
-      <View style={styles.botContainer}>
-        <Animated.View
-          style={[
-            styles.botWrapper,
-            {
-              transform: [{ translateY: bounceAnim }],
-            },
-          ]}
-        >
-          <Image
-            source={require('@/assets/images/bot.png')}
-            style={styles.botImage}
-            resizeMode="contain"
-          />
-        </Animated.View>
-      </View>
 
       <View style={styles.overlay}>
         <Text style={styles.distance}>{distance.toFixed(2)} km</Text>
@@ -263,39 +365,46 @@ export default function RunningScreen() {
           <Text style={styles.stat}>{pace} 페이스</Text>
         </View>
         <Pressable
-          onPress={!isActive ? startRunning : handleStopRunning} // ✅ 수정
+          onPress={!botPosition ? handleStart : handleStopRunning} // 시작/종료 토글
           style={({ pressed }) => [
             styles.runButton,
-            { backgroundColor: isActive ? '#ff4d4d' : '#007aff' },
+            { backgroundColor: !botPosition ? '#007aff' : '#ff4d4d' },
             pressed && { opacity: 0.8 },
           ]}
         >
           <Text style={styles.runButtonText}>
-            {!isActive ? '시작' : '정지'}
+            {!botPosition ? '시작' : '정지'}
           </Text>
         </Pressable>
       </View>
+
+      {/* 종료 모달 */}
+      <Modal
+        transparent
+        visible={isFinishedModalVisible}
+        animationType="fade"
+        onRequestClose={() => setIsFinishedModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalText}>🏃‍♂️ 넌! 런!</Text>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => {
+                setIsFinishedModalVisible(false);
+                navigation.navigate('index');
+              }}
+            >
+              <Text style={styles.modalButtonText}>홈으로</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // 봇 관련 스타일
-  botContainer: {
-    position: 'absolute',
-    top: 60,
-    right: 20,
-    zIndex: 10,
-  },
-  botWrapper: {
-    alignItems: 'center',
-  },
-  botImage: {
-    width: 60,
-    height: 60,
-    marginBottom: 5,
-  },
-  // 기존 스타일들
   modalContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -311,7 +420,6 @@ const styles = StyleSheet.create({
   },
   modalText: {
     fontSize: 18,
-    fontWeight: 'bold',
     marginBottom: 20,
   },
   modalButton: {

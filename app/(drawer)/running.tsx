@@ -180,7 +180,27 @@ export default function RunningScreen() {
     // 로컬 경로 저장
     await savePath(path);
 
-    const snapshot = { path: [...path], totalDistance, elapsedTime };
+    // 평균 페이스 SelectTrack.tsx로 전달
+    const avgPaceSecondsPerKm = elapsedTime / totalDistance; // 초/km
+    const paceMin = Math.floor(avgPaceSecondsPerKm / 60);
+    const paceSec = Math.round(avgPaceSecondsPerKm % 60);
+
+    const snapshot = {
+      path: [...path],
+      totalDistance,
+      elapsedTime,
+      avgPace: { minutes: paceMin, seconds: paceSec },
+    };
+
+    // 속도 데이터 SelectTrack.tsx로 보내기
+    router.push({
+      pathname: '/selectTrack',
+      params: {
+        avgPaceMinutes: paceMin.toString(),
+        avgPaceSeconds: paceSec.toString(),
+      },
+    });
+
     setSummaryData(snapshot);
     setIsSavedModalVisible(true);
   }, [stopRunning, path, totalDistance, elapsedTime]);
