@@ -93,6 +93,9 @@ export default function CustomDrawer({ closeMenu }: CustomDrawerProps) {
           onPress={() => navigateTo("/(drawer)/rankingScreen")}
         >
           <Text style={styles.menuText}>ranking screen</Text>
+          onPress={() => navigateTo('/(drawer)/myPage')}
+        >
+          <Text style={styles.menuText}>마이페이지</Text>
         </Pressable>
         <Pressable
           style={[styles.menuItem, styles.closeButton]}
