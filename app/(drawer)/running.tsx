@@ -177,8 +177,8 @@ export default function RunningScreen() {
     stopRunning();
     Speech.speak('러닝을 종료합니다.');
 
-    // 로컬 경로 저장
-    await savePath(path);
+    // 로컬 경로 저장(distance : m 단위, duration : 초 단위)
+    await savePath(path, totalDistance *1000, elapsedTime);
 
     const snapshot = { path: [...path], totalDistance, elapsedTime };
     setSummaryData(snapshot);
