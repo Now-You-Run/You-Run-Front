@@ -1,19 +1,38 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  StatusBar,
-  SafeAreaView,
-} from 'react-native';
-import { Picker } from '@react-native-picker/picker';
-import { router } from 'expo-router'; // 🔥 추가
 import { usePace } from '@/context/PaceContext'; // 🔥 추가
+import { Picker } from '@react-native-picker/picker';
+import { router, useLocalSearchParams } from 'expo-router'; // 🔥 추가
+import React, { useEffect, useState } from 'react';
+import {
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+
+// 트랙 아이디 넘어오는지 확인
+import { RouteProp, useRoute } from '@react-navigation/native';
+type BotPaceRouteProp = RouteProp<RootStackParamList, 'BotPace'>;
+
+export type RootStackParamList = {
+  SelectTrack: undefined;
+  BotPace: { trackId: string };
+  RunningWithBot: { trackId: string };
+};
+
+// RankingPage.tsx에서 속도 데이터 받기
+const { trackId, avgPaceMinutes, avgPaceSeconds } = useLocalSearchParams<{
+  trackId?: string;
+  avgPaceMinutes?: string;
+  avgPaceSeconds?: string;
+}>();
 
 interface FacePaceScreenProps {}
 
 const FacePaceScreen: React.FC<FacePaceScreenProps> = () => {
+  const route = useRoute<BotPaceRouteProp>();
+  const { trackId } = route.params;
   const [minutes, setMinutes] = useState<number>(0);
   const [seconds, setSeconds] = useState<number>(0);
   const [showMessage, setShowMessage] = useState<boolean>(true);
@@ -49,13 +68,26 @@ const FacePaceScreen: React.FC<FacePaceScreenProps> = () => {
 
   // 🔥 handleComplete 함수 수정
   const handleComplete = () => {
+    if (!trackId) {
+      console.warn('trackId가 없습니다. 이전 페이지 로직을 확인하세요.__');
+      return;
+    }
+
     // Context에 페이스 설정 저장
     setBotPace({ minutes, seconds });
-    
+
     console.log(`페이스 설정: ${minutes}분 ${seconds}초`);
-    
+
     // running-with-bot.tsx로 이동
-    router.push('/running-with-bot');
+    // 트랙 아이디 넘겨주기 + 속도 데이터 -> running-with-bot.tsx
+    router.push({
+      pathname: '/running-with-bot',
+      params: {
+        trackId,
+        avgPaceMinutes,
+        avgPaceSeconds,
+      },
+    });
   };
 
   // 🔥 뒤로가기 버튼 기능 추가
@@ -77,17 +109,14 @@ const FacePaceScreen: React.FC<FacePaceScreenProps> = () => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      
+
       {/* Header */}
       <View style={styles.header}>
         {/* 🔥 뒤로가기 버튼에 onPress 추가 */}
         <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.helpButton} 
-          onPress={handleHelpPress}
-        >
+        <TouchableOpacity style={styles.helpButton} onPress={handleHelpPress}>
           <Text style={styles.helpButtonText}>?</Text>
         </TouchableOpacity>
       </View>

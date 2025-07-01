@@ -1,22 +1,35 @@
-import React, { useEffect, useState } from 'react';
-import { SafeAreaView, StyleSheet, Text, View, TouchableOpacity, Image, Modal } from 'react-native';
-import { useFonts } from 'expo-font';
-import * as SplashScreen from 'expo-splash-screen';
-import * as Location from 'expo-location';
-import { LinearGradient } from 'expo-linear-gradient';
-import LottieView from 'lottie-react-native';
 import FloatingActionButton from '@/components/FloatingActionButton';
+import { useFonts } from 'expo-font';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
+import LottieView from 'lottie-react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  Image,
+  Modal,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 // 스플래시 화면 유지(폰트깨짐 방지)
 SplashScreen.preventAutoHideAsync();
 
 export default function HomeScreen() {
-  const [backgroundColors, setBackgroundColors] = useState(['#E8E4F3', '#FFFFFF']);
+  const [backgroundColors, setBackgroundColors] = useState([
+    '#E8E4F3',
+    '#FFFFFF',
+  ]);
   const [isRaining, setIsRaining] = useState(false); // 비 애니메이션 제어
   const [currentWeather, setCurrentWeather] = useState('Clear'); // 현재 날씨 상태
   const [weatherAnimation, setWeatherAnimation] = useState(null); // 날씨 애니메이션
-  const [animationStyle, setAnimationStyle] = useState('weatherAnimationOverlay'); // 애니메이션 스타일
+  const [animationStyle, setAnimationStyle] = useState(
+    'weatherAnimationOverlay'
+  ); // 애니메이션 스타일
   const [isModalVisible, setIsModalVisible] = useState(false); // 모달 상태
   const [userName] = useState('나롱이'); // 사용자 이름 (나중에 DB에서 가져올 예정)
 
@@ -32,7 +45,7 @@ export default function HomeScreen() {
   // 시간대별 배경색 결정 (색깔과 흰색을 더 뚜렷하게 구분)
   const getTimeBasedColors = (hour, weather) => {
     let topColor = '#E6F3FF'; // 기본값: 연한 하늘색
-    
+
     // 날씨별 조정
     if (weather === 'Rain' || weather === 'Drizzle') {
       topColor = '#B0B8C4'; // 비 - 연한 회색
@@ -56,7 +69,7 @@ export default function HomeScreen() {
         topColor = '#E8E4F3'; // 연한 보라빛 파랑
       }
     }
-    
+
     // 3색 그라디언트로 더 뚜렷한 구분
     return [topColor, '#F8F9FA', '#FFFFFF']; // 위쪽 색상 → 중간 색상 → 흰색
   };
@@ -64,23 +77,27 @@ export default function HomeScreen() {
   // 날씨와 시간에 따른 애니메이션 결정
   const getWeatherAnimation = (weather, hour) => {
     // 비/소나기/천둥번개는 항상 비 애니메이션 (전체 화면)
-    if (weather === 'Rain' || weather === 'Drizzle' || weather === 'Thunderstorm') {
+    if (
+      weather === 'Rain' ||
+      weather === 'Drizzle' ||
+      weather === 'Thunderstorm'
+    ) {
       setAnimationStyle('weatherAnimationOverlay');
       return require('@/assets/animations/rain.json');
     }
-    
+
     // 눈은 항상 눈 애니메이션 (전체 화면)
     if (weather === 'Snow') {
       setAnimationStyle('weatherAnimationOverlay');
       return require('@/assets/animations/snow.json');
     }
-    
+
     // 흐림/안개는 항상 구름 애니메이션 (상단에만)
     if (weather === 'Clouds' || weather === 'Fog') {
       setAnimationStyle('cloudAnimationTop');
       return require('@/assets/animations/cloud.json');
     }
-    
+
     // 맑음일 때 시간에 따라 (전체 화면)
     if (weather === 'Clear') {
       setAnimationStyle('weatherAnimationOverlay');
@@ -92,7 +109,7 @@ export default function HomeScreen() {
         return require('@/assets/animations/moon.json');
       }
     }
-    
+
     // 기본값: 태양
     setAnimationStyle('weatherAnimationOverlay');
     return require('@/assets/animations/sunny.json');
@@ -133,31 +150,34 @@ export default function HomeScreen() {
 
       // OpenMeteo API 호출 (무료, API 키 불필요)
       const weather_url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`;
-      
+
       const response = await fetch(weather_url);
       const data = await response.json();
-      
+
       // 현재 시간
       const currentHour = new Date().getHours();
-      
+
       // OpenMeteo 날씨 코드를 일반적인 형태로 변환
       const weatherCode = data.current_weather.weathercode;
       const weatherMain = getWeatherFromCode(weatherCode);
-      
+
       // 배경색 설정
       setBackgroundColors(getTimeBasedColors(currentHour, weatherMain));
       setCurrentWeather(weatherMain);
-      
+
       // 날씨 애니메이션 설정
       setWeatherAnimation(getWeatherAnimation(weatherMain, currentHour));
-      
+
       // 비가 오는지 확인하여 비 애니메이션 제어
-      if (weatherMain === 'Rain' || weatherMain === 'Drizzle' || weatherMain === 'Thunderstorm') {
+      if (
+        weatherMain === 'Rain' ||
+        weatherMain === 'Drizzle' ||
+        weatherMain === 'Thunderstorm'
+      ) {
         setIsRaining(true);
       } else {
         setIsRaining(false);
       }
-      
     } catch (error) {
       console.log('날씨 정보를 가져올 수 없습니다:', error);
       // 맑음과 동일하게 처리 (시간대별 배경 + 애니메이션)
@@ -217,14 +237,14 @@ export default function HomeScreen() {
           <View style={styles.topSection}>
             <View style={styles.profileIcons}>
               <TouchableOpacity style={styles.iconButton}>
-                <Image 
-                  source={require('@/assets/images/profile-icon.png')} 
+                <Image
+                  source={require('@/assets/images/profile-icon.png')}
                   style={styles.iconImage}
                 />
               </TouchableOpacity>
               <TouchableOpacity style={styles.iconButton}>
-                <Image 
-                  source={require('@/assets/images/settings-icon.png')} 
+                <Image
+                  source={require('@/assets/images/settings-icon.png')}
                   style={styles.iconImage}
                 />
               </TouchableOpacity>
@@ -234,8 +254,8 @@ export default function HomeScreen() {
           {/* 중앙 캐릭터 영역 */}
           <View style={styles.characterSection}>
             <View style={styles.nameContainer}>
-              <Image 
-                source={require('@/assets/images/diamond.png')} 
+              <Image
+                source={require('@/assets/images/diamond.png')}
                 style={styles.diamondIcon}
               />
               <Text style={styles.characterName}> {userName} </Text>
@@ -245,8 +265,8 @@ export default function HomeScreen() {
               <View style={styles.paceContainer}>
                 <Text style={styles.paceText}>6'00"</Text>
               </View>
-              <Image 
-                source={require('@/assets/images/character.png')} 
+              <Image
+                source={require('@/assets/images/character.png')}
                 style={styles.characterImage}
               />
             </View>
@@ -256,7 +276,7 @@ export default function HomeScreen() {
         {/* 하단 달리기 버튼 - 항상 고정 위치 */}
         {!isModalVisible && (
           <View style={styles.bottomSection}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.runButton}
               onPress={() => setIsModalVisible(true)}
             >
@@ -272,20 +292,20 @@ export default function HomeScreen() {
           visible={isModalVisible}
           onRequestClose={() => setIsModalVisible(false)}
         >
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.modalOverlay}
             activeOpacity={1}
             onPress={() => setIsModalVisible(false)}
           >
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.modalContent}
               activeOpacity={1}
               onPress={() => {}}
             >
               <Text style={styles.modalText}>{userName}님, 달려볼까요?</Text>
-              
+
               <View style={styles.modalButtons}>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[styles.modeButton, styles.freeButton]}
                   onPress={() => {
                     setIsModalVisible(false);
@@ -294,12 +314,13 @@ export default function HomeScreen() {
                 >
                   <Text style={styles.modeButtonText}>자유</Text>
                 </TouchableOpacity>
-                
-                <TouchableOpacity 
+
+                <TouchableOpacity
                   style={[styles.modeButton, styles.trackButton]}
                   onPress={() => {
                     setIsModalVisible(false);
                     console.log('트랙 모드 선택');
+                    router.push('/(drawer)/selectTrack');
                   }}
                 >
                   <Text style={styles.modeButtonText}>트랙</Text>
@@ -420,9 +441,9 @@ const styles = StyleSheet.create({
     fontFamily: 'Karantina-Regular',
     color: 'rgba(22, 22, 22, 0.7)',
     textShadowColor: 'rgba(0, 0, 0, 0.4)',
-    textShadowOffset: {width: 2, height: 9 },
+    textShadowOffset: { width: 2, height: 9 },
     textShadowRadius: 5,
-    transform: [{ scaleY: 1.3}],
+    transform: [{ scaleY: 1.3 }],
   },
   characterImage: {
     width: 350,
@@ -442,8 +463,8 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    justifyContent:'center',
-    alignItems:'center',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   runButtonText: {
     color: 'black',
@@ -498,7 +519,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 5,
-    
   },
   freeButton: {
     backgroundColor: '#FFF79A',

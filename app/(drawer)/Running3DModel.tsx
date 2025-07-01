@@ -5,60 +5,55 @@ import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
-// GPS 좌표 → Three.js 로컬 좌표 변환 (RunningScreen과 동일)
-const haversineDistance = (
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number => {
-  const R = 6371;
-  const dLat = (lat2 - lat1) * (Math.PI / 180);
-  const dLon = (lon2 - lon1) * (Math.PI / 180);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-};
+export interface Running3DModelProps {
+  heading: number;
+  botPosition: { latitude: number; longitude: number } | null;
+  origin: { latitude: number; longitude: number };
+  path: { latitude: number; longitude: number }[]; // ✅ 추가
+}
 
-const convertLatLngToLocal = (
+// GPS -> Three.js 로컬 좌표 변환 함수 예시
+function convertLatLngToLocal(
   lat: number,
   lng: number,
   originLat: number,
   originLng: number
-): { x: number; z: number } => {
-  const dx = haversineDistance(originLat, originLng, originLat, lng);
-  const dz = haversineDistance(originLat, originLng, lat, originLng);
-  return {
-    x: (lng < originLng ? -dx : dx) * 1000,
-    z: (lat < originLat ? -dz : dz) * 1000,
-  };
-};
-
-const calculateRotationAngle = (
-  prev: { x: number; z: number },
-  curr: { x: number; z: number }
-) => {
-  return Math.atan2(curr.x - prev.x, curr.z - prev.z);
-};
-
-interface Running3DModelProps {
-  path: { latitude: number; longitude: number }[];
-  origin: { latitude: number; longitude: number };
-  heading: number;
+) {
+  const R = 6371000; // radius of Earth in meters
+  const dLat = ((lat - originLat) * Math.PI) / 180;
+  const dLng = ((lng - originLng) * Math.PI) / 180;
+  const x = dLng * R * Math.cos((originLat * Math.PI) / 180);
+  const z = dLat * R;
+  return { x, z };
 }
 
 export default function Running3DModel({
-  path,
-  origin,
   heading,
+  botPosition,
+  origin,
 }: Running3DModelProps) {
   const modelRef = useRef<THREE.Object3D | null>(null);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
   const requestRef = useRef<number | null>(null);
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+
+  useEffect(() => {
+    if (!modelRef.current || !cameraRef.current || !origin || !botPosition)
+      return;
+
+    const pos = convertLatLngToLocal(
+      botPosition.latitude,
+      botPosition.longitude,
+      origin.latitude,
+      origin.longitude
+    );
+
+    modelRef.current.position.set(pos.x, 0, pos.z);
+    modelRef.current.rotation.y = (-heading * Math.PI) / 180;
+
+    cameraRef.current.position.set(pos.x, 5, pos.z + 10);
+    cameraRef.current.lookAt(pos.x, 0, pos.z);
+  }, [botPosition, heading, origin]);
 
   const onContextCreate = async (gl: any) => {
     const scene = new THREE.Scene();
@@ -68,7 +63,8 @@ export default function Running3DModel({
       0.1,
       1000
     );
-    camera.position.set(0, 1, 3);
+    camera.position.set(0, 1.5, 3);
+    cameraRef.current = camera;
 
     const renderer = new Renderer({ gl });
     renderer.setSize(gl.drawingBufferWidth, gl.drawingBufferHeight);
@@ -87,7 +83,7 @@ export default function Running3DModel({
 
     const gltf = await loader.loadAsync(modelAsset.localUri || modelAsset.uri);
     const model = gltf.scene;
-    model.scale.set(1, 1, 1);
+    model.scale.set(2, 2, 2);
     scene.add(model);
     modelRef.current = model;
 
@@ -102,43 +98,6 @@ export default function Running3DModel({
     const animate = () => {
       requestRef.current = requestAnimationFrame(animate);
       mixerRef.current?.update(clock.getDelta());
-
-      if (modelRef.current && origin) {
-        let curr = { x: 0, z: 0 };
-
-        if (path.length >= 1) {
-          const prev = convertLatLngToLocal(
-            path[path.length - 1].latitude,
-            path[path.length - 1].longitude,
-            origin.latitude,
-            origin.longitude
-          );
-          curr = convertLatLngToLocal(
-            path[path.length - 1].latitude,
-            path[path.length - 1].longitude,
-            origin.latitude,
-            origin.longitude
-          );
-          modelRef.current.rotation.y = calculateRotationAngle(prev, curr);
-        } else if (path.length === 1) {
-          curr = convertLatLngToLocal(
-            path[0].latitude,
-            path[0].longitude,
-            origin.latitude,
-            origin.longitude
-          );
-        }
-
-        modelRef.current.position.set(curr.x, 0, curr.z);
-
-        // heading 기반 회전
-        modelRef.current.rotation.y = (-heading * Math.PI) / 180;
-
-        // 카메라 따라가기
-        camera.position.set(curr.x, 5, curr.z + 10);
-        camera.lookAt(curr.x, 0, curr.z);
-      }
-
       renderer.render(scene, camera);
       gl.endFrameEXP();
     };
