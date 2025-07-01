@@ -1,6 +1,6 @@
-import { usePace } from '@/context/PaceContext'; // 🔥 추가
+import { usePace } from '@/context/PaceContext';
 import { Picker } from '@react-native-picker/picker';
-import { router, useLocalSearchParams } from 'expo-router'; // 🔥 추가
+import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   SafeAreaView,
@@ -9,11 +9,8 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Image,
 } from 'react-native';
-
-// 트랙 아이디 넘어오는지 확인
-import { RouteProp, useRoute } from '@react-navigation/native';
-type BotPaceRouteProp = RouteProp<RootStackParamList, 'BotPace'>;
 
 export type RootStackParamList = {
   SelectTrack: undefined;
@@ -21,24 +18,22 @@ export type RootStackParamList = {
   RunningWithBot: { trackId: string };
 };
 
-// RankingPage.tsx에서 속도 데이터 받기
-const { trackId, avgPaceMinutes, avgPaceSeconds } = useLocalSearchParams<{
-  trackId?: string;
-  avgPaceMinutes?: string;
-  avgPaceSeconds?: string;
-}>();
-
 interface FacePaceScreenProps {}
 
 const FacePaceScreen: React.FC<FacePaceScreenProps> = () => {
-  const route = useRoute<BotPaceRouteProp>();
-  const { trackId } = route.params;
+  // RankingPage.tsx에서 속도 데이터 받기
+  const { trackId, avgPaceMinutes, avgPaceSeconds } = useLocalSearchParams<{
+    trackId?: string;
+    avgPaceMinutes?: string;
+    avgPaceSeconds?: string;
+  }>();
+    
   const [minutes, setMinutes] = useState<number>(0);
   const [seconds, setSeconds] = useState<number>(0);
   const [showMessage, setShowMessage] = useState<boolean>(true);
   const [isHelpMode, setIsHelpMode] = useState<boolean>(false);
 
-  // 🔥 Context 사용
+  // Context 사용
   const { setBotPace } = usePace();
 
   // 컴포넌트 마운트 시 3초 후 메시지 자동 사라지기
@@ -55,21 +50,18 @@ const FacePaceScreen: React.FC<FacePaceScreenProps> = () => {
   };
 
   const handleHelpPress = () => {
-    if (isHelpMode && showMessage) {
-      // 도움말 모드이면서 메시지가 보이는 상태라면 메시지를 숨김
-      setShowMessage(false);
+    if (isHelpMode) {
+      // 도움말 모드 끄기
       setIsHelpMode(false);
     } else {
-      // 그렇지 않다면 도움말을 보여줌
+      // 도움말 모드 켜기
       setIsHelpMode(true);
-      setShowMessage(true);
     }
   };
 
-  // 🔥 handleComplete 함수 수정
   const handleComplete = () => {
     if (!trackId) {
-      console.warn('trackId가 없습니다. 이전 페이지 로직을 확인하세요.__');
+      console.warn('trackId가 없습니다. 이전 페이지 로직을 확인하세요.');
       return;
     }
 
@@ -90,16 +82,16 @@ const FacePaceScreen: React.FC<FacePaceScreenProps> = () => {
     });
   };
 
-  // 🔥 뒤로가기 버튼 기능 추가
   const handleBackPress = () => {
     router.back();
   };
+ 
+  const getInitialMessage = (): string => {
+    return '봇의 페이스를\n 설정해주세요.';
+  };
 
-  const getMessageText = (): string => {
-    if (isHelpMode) {
-      return '이곳은 봇의 대화를 출력하는 곳입니다.\n여러분은 설정하신 시간의 빈도 시간\n동안 봇이 묻고 답하며\n봇의 화면에 설정해 주어\n봇의 페이스를 설정해주세요';
-    }
-    return '봇의 페이스를 설정\n해주세요.';
+  const getHelpMessage = (): string => {
+    return '설정하신 페이스대로\n 봇이 움직일 예정입니다. \n실력에 맞게 봇의 페이스를 설정하고, 따라가세요! ';
   };
 
   // 분과 초를 위한 배열 생성
@@ -112,38 +104,40 @@ const FacePaceScreen: React.FC<FacePaceScreenProps> = () => {
 
       {/* Header */}
       <View style={styles.header}>
-        {/* 🔥 뒤로가기 버튼에 onPress 추가 */}
         <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
-          <Text style={styles.backButtonText}>←</Text>
+          <Image
+            source={require('@/assets/images/backButton.png')}
+            style={styles.backButtonIcon}
+            resizeMode="contain"
+          />
         </TouchableOpacity>
         <TouchableOpacity style={styles.helpButton} onPress={handleHelpPress}>
           <Text style={styles.helpButtonText}>?</Text>
         </TouchableOpacity>
       </View>
-
+    
+      <Image
+        source={require('@/assets/images/bot.png')}
+        style={styles.botImage}
+        resizeMode="contain"
+      />
+      
       {/* Character and Message */}
       <View style={styles.messageContainer}>
-        {showMessage && (
-          <View style={styles.speechBubble}>
-            <Text style={styles.messageText}>{getMessageText()}</Text>
+        {/* 3초 후 사라지는 초기 메시지 */}
+        {showMessage && !isHelpMode && (
+          <View style={styles.initialMessageOverlay}>
+            <Text style={styles.initialMessageText}>{getInitialMessage()}</Text>
           </View>
         )}
-        <View style={styles.characterContainer}>
-          <View style={styles.character}>
-            <View style={styles.hat} />
-            <View style={styles.face}>
-              <View style={styles.eye} />
-              <View style={styles.eye} />
-            </View>
-            <View style={styles.wing} />
+        
+        {/* 도움말 메시지 */}
+        {isHelpMode && (
+          <View style={styles.helpMessageOverlay}>
+            <Text style={styles.helpMessageText}>{getHelpMessage()}</Text>
           </View>
-        </View>
+        )}
       </View>
-
-      {/* Pace Setting Button */}
-      <TouchableOpacity style={styles.paceButton}>
-        <Text style={styles.paceButtonText}>페이스 설정</Text>
-      </TouchableOpacity>
 
       {/* Time Selector with Wheel Picker */}
       <View style={styles.timeContainer}>
@@ -191,18 +185,16 @@ const FacePaceScreen: React.FC<FacePaceScreenProps> = () => {
       {/* Selected Time Display */}
       <View style={styles.selectedTimeContainer}>
         <Text style={styles.selectedTimeText}>
-          선택된 시간: {formatTime(minutes)}분 {formatTime(seconds)}초
+          봇의 페이스: {formatTime(minutes)}분 {formatTime(seconds)}초
         </Text>
       </View>
 
-      {/* Info Text */}
-      <Text style={styles.infoText}>봇의 페이스 시간을 설정해 주세요</Text>
-
       {/* Complete Button */}
       <TouchableOpacity style={styles.completeButton} onPress={handleComplete}>
-        <Text style={styles.completeButtonText}>완료</Text>
+        <Text style={styles.completeButtonText}>달리기</Text>
       </TouchableOpacity>
     </SafeAreaView>
+
   );
 };
 
@@ -224,10 +216,11 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+    marginLeft: 15,
   },
-  backButtonText: {
-    fontSize: 24,
-    color: '#333',
+  backButtonIcon: {
+    width: 24,
+    height: 24,
   },
   helpButton: {
     width: 30,
@@ -236,6 +229,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ff4444',
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 20,
   },
   helpButtonText: {
     color: '#fff',
@@ -245,78 +239,65 @@ const styles = StyleSheet.create({
   messageContainer: {
     alignItems: 'center',
     marginBottom: 30,
-    minHeight: 120, // 메시지가 사라져도 레이아웃 유지
-  },
-  speechBubble: {
-    backgroundColor: '#f0f0f0',
-    padding: 15,
-    borderRadius: 20,
-    marginBottom: 10,
-    maxWidth: '80%',
-  },
-  messageText: {
-    fontSize: 14,
-    color: '#333',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  characterContainer: {
     position: 'relative',
   },
-  character: {
-    alignItems: 'center',
-  },
-  hat: {
-    width: 40,
-    height: 25,
-    backgroundColor: '#6a4c93',
-    borderRadius: 20,
-    marginBottom: -5,
-  },
-  face: {
-    width: 60,
-    height: 60,
-    backgroundColor: '#ffd93d',
-    borderRadius: 30,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingTop: 10,
-  },
-  eye: {
-    width: 6,
-    height: 6,
-    backgroundColor: '#333',
-    borderRadius: 3,
-  },
-  wing: {
-    position: 'absolute',
-    right: -15,
-    top: 35,
-    width: 20,
-    height: 15,
-    backgroundColor: '#ffa500',
-    borderRadius: 10,
-  },
-  paceButton: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingVertical: 12,
+  initialMessageOverlay: {
+   position: 'absolute',
+    bottom: 100,
+    backgroundColor: '#E9E9E9', 
+    opacity: 0.9,
+    paddingTop: 15,
     paddingHorizontal: 20,
+    borderRadius: 25,
+    width: 320,
+    height: 180,
+    zIndex: 10,
     alignSelf: 'center',
-    marginBottom: 20,
   },
-  paceButtonText: {
-    fontSize: 16,
-    color: '#333',
+  initialMessageText: {
+    fontFamily: 'System',
+    fontSize: 27,
+    color: '#333', // 진한 분홍색 텍스트
+    textAlign: 'center',
+    lineHeight: 40,
+    fontWeight: 'bold',
+    paddingTop:35,
+  },
+  // 🎨 도움말 메시지 스타일
+  helpMessageOverlay: {
+    position: 'absolute',
+    bottom: 100,
+    backgroundColor: '#E9E9E9', 
+    opacity: 0.9,
+    paddingTop: 15,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    width: 320,
+    height: 180,
+    zIndex: 10,
+    alignSelf: 'center',
+  },
+  helpMessageText: {
+    fontFamily: 'System',
+    fontSize: 19,
+    color: '#333', 
+    textAlign: 'center',
+    lineHeight: 28,
+    paddingTop: 18,
+    fontWeight: '500',
+  },
+  botImage: {
+    width: 400,
+    height: 300,
+    marginBottom: -50,
   },
   timeContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
-    gap: 20,
+    paddingLeft: 20,
+    paddingRight: 20,
   },
   pickerSection: {
     alignItems: 'center',
@@ -334,7 +315,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     overflow: 'hidden',
     backgroundColor: '#f9f9f9',
-    width: '100%',
+    width: 120,
   },
   picker: {
     height: 120,
@@ -357,23 +338,20 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#4CAF50',
   },
-  infoText: {
-    textAlign: 'center',
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 30,
-  },
   completeButton: {
-    backgroundColor: '#4CAF50',
-    borderRadius: 25,
-    paddingVertical: 15,
-    paddingHorizontal: 50,
+    backgroundColor: '#5EFFAE',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
     alignSelf: 'center',
   },
   completeButtonText: {
-    color: '#fff',
-    fontSize: 16,
+    color: 'black',
+    fontSize: 20,
     fontWeight: 'bold',
+    textAlign: 'center',
   },
 });
 
