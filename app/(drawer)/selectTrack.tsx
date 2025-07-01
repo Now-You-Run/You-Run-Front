@@ -1,7 +1,8 @@
 import { loadPaths } from '@/storage/RunningStorage';
+import { useRunningDataStore } from '@/stores/useRunningDataStore';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   FlatList,
@@ -14,6 +15,23 @@ import {
   View,
 } from 'react-native';
 import MapView, { Polyline } from 'react-native-maps';
+
+function formatTrackIdToDateTime(id: string): string {
+  if (/^\d+$/.test(id)) {
+    // id가 숫자만으로 이루어져 있으면
+    const date = new Date(Number(id));
+    if (!isNaN(date.getTime())) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      const seconds = String(date.getSeconds()).padStart(2, '0');
+      return `| ${year}-${month}-${day}|${hours}:${minutes}:${seconds}| `;
+    }
+  }
+  return '날짜 알 수 없음';
+}
 
 // ✅ Track 타입 정의
 type Track = {
@@ -57,19 +75,20 @@ const REGION_OPTIONS = [
   { label: '기흥구', value: '기흥구' },
 ];
 
-// running.tsx에서 속도 데이터 받기
-const { trackId, avgPaceMinutes, avgPaceSeconds } = useLocalSearchParams<{
-  trackId?: string;
-  avgPaceMinutes?: string;
-  avgPaceSeconds?: string;
-}>();
-
 export default function TrackListScreen() {
+  // running.tsx에서 속도 데이터 받기
+  const { avgPaceMinutes, avgPaceSeconds } = useRunningDataStore();
+
   const router = useRouter();
   const [tracks, setTracks] = useState<Track[]>([]);
   const [sortedTracks, setSortedTracks] = useState<Track[]>([]);
   const [sortModalVisible, setSortModalVisible] = useState(false);
   const [selectedSort, setSelectedSort] = useState(SORT_OPTIONS[0]);
+
+  // 🔥 뒤로가기 버튼 기능 추가
+  const handleBackPress = () => {
+    router.back();
+  };
 
   // 새로 추가한 지역 선택 상태
   const [regionModalVisible, setRegionModalVisible] = useState(false);
@@ -115,47 +134,71 @@ export default function TrackListScreen() {
 
   const renderItem = ({ item }: { item: Track }) => (
     <View style={styles.trackItem}>
-      <MapView
-        style={styles.mapThumbnail}
-        initialRegion={{
-          latitude: item.path[0]?.latitude || 37.5665,
-          longitude: item.path[0]?.longitude || 126.978,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        }}
-        scrollEnabled={false}
-        zoomEnabled={false}
-        pitchEnabled={false}
-        rotateEnabled={false}
-        toolbarEnabled={false}
-        showsUserLocation={false}
-        showsMyLocationButton={false}
-      >
-        <Polyline
-          coordinates={item.path}
-          strokeColor="#4a90e2"
-          strokeWidth={3}
-        />
-      </MapView>
+      <View style={{ position: 'relative', width: '100%', height: '78%' }}>
+        <MapView
+          style={styles.mapThumbnail}
+          initialRegion={{
+            latitude: item.path[0]?.latitude || 37.5665,
+            longitude: item.path[0]?.longitude || 126.978,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          }}
+          scrollEnabled={false}
+          zoomEnabled={false}
+          pitchEnabled={false}
+          rotateEnabled={false}
+          toolbarEnabled={false}
+          showsUserLocation={false}
+          showsMyLocationButton={false}
+          pointerEvents="none" // 터치 이벤트 무시
+        >
+          <Polyline
+            coordinates={item.path}
+            strokeColor="#4a90e2"
+            strokeWidth={3}
+          />
+        </MapView>
 
-      <TouchableOpacity
-        style={styles.trackNameButton}
-        onPress={() =>
-          // RankingPage.tsx에 트랙아이디, 속도 데이터 보내기
-          router.push({
-            pathname: '/rankingPage',
-            params: { trackId: item.id, avgPaceMinutes, avgPaceSeconds },
-          })
-        }
-      >
-        <Text style={styles.trackNameButtonText}>{item.name}</Text>
-      </TouchableOpacity>
+        {/* 지도 터치 시 페이지 이동 */}
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          onPress={() =>
+            router.push({
+              pathname: '/rankingPage',
+              params: { trackId: item.id, avgPaceMinutes, avgPaceSeconds },
+            })
+          }
+        />
+      </View>
+
+      {/* 날짜/시간 표시만 담당 */}
+      <View style={styles.trackNameButton}>
+        <Text style={styles.trackNameButtonText}>
+          {formatTrackIdToDateTime(item.id)}
+        </Text>
+      </View>
     </View>
   );
 
   return (
     <View style={styles.container}>
-      {/* 지역별 필터 버튼 (한 줄 전체 차지) */}
+      {/* ✅ 뒤로가기 버튼 */}
+      <View
+        style={{
+          position: 'absolute',
+          top: 50,
+          left: 20,
+          zIndex: 10,
+          backgroundColor: 'rgba(255,255,255,0.8)',
+          borderRadius: 20,
+        }}
+      >
+        <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
+          <Text style={styles.backButtonText}>←</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* 전체 지역 버튼 (가운데) */}
       <View style={{ marginBottom: -10, alignItems: 'center' }}>
         <TouchableOpacity
           style={[styles.sortButton, { alignSelf: 'center', width: 114 }]}
@@ -274,17 +317,27 @@ export default function TrackListScreen() {
 
 // 아이폰 12 사이즈
 const styles = StyleSheet.create({
+  backButtonText: {
+    fontSize: 24,
+    color: '#333',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'flex-start',
+    alignItems: 'flex-start',
+  },
   mapThumbnail: {
     width: '100%',
-    height: '78%',
+    height: '96%',
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
   },
   trackNameButton: {
-    marginTop: 6,
+    marginTop: -5,
     backgroundColor: '#4a90e2',
     paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingHorizontal: 2,
     borderRadius: 8,
     alignSelf: 'center',
   },

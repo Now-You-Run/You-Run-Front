@@ -27,67 +27,18 @@ export default function CustomDrawer({ closeMenu }: CustomDrawerProps) {
         {/* 이제 navigateTo에 전달하는 경로에 오타가 있으면 타입스크립트가 오류를 알려줍니다. */}
         <Pressable
           style={styles.menuItem}
-          onPress={() => navigateTo("/(drawer)/test")}
+          onPress={() => navigateTo('/(drawer)/run-replay')}
         >
-          <Text style={styles.menuText}>Explore</Text>
+          <Text style={styles.menuText}>🏃 기록</Text>
         </Pressable>
-        {/* <Pressable style={styles.menuItem} onPress={() => navigateTo('/(drawer)/gps-entire')}>
-                    <Text style={styles.menuText}>Gps-Entire</Text>
-                </Pressable>
-                <Pressable style={styles.menuItem} onPress={() => navigateTo('/(drawer)/running')}>
-                    <Text style={styles.menuText}>Running</Text>
-                </Pressable>
-                <Pressable style={styles.menuItem} onPress={() => navigateTo('/(drawer)/3d-test')}>
-                    <Text style={styles.menuText}>3d-Test</Text>
-                </Pressable>
-                <Pressable style={styles.menuItem} onPress={() => navigateTo('/(drawer)/map-draw-test')}>
-                    <Text style={styles.menuText}>map-draw-Test</Text>
-                </Pressable>
-                <Pressable style={styles.menuItem} onPress={() => navigateTo('/(drawer)/login')}>
-                    <Text style={styles.menuText}>login</Text>
-                </Pressable>                          */}
-        <Pressable
-          style={styles.menuItem}
-          onPress={() => navigateTo("/(drawer)/gps-test")}
-        >
-          <Text style={styles.menuText}>gps-Test</Text>
-        </Pressable>
-        <Pressable
-          style={styles.menuItem}
-          onPress={() => navigateTo("/(drawer)/run-replay")}
-        >
-          <Text style={styles.menuText}>run-replay</Text>
-        </Pressable>
-        <Pressable
-          style={styles.menuItem}
-          onPress={() => navigateTo("/(drawer)/level-calculation")}
-        >
-          <Text style={styles.menuText}>level-calculation</Text>
-        </Pressable>
-        <Pressable
-          style={styles.menuItem}
-          onPress={() => navigateTo("/(drawer)/modeSelect")}
-        >
-          <Text style={styles.menuText}>Running</Text>
-        </Pressable>
-        <Pressable
-          style={styles.menuItem}
-          onPress={() => navigateTo("/(drawer)/Running3DModel")}
-        >
-          <Text style={styles.menuText}>Check My 3D-Models</Text>
-        </Pressable>
-        <Pressable
-          style={styles.menuItem}
-          onPress={() => navigateTo("/(drawer)/bot-pace")}
-        >
-          <Text style={styles.menuText}>Set Bot-pace</Text>
-        </Pressable>
+
         <Pressable
           style={styles.menuItem}
           onPress={() => navigateTo("/(drawer)/MyRunningPath")}
         >
-          <Text style={styles.menuText}>Check My Tracks</Text>
+          <Text style={styles.menuText}>🗺️ My 맵</Text>
         </Pressable>
+
         <Pressable
           style={styles.menuItem}
           onPress={() => navigateTo("/(drawer)/rankingScreen")}

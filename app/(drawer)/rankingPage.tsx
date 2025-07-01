@@ -32,6 +32,9 @@ const { trackId, avgPaceMinutes, avgPaceSeconds } = useLocalSearchParams<{
 
 export default function RankingScreen() {
   const router = useRouter();
+  const handleBackPress = () => {
+    router.back();
+  };
   const { trackId } = useLocalSearchParams<{ trackId: string }>();
 
   const [track, setTrack] = useState<Track | null>(null);
@@ -60,6 +63,11 @@ export default function RankingScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* ✅ 뒤로가기 버튼 */}
+      <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
+        <Text style={styles.backButtonText}>←</Text>
+      </TouchableOpacity>
+
       {/* 트랙 경로 지도 표시 */}
       {track ? (
         <MapView
@@ -129,6 +137,16 @@ export default function RankingScreen() {
 }
 
 const styles = StyleSheet.create({
+  backButtonText: {
+    fontSize: 24,
+    color: '#333',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   container: {
     flex: 1,
     backgroundColor: '#fff',
