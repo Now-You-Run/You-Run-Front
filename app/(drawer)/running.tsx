@@ -2,6 +2,7 @@
 
 import { useRunning } from '@/context/RunningContext';
 import { savePath } from '@/storage/RunningStorage';
+import { useRunningDataStore } from '@/stores/useRunningDataStore';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
@@ -54,6 +55,9 @@ export default function RunningScreen() {
   } | null>(null);
 
   const router = useRouter();
+  const handleBackPress = () => {
+    router.back();
+  };
 
   // mode : 'normal' | 'track', trackDistance : km 단위 문자열
   const { mode, trackDistance } = useLocalSearchParams<{
@@ -178,7 +182,7 @@ export default function RunningScreen() {
     Speech.speak('러닝을 종료합니다.');
 
     // 로컬 경로 저장(distance : m 단위, duration : 초 단위)
-    await savePath(path, totalDistance *1000, elapsedTime);
+    await savePath(path, totalDistance * 1000, elapsedTime);
 
     // 평균 페이스 SelectTrack.tsx로 전달
     const avgPaceSecondsPerKm = elapsedTime / totalDistance; // 초/km
@@ -193,13 +197,9 @@ export default function RunningScreen() {
     };
 
     // 속도 데이터 SelectTrack.tsx로 보내기
-    router.push({
-      pathname: '/selectTrack',
-      params: {
-        avgPaceMinutes: paceMin.toString(),
-        avgPaceSeconds: paceSec.toString(),
-      },
-    });
+    useRunningDataStore
+      .getState()
+      .setPace(paceMin.toString(), paceSec.toString());
 
     setSummaryData(snapshot);
     setIsSavedModalVisible(true);
@@ -216,6 +216,21 @@ export default function RunningScreen() {
 
   return (
     <View style={styles.container}>
+      {/* ✅ 뒤로가기 버튼 */}
+      <View
+        style={{
+          position: 'absolute',
+          top: 50,
+          left: 20,
+          zIndex: 10,
+          backgroundColor: 'rgba(255,255,255,0.8)',
+          borderRadius: 20,
+        }}
+      >
+        <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
+          <Text style={styles.backButtonText}>←</Text>
+        </TouchableOpacity>
+      </View>
       {/* 지도가 화면 전체 */}
       <MapView
         style={StyleSheet.absoluteFill}
@@ -307,6 +322,16 @@ export default function RunningScreen() {
 // 스타일
 // ==================================================================
 const styles = StyleSheet.create({
+  backButtonText: {
+    fontSize: 24,
+    color: '#333',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   modalContainer: {
     flex: 1,
     justifyContent: 'center',

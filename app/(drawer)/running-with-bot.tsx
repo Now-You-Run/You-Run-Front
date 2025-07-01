@@ -2,7 +2,7 @@ import { useRunning } from '@/context/RunningContext';
 import { loadPaths } from '@/storage/RunningStorage';
 import { useNavigation } from '@react-navigation/native';
 import * as Location from 'expo-location';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Modal,
@@ -106,6 +106,10 @@ function smoothPath(
 }
 
 export default function RunningScreen() {
+  const router = useRouter();
+  const handleBackPress = () => {
+    router.back();
+  };
   const { trackId, avgPaceMinutes, avgPaceSeconds } = useLocalSearchParams<{
     trackId?: string;
     avgPaceMinutes?: string;
@@ -300,6 +304,21 @@ export default function RunningScreen() {
 
   return (
     <View style={{ flex: 1 }}>
+      {/* ✅ 뒤로가기 버튼 */}
+      <View
+        style={{
+          position: 'absolute',
+          top: 50,
+          left: 20,
+          zIndex: 10,
+          backgroundColor: 'rgba(255,255,255,0.8)',
+          borderRadius: 20,
+        }}
+      >
+        <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
+          <Text style={styles.backButtonText}>←</Text>
+        </TouchableOpacity>
+      </View>
       <MapView
         style={StyleSheet.absoluteFill}
         initialRegion={{
@@ -405,6 +424,17 @@ export default function RunningScreen() {
 }
 
 const styles = StyleSheet.create({
+  backButtonText: {
+    fontSize: 24,
+    color: '#333',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
   modalContainer: {
     flex: 1,
     justifyContent: 'center',

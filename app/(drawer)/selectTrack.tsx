@@ -1,7 +1,8 @@
 import { loadPaths } from '@/storage/RunningStorage';
+import { useRunningDataStore } from '@/stores/useRunningDataStore';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   FlatList,
@@ -57,19 +58,20 @@ const REGION_OPTIONS = [
   { label: '기흥구', value: '기흥구' },
 ];
 
-// running.tsx에서 속도 데이터 받기
-const { trackId, avgPaceMinutes, avgPaceSeconds } = useLocalSearchParams<{
-  trackId?: string;
-  avgPaceMinutes?: string;
-  avgPaceSeconds?: string;
-}>();
-
 export default function TrackListScreen() {
+  // running.tsx에서 속도 데이터 받기
+  const { avgPaceMinutes, avgPaceSeconds } = useRunningDataStore();
+
   const router = useRouter();
   const [tracks, setTracks] = useState<Track[]>([]);
   const [sortedTracks, setSortedTracks] = useState<Track[]>([]);
   const [sortModalVisible, setSortModalVisible] = useState(false);
   const [selectedSort, setSelectedSort] = useState(SORT_OPTIONS[0]);
+
+  // 🔥 뒤로가기 버튼 기능 추가
+  const handleBackPress = () => {
+    router.back();
+  };
 
   // 새로 추가한 지역 선택 상태
   const [regionModalVisible, setRegionModalVisible] = useState(false);
@@ -155,7 +157,23 @@ export default function TrackListScreen() {
 
   return (
     <View style={styles.container}>
-      {/* 지역별 필터 버튼 (한 줄 전체 차지) */}
+      {/* ✅ 뒤로가기 버튼 */}
+      <View
+        style={{
+          position: 'absolute',
+          top: 50,
+          left: 20,
+          zIndex: 10,
+          backgroundColor: 'rgba(255,255,255,0.8)',
+          borderRadius: 20,
+        }}
+      >
+        <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
+          <Text style={styles.backButtonText}>←</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* 전체 지역 버튼 (가운데) */}
       <View style={{ marginBottom: -10, alignItems: 'center' }}>
         <TouchableOpacity
           style={[styles.sortButton, { alignSelf: 'center', width: 114 }]}
@@ -274,6 +292,16 @@ export default function TrackListScreen() {
 
 // 아이폰 12 사이즈
 const styles = StyleSheet.create({
+  backButtonText: {
+    fontSize: 24,
+    color: '#333',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'flex-start',
+    alignItems: 'flex-start',
+  },
   mapThumbnail: {
     width: '100%',
     height: '78%',
