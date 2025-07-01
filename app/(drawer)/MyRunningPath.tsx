@@ -22,7 +22,7 @@ export default function MyRunningPath() {
   useEffect(() => {
     const fetchTracks = async () => {
       const loadedTracks = await loadPaths();
-      if (loadedTracks.length > 0) {
+      if (loadedTracks.length > 0 && loadedTracks[0].path.length > 0) {
         setTracks(loadedTracks);
         setSelectedTrack(loadedTracks[0]);
         setRegion({
@@ -38,12 +38,16 @@ export default function MyRunningPath() {
 
   const handleSelectTrack = (track: RunningTrack) => {
     setSelectedTrack(track);
-    setRegion({
-      latitude: track.path[0].latitude,
-      longitude: track.path[0].longitude,
-      latitudeDelta: 0.01,
-      longitudeDelta: 0.01,
-    });
+    if (track.path.length > 0) {
+      setRegion({
+        latitude: track.path[0].latitude,
+        longitude: track.path[0].longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      });
+    } else {
+      setRegion(null);
+    }
   };
 
   // 새로 추가하는 삭제 함수
@@ -136,15 +140,21 @@ export default function MyRunningPath() {
                 onPress={() => handleSelectTrack(item)}
               >
                 <Text style={styles.trackItemText}>
-                  {new Date(item.date).toLocaleDateString()}{' '}
-                  {new Date(item.date).toLocaleTimeString().slice(0, 5)}
+                  {item.date
+                    ? `${new Date(item.date).toLocaleDateString()} ${new Date(
+                        item.date
+                      )
+                        .toLocaleTimeString()
+                        .slice(0, 5)}`
+                    : '날짜 없음'}
                 </Text>
-                {item.distance && item.duration && (
-                  <Text style={styles.trackItemTextSmall}>
-                    {(item.distance / 1000).toFixed(2)}km |{' '}
-                    {Math.floor(item.duration / 60)}분
-                  </Text>
-                )}
+                {typeof item.distance === 'number' &&
+                  typeof item.duration === 'number' && (
+                    <Text style={styles.trackItemTextSmall}>
+                      {(item.distance / 1000).toFixed(2)}km |{' '}
+                      {Math.floor(item.duration / 60)}분
+                    </Text>
+                  )}
               </Pressable>
               <Pressable
                 onPress={() => handleDeleteTrack(item.id!)}

@@ -29,14 +29,14 @@ export default function CustomDrawer({ closeMenu }: CustomDrawerProps) {
           style={styles.menuItem}
           onPress={() => navigateTo('/(drawer)/run-replay')}
         >
-          <Text style={styles.menuText}>기록</Text>
+          <Text style={styles.menuText}>🏃 기록</Text>
         </Pressable>
 
         <Pressable
           style={styles.menuItem}
           onPress={() => navigateTo('/(drawer)/MyRunningPath')}
         >
-          <Text style={styles.menuText}>My 맵</Text>
+          <Text style={styles.menuText}>🗺️ My 맵</Text>
         </Pressable>
 
         <Pressable
