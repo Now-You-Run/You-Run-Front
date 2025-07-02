@@ -42,6 +42,25 @@ export default function SummaryScreen() {
   // (칼로리는 따로 계산 로직을 넣으셔도 되고, 우선 예시로 고정)
   const calories = Math.round(totalDistance * 60);
 
+  // useEffect(() => {
+  //   const save = async () => {
+  //     const track: RunningTrackStoreRequest = {
+  //       userId: 1,
+  //       date: new Date().toString(),
+  //       distance: totalDistance,
+  //       path: path,
+  //     };
+  //     const success = await RunningTrackRepository.saveTrack(track);
+  //     if (success) {
+  //       console.log('Track saved successfully!');
+  //     } else {
+  //       console.log('Track save failed!');
+  //     }
+  //   };
+  //   save();
+  // }, []); // 의존성 배열이 빈 배열이므로 최초 1회만 실행
+
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Finish</Text>
