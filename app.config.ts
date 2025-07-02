@@ -4,6 +4,7 @@ import { ConfigContext, ExpoConfig } from '@expo/config';
 
 // It's good practice to define environment variables or constants here if needed
 const EXPO_PUBLIC_KAKAO_API_KEY = process.env.EXPO_PUBLIC_KAKAO_API_KEY || "{{native app key default or placeholder}}"; // Or retrieve from .env or elsewhere
+const EXPO_PUBLIC_GOOGLE_MAP_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAP_API_KEY
 
 export default ({ config }: ConfigContext): ExpoConfig => {
   return {
@@ -22,7 +23,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       supportsTablet: true,
       bundleIdentifier: "com.yourun",
       config : {
-        googleMapsApiKey: "AIzaSyAAAe4T7JlwtT4fOpSssl15bYzZhq10qmA"
+        googleMapsApiKey: EXPO_PUBLIC_GOOGLE_MAP_API_KEY
       }
     },
     android: {
@@ -32,7 +33,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       },
       config: {
         googleMaps: {
-          apiKey : "AIzaSyAAAe4T7JlwtT4fOpSssl15bYzZhq10qmA"
+          apiKey : EXPO_PUBLIC_GOOGLE_MAP_API_KEY
         }
       },
       edgeToEdgeEnabled: true,
