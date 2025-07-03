@@ -1,3 +1,7 @@
+import { loadPaths } from '@/storage/RunningStorage';
+import { useRunningDataStore } from '@/stores/useRunningDataStore';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
@@ -18,7 +22,8 @@ type Track = {
   id: string;
   name: string;
   path: { latitude: number; longitude: number }[];
-
+  // 트랙 정렬 옵션
+  thumbnail?: string | null;
   distance?: number;
 };
 
@@ -42,10 +47,8 @@ type NavigationProp = NativeStackNavigationProp<
   'TrackList'
 >;
 
-// 트랙 정렬 옵션
 
-  thumbnail?: string | null;
-};
+
 
 
 const SORT_OPTIONS = [
@@ -87,6 +90,7 @@ export default function TrackListScreen() {
   const [selectedRegion, setSelectedRegion] = useState(REGION_OPTIONS[0]);
   const [loading, setLoading] = useState(false);
 
+  const {avgPaceMinutes,avgPaceSeconds} = useRunningDataStore();
 
   const navigation = useNavigation<NavigationProp>();
 

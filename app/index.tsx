@@ -61,13 +61,13 @@ export default function HomeScreen() {
         topColor = '#FFE4E6'; // 연한 분홍 (은은한 일출)
       } else if (hour >= 8 && hour < 17) {
         // 낮 - 연한 하늘색
-        topColor = '#E6F3FF'; // 연한 하늘색
+        topColor = '#B3DAFF'; // 연한 하늘색
       } else if (hour >= 17 && hour < 19) {
         // 저녁 - 은은한 노을 (연한 주황)
         topColor = '#FFF0E6'; // 연한 피치색 (은은한 노을)
       } else {
         // 밤 (19-4시) - 연한 어두운 파란색
-        topColor = '#E8E4F3'; // 연한 보라빛 파랑
+        topColor = '#8C7CD9'; // 퍼플 블루
       }
     }
 
@@ -101,18 +101,19 @@ export default function HomeScreen() {
 
     // 맑음일 때 시간에 따라 (전체 화면)
     if (weather === 'Clear') {
-      setAnimationStyle('weatherAnimationOverlay');
       if (hour >= 6 && hour < 19) {
         // 낮 시간 (6-19시): 태양
+        setAnimationStyle('sunAnimationTopLeft')
         return require('@/assets/animations/sunny.json');
       } else {
         // 밤 시간 (19-6시): 달
+        setAnimationStyle('moonAnimationTopLeft')
         return require('@/assets/animations/moon.json');
       }
     }
 
     // 기본값: 태양
-    setAnimationStyle('weatherAnimationOverlay');
+    setAnimationStyle('sunAnimationTopLeft');
     return require('@/assets/animations/sunny.json');
   };
 
@@ -354,6 +355,24 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    zIndex: 5,
+    pointerEvents: 'none',
+  },
+  sunAnimationTopLeft:{
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    width: 120,
+    height: 120,
+    zIndex: 5,
+    pointerEvents: 'none',
+  },
+  moonAnimationTopLeft:{
+     position: 'absolute',
+    top: 40,
+    left: 10,
+    width: 140,
+    height: 140,
     zIndex: 5,
     pointerEvents: 'none',
   },
