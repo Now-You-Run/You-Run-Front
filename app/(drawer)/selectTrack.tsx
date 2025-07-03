@@ -1,7 +1,3 @@
-import { loadPaths } from '@/storage/RunningStorage';
-import { useRunningDataStore } from '@/stores/useRunningDataStore';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
@@ -15,30 +11,14 @@ import {
   View,
 } from 'react-native';
 import MapView, { Polyline } from 'react-native-maps';
+import { TrackRecordRepository } from '../../storage/RunningTrackRepository';
 
-function formatTrackIdToDateTime(id: string): string {
-  if (/^\d+$/.test(id)) {
-    // id가 숫자만으로 이루어져 있으면
-    const date = new Date(Number(id));
-    if (!isNaN(date.getTime())) {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      const hours = String(date.getHours()).padStart(2, '0');
-      const minutes = String(date.getMinutes()).padStart(2, '0');
-      const seconds = String(date.getSeconds()).padStart(2, '0');
-      return `| ${year}-${month}-${day}|${hours}:${minutes}:${seconds}| `;
-    }
-  }
-  return '날짜 알 수 없음';
-}
-
-// ✅ Track 타입 정의
+// 타입 정의 (프로젝트에 이미 있다면 import해서 사용)
 type Track = {
   id: string;
-  thumbnail: string | null;
   name: string;
   path: { latitude: number; longitude: number }[];
+
   distance?: number;
 };
 
@@ -63,13 +43,17 @@ type NavigationProp = NativeStackNavigationProp<
 >;
 
 // 트랙 정렬 옵션
+
+  thumbnail?: string | null;
+};
+
+
 const SORT_OPTIONS = [
   { label: '최신순', value: 'latest' },
   { label: '오래된순', value: 'oldest' },
   { label: '이름순', value: 'name' },
 ];
 
-// 지역 정보
 const REGION_OPTIONS = [
   { label: '전체 지역', value: '전체 지역' },
   { label: '처인구', value: '처인구' },
@@ -77,24 +61,32 @@ const REGION_OPTIONS = [
   { label: '기흥구', value: '기흥구' },
 ];
 
-export default function TrackListScreen() {
-  // running.tsx에서 속도 데이터 받기
-  const { avgPaceMinutes, avgPaceSeconds } = useRunningDataStore();
+function formatTrackIdToDateTime(id: string): string {
+  if (/^\d+$/.test(id)) {
+    const date = new Date(Number(id));
+    if (!isNaN(date.getTime())) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      const seconds = String(date.getSeconds()).padStart(2, '0');
+      return `| ${year}-${month}-${day}|${hours}:${minutes}:${seconds}| `;
+    }
+  }
+  return '날짜 알 수 없음';
+}
 
+export default function TrackListScreen() {
   const router = useRouter();
   const [tracks, setTracks] = useState<Track[]>([]);
   const [sortedTracks, setSortedTracks] = useState<Track[]>([]);
   const [sortModalVisible, setSortModalVisible] = useState(false);
   const [selectedSort, setSelectedSort] = useState(SORT_OPTIONS[0]);
-
-  // 🔥 뒤로가기 버튼 기능 추가
-  const handleBackPress = () => {
-    router.back();
-  };
-
-  // 새로 추가한 지역 선택 상태
   const [regionModalVisible, setRegionModalVisible] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState(REGION_OPTIONS[0]);
+  const [loading, setLoading] = useState(false);
+
 
   const navigation = useNavigation<NavigationProp>();
 
@@ -119,11 +111,17 @@ export default function TrackListScreen() {
     });
   };
 
+
+  // 서버에서 트랙 리스트 불러오기
+
   useEffect(() => {
-    fetchTracks();
+    setLoading(true);
+    TrackRecordRepository.fetchTrackList()
+      .then((tracks) => setTracks(tracks))
+      .finally(() => setLoading(false));
   }, []);
 
-  // 정렬 함수
+  // 정렬 옵션에 따라 정렬
   useEffect(() => {
     let sorted = [...tracks];
     if (selectedSort.value === 'latest') {
@@ -135,6 +133,8 @@ export default function TrackListScreen() {
     }
     setSortedTracks(sorted);
   }, [tracks, selectedSort]);
+
+  const handleBackPress = () => router.back();
 
   const renderItem = ({ item }: { item: Track }) => (
     <View style={styles.trackItem}>
@@ -154,7 +154,7 @@ export default function TrackListScreen() {
           toolbarEnabled={false}
           showsUserLocation={false}
           showsMyLocationButton={false}
-          pointerEvents="none" // 터치 이벤트 무시
+          pointerEvents="none"
         >
           <Polyline
             coordinates={item.path}
@@ -162,20 +162,18 @@ export default function TrackListScreen() {
             strokeWidth={3}
           />
         </MapView>
-
-        {/* 지도 터치 시 페이지 이동 */}
         <TouchableOpacity
           style={StyleSheet.absoluteFill}
           onPress={() =>
             router.push({
               pathname: '/rankingPage',
+
               params: { trackId: item.id, avgPaceMinutes, avgPaceSeconds,distance: item.distance?.toString() },
+
             })
           }
         />
       </View>
-
-      {/* 날짜/시간 표시만 담당 */}
       <View style={styles.trackNameButton}>
         <Text style={styles.trackNameButtonText}>
           {formatTrackIdToDateTime(item.id)}
@@ -191,7 +189,7 @@ export default function TrackListScreen() {
 
   return (
     <View style={styles.container}>
-      {/* ✅ 뒤로가기 버튼 */}
+      {/* 뒤로가기 버튼 */}
       <View
         style={{
           position: 'absolute',
@@ -207,7 +205,7 @@ export default function TrackListScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* 전체 지역 버튼 (가운데) */}
+      {/* 지역/정렬 모달 등은 기존 코드와 동일하게 유지 */}
       <View style={{ marginBottom: -10, alignItems: 'center' }}>
         <TouchableOpacity
           style={[styles.sortButton, { alignSelf: 'center', width: 114 }]}
@@ -216,8 +214,6 @@ export default function TrackListScreen() {
           <Text style={styles.regionButtonText}>{selectedRegion.label} ▼</Text>
         </TouchableOpacity>
       </View>
-
-      {/* 정렬 버튼 (한 줄 전체 차지) */}
       <View style={{ marginBottom: 18, alignItems: 'flex-end' }}>
         <TouchableOpacity
           style={styles.sortButton}
@@ -226,7 +222,6 @@ export default function TrackListScreen() {
           <Text style={styles.sortButtonText}>{selectedSort.label} ▼</Text>
         </TouchableOpacity>
       </View>
-
       {/* 정렬 옵션 모달 */}
       <Modal
         visible={sortModalVisible}
@@ -268,7 +263,6 @@ export default function TrackListScreen() {
           </View>
         </Pressable>
       </Modal>
-
       {/* 지역별 필터 모달 */}
       <Modal
         visible={regionModalVisible}
@@ -310,21 +304,22 @@ export default function TrackListScreen() {
           </View>
         </Pressable>
       </Modal>
-
       {/* 트랙 리스트 */}
-      <FlatList
-        //data={sortedTracks.slice(0, 5)}
-        data={sortedTracks}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.id}
-        numColumns={2}
-        columnWrapperStyle={{ justifyContent: 'space-between' }}
-      />
+      {loading ? (
+        <Text style={{ textAlign: 'center', marginTop: 40 }}>로딩 중...</Text>
+      ) : (
+        <FlatList
+          data={sortedTracks}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.id}
+          numColumns={2}
+          columnWrapperStyle={{ justifyContent: 'space-between' }}
+        />
+      )}
     </View>
   );
 }
 
-// 아이폰 12 사이즈
 const styles = StyleSheet.create({
   backButtonText: {
     fontSize: 24,
@@ -358,7 +353,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingTop: 70, // 상단 여유 조금 더 줌 (상태바 + 여백)
+    paddingTop: 70,
     backgroundColor: '#fff',
   },
   buttonRow: {
@@ -389,7 +384,7 @@ const styles = StyleSheet.create({
   },
   sortButton: {
     alignSelf: 'flex-end',
-    marginBottom: 17, // 버튼과 리스트 사이 간격 넉넉히
+    marginBottom: 17,
     paddingVertical: 10,
     paddingHorizontal: 18,
     borderWidth: 1,

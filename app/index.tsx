@@ -16,6 +16,7 @@ import {
   View,
 } from 'react-native';
 
+
 // 스플래시 화면 유지(폰트깨짐 방지)
 SplashScreen.preventAutoHideAsync();
 
@@ -205,6 +206,7 @@ export default function HomeScreen() {
   if (!fontsLoaded) {
     return null; // 폰트 로딩 중일 때 빈 화면
   }
+
 
   return (
     <SafeAreaView style={styles.safeArea}>
