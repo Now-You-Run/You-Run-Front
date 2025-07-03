@@ -23,20 +23,23 @@ const rankings = Array.from({ length: 51 }, (_, i) => ({
   time: `${15 + Math.floor(i / 2)}분 ${30 + (i % 2) * 30}초`,
 }));
 
-// RankingPage.tsx에서 속도 데이터 받기
-const { trackId, avgPaceMinutes, avgPaceSeconds } = useLocalSearchParams<{
-  trackId?: string;
-  avgPaceMinutes?: string;
-  avgPaceSeconds?: string;
-}>();
 
 export default function RankingScreen() {
   const router = useRouter();
   const handleBackPress = () => {
     router.back();
   };
-  const { trackId } = useLocalSearchParams<{ trackId: string }>();
 
+  // RankingPage.tsx에서 속도 데이터 받기
+  const { trackId, avgPaceMinutes, avgPaceSeconds,distance } = useLocalSearchParams<{
+  trackId?: string;
+  avgPaceMinutes?: string;
+  avgPaceSeconds?: string;
+  distance?:string;
+}>();
+
+  // params 로 받은 거리(distance: string)를 km 단위 number 로 변환
+  const distKm = distance ? Number(distance) / 1000 : undefined;
   const [track, setTrack] = useState<Track | null>(null);
 
   useEffect(() => {
@@ -89,6 +92,15 @@ export default function RankingScreen() {
         </MapView>
       ) : (
         <Text style={styles.loadingText}>트랙 정보를 불러오는 중입니다...</Text>
+      )}
+
+
+      {distKm != null && (
+        <View style={styles.distanceWrapper}>
+          <Text style={styles.distanceText}>
+            총 거리: {distKm.toFixed(2)} km
+          </Text>
+        </View>
       )}
 
       {/* 상단 경로 및 버튼 */}
@@ -257,5 +269,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#fff',
+  },
+  distanceWrapper: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    backgroundColor: '#eef',
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  distanceText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
   },
 });

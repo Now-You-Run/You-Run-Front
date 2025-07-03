@@ -39,12 +39,14 @@ type Track = {
   thumbnail: string | null;
   name: string;
   path: { latitude: number; longitude: number }[];
+  distance?: number;
 };
 
 // ✅ RunningTrack 타입 정의
 type RunningTrack = {
   id: string;
   path: { latitude: number; longitude: number }[];
+  distance?: number;
 };
 
 // ✅ RootStackParamList 타입 정의
@@ -104,6 +106,8 @@ export default function TrackListScreen() {
       path: track.path,
       thumbnail: null,
       name: `러닝 기록 ${track.id}`,
+      distance: track.distance,  // ← 요 부분만 추가
+
     }));
 
     setTracks((prevTracks) => {
@@ -165,7 +169,7 @@ export default function TrackListScreen() {
           onPress={() =>
             router.push({
               pathname: '/rankingPage',
-              params: { trackId: item.id, avgPaceMinutes, avgPaceSeconds },
+              params: { trackId: item.id, avgPaceMinutes, avgPaceSeconds,distance: item.distance?.toString() },
             })
           }
         />
@@ -176,6 +180,11 @@ export default function TrackListScreen() {
         <Text style={styles.trackNameButtonText}>
           {formatTrackIdToDateTime(item.id)}
         </Text>
+          {item.distance != null && (
+        <Text style={styles.trackMeta}>
+          거리: {(item.distance / 1000).toFixed(2)} km
+        </Text>
+      )}
       </View>
     </View>
   );
@@ -450,5 +459,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#444',
+  },
+  trackMeta: {
+    fontSize: 12,
+    color: '#333',
+    marginTop: 4,
   },
 });

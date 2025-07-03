@@ -1,16 +1,17 @@
+import { Section, useSectionAnnouncements } from '@/app/hooks/useSectionAnnouncements';
 import { useRunning } from '@/context/RunningContext';
+import { loadBotPace, loadLastTrack } from '@/storage/appStorage';
 import { loadPaths } from '@/storage/RunningStorage';
-import { useNavigation } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import * as Speech from 'expo-speech';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Modal,
   Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import MapView, { Marker, Polyline, Region } from 'react-native-maps';
 import Running3DModel from './Running3DModel'; // 3D 모델 컴포넌트 임포트
@@ -57,6 +58,15 @@ const calculateTotalDistance = (
   }
   return total;
 };
+
+/** 현재 속도(km/h) → 순간 페이스 문자열 (mm′ss″) */
+function calculateInstantPace(speedKmh: number): string {
+  if (speedKmh <= 0) return `0'00"`;
+  const secPerKm = 3600 / speedKmh;           // 1km 당 걸리는 초
+  const m = Math.floor(secPerKm / 60);
+  const s = Math.round(secPerKm % 60);
+  return `${m}'${String(s).padStart(2,'0')}"`;
+}
 
 // 평균 페이스 계산 (1km당 시간)
 const calculatePace = (distanceKm: number, elapsedSeconds: number): string => {
@@ -106,6 +116,18 @@ function smoothPath(
 }
 
 export default function RunningScreen() {
+
+  // 1) AsyncStorage에 저장된 마지막 트랙 요약과 봇 페이스 불러오기
+  const [summary, setSummary]     = useState<{ distanceMeters: number; durationSec: number } | null>(null);
+  const [storedPace, setStoredPace] = useState<{ minutes: number; seconds: number } | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      setSummary(   await loadLastTrack()   );
+      setStoredPace(await loadBotPace()     );
+    })();
+  }, []);
+
   const router = useRouter();
   const handleBackPress = () => {
     router.back();
@@ -129,25 +151,48 @@ export default function RunningScreen() {
   const [externalPath, setExternalPath] = useState<
     { latitude: number; longitude: number }[] | null
   >(null);
-
-  const navigation = useNavigation();
-  const [isFinishedModalVisible, setIsFinishedModalVisible] = useState(false);
   const [heading, setHeading] = useState(0);
-  const { isActive, elapsedTime, path, startRunning, stopRunning, addToPath } =
+  const { isActive, elapsedTime, path, currentSpeed , startRunning, stopRunning, addToPath } =
     useRunning();
-  const locationSubscription = useRef<Location.LocationSubscription | null>(
-    null
-  );
   const [origin, setOrigin] = useState<{
     latitude: number;
     longitude: number;
   } | null>(null);
   const [mapRegion, setMapRegion] = useState<Region | undefined>();
 
-  const distance = useMemo(() => calculateTotalDistance(path), [path]);
-  const pace = useMemo(
-    () => calculatePace(distance, elapsedTime),
-    [distance, elapsedTime]
+  const liveDistanceKm = useMemo(() => calculateTotalDistance(path), [path]);
+
+  // 2) 저장된 전체 거리의 20%, 80% 지점으로 구간 정의 (meters 단위)
+  const sections: Section[] = summary ? [
+       { name: '본격 구간', endMeters: summary.distanceMeters * 0.2 },
+       { name: '마무리 구간', endMeters: summary.distanceMeters * 0.8 },
+     ]: [];
+
+  // // 3) 100m마다 기본 안내, 구간 경계마다 구간명 안내
+  // useSectionAnnouncements(
+  //   liveDistanceKm * 1000,  // km → m 단위 실시간 거리
+  //   sections,               // 위에서 만든 구간 배열
+  //   100                     // 100m 간격 안내
+  // );
+
+  // 1) 초/km 로 환산한 순간 페이스
+  const currentPaceSec = currentSpeed > 0 ? 3600 / currentSpeed : undefined;
+  // 2) 목표 페이스 객체 (분/초)
+  const target = storedPace ?? botPace;
+
+  useSectionAnnouncements(
+    liveDistanceKm * 1000,  // km → m
+    sections,
+    100,                    // 100m 간격 안내
+    target,                 // 목표 페이스 { minutes, seconds }
+    currentPaceSec          // 현재 페이스 (초/km)
+  );
+
+
+  // 순간 페이스
+  const instantPace = useMemo(
+    () => calculateInstantPace(currentSpeed),
+    [currentSpeed]
   );
 
   // Bot 러닝 위치 상태
@@ -223,17 +268,32 @@ export default function RunningScreen() {
 
   // 시작 버튼 누르면 botRunning 시작 (기존 startRunning 대체)
   const handleStart = () => {
+    Speech.speak('러닝을 시작합니다. 웜업구간입니다. 속도를 천천히 올려주세요');
+    startRunning();
     startBotRunning();
   };
 
   // 러닝 종료 처리
   const handleStopRunning = async () => {
+    Speech.speak('러닝을 종료합니다.');
     stopRunning();
-    setIsFinishedModalVisible(true);
     if (animationRef.current) {
       cancelAnimationFrame(animationRef.current);
       animationRef.current = null;
     }
+
+    // summary에 필요한 최소 데이터
+    const summaryData = {
+      path: externalPath ?? path,
+      totalDistance: liveDistanceKm,  // km
+      elapsedTime,                    // sec
+    };
+
+    router.replace({
+      pathname: '/summary',
+      params: { data: JSON.stringify(summaryData) },
+    });
+
   };
 
   // 트랙 아이디에 따라 경로 불러오기
@@ -291,9 +351,6 @@ export default function RunningScreen() {
       });
     }
   }, [path]);
-
-  // 위치 구독 중지는 없앰 (실제 GPS 데이터 아님)
-
   if (!origin) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -378,10 +435,11 @@ export default function RunningScreen() {
       )}
 
       <View style={styles.overlay}>
-        <Text style={styles.distance}>{distance.toFixed(2)} km</Text>
+        <Text style={styles.distance}>{liveDistanceKm.toFixed(2)} km</Text>
         <View style={styles.statsContainer}>
+          <Text style={styles.stat}>{currentSpeed.toFixed(1)} km/h</Text>
           <Text style={styles.stat}>{formatTime(elapsedTime)} 분:초</Text>
-          <Text style={styles.stat}>{pace} 페이스</Text>
+          <Text style={styles.stat}>{instantPace} 페이스</Text>
         </View>
         <Pressable
           onPress={!botPosition ? handleStart : handleStopRunning} // 시작/종료 토글
@@ -396,29 +454,6 @@ export default function RunningScreen() {
           </Text>
         </Pressable>
       </View>
-
-      {/* 종료 모달 */}
-      <Modal
-        transparent
-        visible={isFinishedModalVisible}
-        animationType="fade"
-        onRequestClose={() => setIsFinishedModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalText}>🏃‍♂️ 넌! 런!</Text>
-            <TouchableOpacity
-              style={styles.modalButton}
-              onPress={() => {
-                setIsFinishedModalVisible(false);
-                navigation.navigate('index');
-              }}
-            >
-              <Text style={styles.modalButtonText}>홈으로</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -433,34 +468,6 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    padding: 20,
-    marginHorizontal: 30,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  modalText: {
-    fontSize: 18,
-    marginBottom: 20,
-  },
-  modalButton: {
-    backgroundColor: '#007aff',
-    paddingVertical: 10,
-    paddingHorizontal: 30,
-    borderRadius: 8,
-  },
-  modalButtonText: {
-    color: 'white',
-    fontSize: 16,
   },
   overlay: {
     position: 'absolute',
@@ -485,10 +492,10 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   stat: {
+    flex: 1,
     fontSize: 20,
     fontWeight: '500',
     textAlign: 'center',
-    flex: 1,
   },
   runButton: {
     width: '100%',

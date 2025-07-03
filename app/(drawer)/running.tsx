@@ -2,6 +2,7 @@
 
 import { useRunning } from '@/context/RunningContext';
 import { savePath } from '@/storage/RunningStorage';
+import { saveLastTrack } from '@/storage/appStorage';
 import { useRunningDataStore } from '@/stores/useRunningDataStore';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -183,6 +184,12 @@ export default function RunningScreen() {
 
     // 로컬 경로 저장(distance : m 단위, duration : 초 단위)
     await savePath(path, totalDistance * 1000, elapsedTime);
+
+    // 추가: 마지막 달리기 요약 저장 (봇 모드에서 불러와 사용할 수 있도록)
+    await saveLastTrack({
+      distanceMeters:totalDistance * 1000,
+      durationSec: elapsedTime,
+    });
 
     // 평균 페이스 SelectTrack.tsx로 전달
     const avgPaceSecondsPerKm = elapsedTime / totalDistance; // 초/km
