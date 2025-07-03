@@ -77,7 +77,7 @@ const FacePaceScreen: React.FC<FacePaceScreenProps> = () => {
     // running-with-bot.tsx로 이동
     // 트랙 아이디 넘겨주기 + 속도 데이터 -> running-with-bot.tsx
     router.push({
-      pathname: '/running-with-bot',
+      pathname: '/RunningWithBot',
       params: {
         trackId,
         avgPaceMinutes,

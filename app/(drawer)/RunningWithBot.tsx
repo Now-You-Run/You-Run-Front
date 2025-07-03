@@ -290,7 +290,7 @@ export default function RunningScreen() {
     };
 
     router.replace({
-      pathname: '/summary',
+      pathname: '/Summary',
       params: { data: JSON.stringify(summaryData) },
     });
 
