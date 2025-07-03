@@ -1,11 +1,14 @@
+import { saveTrackInfo, TrackInfo } from '@/storage/appStorage';
 import { TrackRecordRepository } from '@/storage/TrackRecordRepository';
 import type { TrackRecordData } from '@/types/response/RunningTrackResponse';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { SafeAreaView, Text, View } from 'react-native';
+import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Polyline } from 'react-native-maps';
 
+
 export default function TrackDetailScreen() {
+  const router = useRouter();
   const { trackId } = useLocalSearchParams<{ trackId: string }>();
   const [trackData, setTrackData] = useState<TrackRecordData | null>(null);
 
@@ -20,6 +23,38 @@ export default function TrackDetailScreen() {
   }
 
   const { trackInfoDto, trackRecordDto } = trackData;
+    // 서버에서 받아온 trackInfoDto.path
+  const path = trackData!.trackInfoDto.path;
+  const origin = path[0];
+
+
+  const onPressBotBattle = async () => {
+    // // 1) 러닝-with-bot 화면에 path/origin 데이터 저장
+    // await router.push({
+    //   pathname: '/RunningWithBot',
+    //   params: {
+    //     trackPath: JSON.stringify(path),
+    //     originLat: origin.latitude.toString(),
+    //     originLng: origin.longitude.toString(),
+    //   },
+    // });
+
+    // // 2) 바로 bot-pace 화면으로 전환
+    // router.replace({ pathname: '/bot-pace' });
+
+        // 1) AsyncStorage에 트랙 정보 저장
+    const info: TrackInfo = {id: trackId , path, origin, distanceMeters: trackInfoDto.totalDistance,  // m 단위
+    };
+    await saveTrackInfo(info);
+
+  // 2) 바로 bot-pace 화면으로 전환
+  router.push({
+    pathname: '/bot-pace',
+    params: { trackId },  // bot-pace 에서는 trackId만 넘기면 됩니다
+  });
+
+  };
+
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
@@ -57,6 +92,30 @@ export default function TrackDetailScreen() {
           ))
         )}
       </View>
+      {/* 코칭 봇과의 대결 버튼 */}
+      <View style={styles.footer}>
+        <TouchableOpacity
+          style={styles.botButton}
+          onPress={onPressBotBattle}
+        >
+          <Text style={styles.botButtonText}>코칭 봇과의 대결</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  footer: { padding: 16 },
+  botButton: {
+    backgroundColor: '#ff6666',
+    padding: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  botButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+});

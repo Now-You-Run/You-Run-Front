@@ -16,17 +16,14 @@ import {
 export type RootStackParamList = {
   SelectTrack: undefined;
   BotPace: { trackId: string };
-  RunningWithBot: { trackId: string };
+  RunningWithBot: { trackId: string; botMin: string; botSec: string;};
 };
 
 interface FacePaceScreenProps {}
 
 const FacePaceScreen: React.FC<FacePaceScreenProps> = () => {
-  // RankingPage.tsx에서 속도 데이터 받기
-  const { trackId, avgPaceMinutes, avgPaceSeconds } = useLocalSearchParams<{
+  const { trackId } = useLocalSearchParams<{
     trackId?: string;
-    avgPaceMinutes?: string;
-    avgPaceSeconds?: string;
   }>();
     
   const [minutes, setMinutes] = useState<number>(0);
@@ -61,18 +58,17 @@ const FacePaceScreen: React.FC<FacePaceScreenProps> = () => {
   };
 
   const handleComplete = async () => {
-    if (!trackId) {
+    if (!trackId ) {
       console.warn('trackId가 없습니다. 이전 페이지 로직을 확인하세요.');
       return;
     }
 
     // Context에 페이스 설정 저장
     setBotPace({ minutes, seconds });
-
-   // 추가: AsyncStorage에도 저장
-   await saveBotPace({ minutes, seconds });
+    // 추가: AsyncStorage에도 저장
+    await saveBotPace({ minutes, seconds });
    
-   console.log(`페이스 설정: ${minutes}분 ${seconds}초`);
+    console.log(`페이스 설정: ${minutes}분 ${seconds}초`);
 
     // running-with-bot.tsx로 이동
     // 트랙 아이디 넘겨주기 + 속도 데이터 -> running-with-bot.tsx
@@ -80,8 +76,8 @@ const FacePaceScreen: React.FC<FacePaceScreenProps> = () => {
       pathname: '/RunningWithBot',
       params: {
         trackId,
-        avgPaceMinutes,
-        avgPaceSeconds,
+        botMin: minutes.toString(),
+        botSec: seconds.toString(),
       },
     });
   };
