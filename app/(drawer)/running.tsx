@@ -306,7 +306,7 @@ export default function RunningScreen() {
                   setIsSavedModalVisible(false);
                   if (summaryData) {
                     await router.replace({
-                      pathname: '/summary',
+                      pathname: '/Summary',
                       params: { data: JSON.stringify(summaryData) },
                     });
                     // 네비게이션 완료 후 초기화

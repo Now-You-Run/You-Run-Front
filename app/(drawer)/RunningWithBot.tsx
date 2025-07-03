@@ -14,7 +14,7 @@ import {
   View
 } from 'react-native';
 import MapView, { Marker, Polyline, Region } from 'react-native-maps';
-import Running3DModel from './Running3DModel'; // 3D 모델 컴포넌트 임포트
+import Running3DModel from '../dummy/Running3DModel'; // 3D 모델 컴포넌트 임포트
 
 import { Alert } from 'react-native';
 

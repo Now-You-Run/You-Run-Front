@@ -1,7 +1,9 @@
+import TrackSimulationMap from '@/components/simul/TrackSimutionMap';
+import { TrackRecordRepository } from '@/storage/TrackRecordRepository';
+import { TrackRecordData } from "@/types/response/RunningTrackResponse";
 import { RouteProp, useRoute } from '@react-navigation/native';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import TrackSimulationMap from '../../components/TrackSimputionMap';
 
 // 라우트 파라미터 타입 정의
 type RouteParams = {
@@ -12,8 +14,16 @@ type RouteParams = {
 
 const SimulationScreen = () => {
   const route = useRoute<RouteProp<RouteParams, 'Simulation'>>();
-  const trackId = route.params?.trackId || 2; // 기본값 1
+  const trackId = route.params?.trackId || 1; // 기본값 1
     // const trackId = 2
+  const [track, setTrack] = useState<TrackRecordData | null>(null);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    setLoading(true);
+    TrackRecordRepository.fetchTrackRecord(trackId)
+      .then((trackRecordData) => setTrack(trackRecordData))
+      .finally(() => setLoading(false));
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -21,7 +31,7 @@ const SimulationScreen = () => {
       <Text style={styles.subHeader}>Track ID: {trackId}</Text>
       
       <View style={styles.mapContainer}>
-        <TrackSimulationMap trackId={trackId} />
+       <TrackSimulationMap path={track?.trackInfoDto.path ?? []} />
       </View>
       
       <View style={styles.controls}>

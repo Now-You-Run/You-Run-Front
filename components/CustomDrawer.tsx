@@ -27,7 +27,7 @@ export default function CustomDrawer({ closeMenu }: CustomDrawerProps) {
         {/* 이제 navigateTo에 전달하는 경로에 오타가 있으면 타입스크립트가 오류를 알려줍니다. */}
         <Pressable
           style={styles.menuItem}
-          onPress={() => navigateTo('/(drawer)/run-replay')}
+          onPress={() => navigateTo('/(drawer)/RunReplay')}
         >
           <Text style={styles.menuText}>🏃 기록</Text>
         </Pressable>
@@ -41,19 +41,19 @@ export default function CustomDrawer({ closeMenu }: CustomDrawerProps) {
 
         <Pressable
           style={styles.menuItem}
-          onPress={() => navigateTo("/(drawer)/rankingScreen")}
+          onPress={() => navigateTo("/(drawer)/RankingScreen")}
         >
           <Text style={styles.menuText}>ranking screen</Text>
         </Pressable>
         <Pressable
           style={styles.menuItem}
-          onPress={() => navigateTo("/(drawer)/myPage")}
+          onPress={() => navigateTo("/(drawer)/MyPage")}
         >
           <Text style={styles.menuText}>마이페이지</Text>
         </Pressable>
         <Pressable
           style={styles.menuItem}
-          onPress={() => navigateTo("/(drawer)/simul")}
+          onPress={() => navigateTo("/(drawer)/Simul")}
         >
           <Text style={styles.menuText}>러닝 시뮬 테스트</Text>
         </Pressable>

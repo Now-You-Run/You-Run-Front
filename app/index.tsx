@@ -311,7 +311,7 @@ export default function HomeScreen() {
                   style={[styles.modeButton, styles.freeButton]}
                   onPress={() => {
                     setIsModalVisible(false);
-                    router.push('/(drawer)/running');
+                    router.push('/(drawer)/Running');
                   }}
                 >
                   <Text style={styles.modeButtonText}>자유</Text>
@@ -322,7 +322,7 @@ export default function HomeScreen() {
                   onPress={() => {
                     setIsModalVisible(false);
                     console.log('트랙 모드 선택');
-                    router.push('/(drawer)/selectTrack');
+                    router.push('/(drawer)/SelectTrack');
                   }}
                 >
                   <Text style={styles.modeButtonText}>트랙</Text>

@@ -43,4 +43,5 @@ export type Track = {
   name: string;
   path: { latitude: number; longitude: number }[];
   thumbnail?: string | null;
+  distance?: number;
 };

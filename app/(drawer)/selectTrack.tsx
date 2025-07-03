@@ -1,7 +1,6 @@
-import { loadPaths } from '@/storage/RunningStorage';
+import { TrackRecordRepository } from '@/storage/TrackRecordRepository';
 import { useRunningDataStore } from '@/stores/useRunningDataStore';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Track } from '@/types/response/RunningTrackResponse';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
@@ -15,41 +14,6 @@ import {
   View,
 } from 'react-native';
 import MapView, { Polyline } from 'react-native-maps';
-import { TrackRecordRepository } from '../../storage/RunningTrackRepository';
-
-// 타입 정의 (프로젝트에 이미 있다면 import해서 사용)
-type Track = {
-  id: string;
-  name: string;
-  path: { latitude: number; longitude: number }[];
-  // 트랙 정렬 옵션
-  thumbnail?: string | null;
-  distance?: number;
-};
-
-// ✅ RunningTrack 타입 정의
-type RunningTrack = {
-  id: string;
-  path: { latitude: number; longitude: number }[];
-  distance?: number;
-};
-
-// ✅ RootStackParamList 타입 정의
-type RootStackParamList = {
-  TrackList: undefined;
-  TrackDetail: { trackId: string };
-  RankingPage: { trackId: string };
-};
-
-// ✅ NavigationProp 타입 적용
-type NavigationProp = NativeStackNavigationProp<
-  RootStackParamList,
-  'TrackList'
->;
-
-
-
-
 
 const SORT_OPTIONS = [
   { label: '최신순', value: 'latest' },
@@ -90,33 +54,8 @@ export default function TrackListScreen() {
   const [selectedRegion, setSelectedRegion] = useState(REGION_OPTIONS[0]);
   const [loading, setLoading] = useState(false);
 
-  const {avgPaceMinutes,avgPaceSeconds} = useRunningDataStore();
+  const { avgPaceMinutes, avgPaceSeconds } = useRunningDataStore();
 
-  const navigation = useNavigation<NavigationProp>();
-
-  const fetchTracks = async () => {
-    const loadedTracks: RunningTrack[] = await loadPaths();
-
-    const convertedTracks: Track[] = loadedTracks.map((track, index) => ({
-      id: track.id,
-      path: track.path,
-      thumbnail: null,
-      name: `러닝 기록 ${track.id}`,
-      distance: track.distance,  // ← 요 부분만 추가
-
-    }));
-
-    setTracks((prevTracks) => {
-      const existingIds = new Set(prevTracks.map((t) => t.id));
-      const newUniqueTracks = convertedTracks.filter(
-        (t) => !existingIds.has(t.id)
-      );
-      return [...prevTracks, ...newUniqueTracks];
-    });
-  };
-
-
-  // 서버에서 트랙 리스트 불러오기
 
   useEffect(() => {
     setLoading(true);
@@ -170,9 +109,8 @@ export default function TrackListScreen() {
           style={StyleSheet.absoluteFill}
           onPress={() =>
             router.push({
-              pathname: '/rankingPage',
-
-              params: { trackId: item.id, avgPaceMinutes, avgPaceSeconds,distance: item.distance?.toString() },
+              pathname: '/TrackDetailScreen',
+              params: { trackId: item.id },
 
             })
           }
@@ -182,11 +120,11 @@ export default function TrackListScreen() {
         <Text style={styles.trackNameButtonText}>
           {formatTrackIdToDateTime(item.id)}
         </Text>
-          {item.distance != null && (
-        <Text style={styles.trackMeta}>
-          거리: {(item.distance / 1000).toFixed(2)} km
-        </Text>
-      )}
+        {item.distance != null && (
+          <Text style={styles.trackMeta}>
+            거리: {(item.distance / 1000).toFixed(2)} km
+          </Text>
+        )}
       </View>
     </View>
   );
@@ -245,7 +183,7 @@ export default function TrackListScreen() {
                   style={[
                     styles.modalOption,
                     option.value === selectedSort.value &&
-                      styles.modalOptionSelected,
+                    styles.modalOptionSelected,
                   ]}
                   onPress={() => {
                     setSelectedSort(option);
@@ -256,7 +194,7 @@ export default function TrackListScreen() {
                     style={[
                       styles.modalOptionText,
                       option.value === selectedSort.value &&
-                        styles.modalOptionTextSelected,
+                      styles.modalOptionTextSelected,
                     ]}
                   >
                     {option.label}
@@ -286,7 +224,7 @@ export default function TrackListScreen() {
                   style={[
                     styles.modalOption,
                     option.value === selectedRegion.value &&
-                      styles.modalOptionSelected,
+                    styles.modalOptionSelected,
                   ]}
                   onPress={() => {
                     setSelectedRegion(option);
@@ -297,7 +235,7 @@ export default function TrackListScreen() {
                     style={[
                       styles.modalOptionText,
                       option.value === selectedRegion.value &&
-                        styles.modalOptionTextSelected,
+                      styles.modalOptionTextSelected,
                     ]}
                   >
                     {option.label}

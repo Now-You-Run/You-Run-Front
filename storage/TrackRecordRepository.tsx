@@ -1,6 +1,6 @@
 // repositories/TrackRecordRepository.ts
 
-import type { TrackListApiResponse, TrackListItem, TrackRecordApiResponse, TrackRecordData, Track } from '../types/response/RunningTrackResponse';
+import type { Track, TrackRecordApiResponse, TrackRecordData } from '../types/response/RunningTrackResponse';
 
 const SERVER_API_URL = process.env.EXPO_PUBLIC_SERVER_API_URL; // 실제 서버 주소로 변경
 
