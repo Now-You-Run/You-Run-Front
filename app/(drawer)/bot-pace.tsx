@@ -1,15 +1,16 @@
 import { usePace } from '@/context/PaceContext';
+import { saveBotPace } from '@/storage/appStorage';
 import { Picker } from '@react-native-picker/picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
+  Image,
   SafeAreaView,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  Image,
 } from 'react-native';
 
 export type RootStackParamList = {
@@ -59,7 +60,7 @@ const FacePaceScreen: React.FC<FacePaceScreenProps> = () => {
     }
   };
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     if (!trackId) {
       console.warn('trackId가 없습니다. 이전 페이지 로직을 확인하세요.');
       return;
@@ -68,7 +69,10 @@ const FacePaceScreen: React.FC<FacePaceScreenProps> = () => {
     // Context에 페이스 설정 저장
     setBotPace({ minutes, seconds });
 
-    console.log(`페이스 설정: ${minutes}분 ${seconds}초`);
+   // 추가: AsyncStorage에도 저장
+   await saveBotPace({ minutes, seconds });
+   
+   console.log(`페이스 설정: ${minutes}분 ${seconds}초`);
 
     // running-with-bot.tsx로 이동
     // 트랙 아이디 넘겨주기 + 속도 데이터 -> running-with-bot.tsx

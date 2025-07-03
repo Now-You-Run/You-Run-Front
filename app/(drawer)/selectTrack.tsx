@@ -18,8 +18,35 @@ type Track = {
   id: string;
   name: string;
   path: { latitude: number; longitude: number }[];
+
+  distance?: number;
+};
+
+// ✅ RunningTrack 타입 정의
+type RunningTrack = {
+  id: string;
+  path: { latitude: number; longitude: number }[];
+  distance?: number;
+};
+
+// ✅ RootStackParamList 타입 정의
+type RootStackParamList = {
+  TrackList: undefined;
+  TrackDetail: { trackId: string };
+  RankingPage: { trackId: string };
+};
+
+// ✅ NavigationProp 타입 적용
+type NavigationProp = NativeStackNavigationProp<
+  RootStackParamList,
+  'TrackList'
+>;
+
+// 트랙 정렬 옵션
+
   thumbnail?: string | null;
 };
+
 
 const SORT_OPTIONS = [
   { label: '최신순', value: 'latest' },
@@ -60,7 +87,33 @@ export default function TrackListScreen() {
   const [selectedRegion, setSelectedRegion] = useState(REGION_OPTIONS[0]);
   const [loading, setLoading] = useState(false);
 
+
+  const navigation = useNavigation<NavigationProp>();
+
+  const fetchTracks = async () => {
+    const loadedTracks: RunningTrack[] = await loadPaths();
+
+    const convertedTracks: Track[] = loadedTracks.map((track, index) => ({
+      id: track.id,
+      path: track.path,
+      thumbnail: null,
+      name: `러닝 기록 ${track.id}`,
+      distance: track.distance,  // ← 요 부분만 추가
+
+    }));
+
+    setTracks((prevTracks) => {
+      const existingIds = new Set(prevTracks.map((t) => t.id));
+      const newUniqueTracks = convertedTracks.filter(
+        (t) => !existingIds.has(t.id)
+      );
+      return [...prevTracks, ...newUniqueTracks];
+    });
+  };
+
+
   // 서버에서 트랙 리스트 불러오기
+
   useEffect(() => {
     setLoading(true);
     TrackRecordRepository.fetchTrackList()
@@ -114,7 +167,9 @@ export default function TrackListScreen() {
           onPress={() =>
             router.push({
               pathname: '/rankingPage',
-              params: { trackId: item.id },
+
+              params: { trackId: item.id, avgPaceMinutes, avgPaceSeconds,distance: item.distance?.toString() },
+
             })
           }
         />
@@ -123,6 +178,11 @@ export default function TrackListScreen() {
         <Text style={styles.trackNameButtonText}>
           {formatTrackIdToDateTime(item.id)}
         </Text>
+          {item.distance != null && (
+        <Text style={styles.trackMeta}>
+          거리: {(item.distance / 1000).toFixed(2)} km
+        </Text>
+      )}
       </View>
     </View>
   );
@@ -394,5 +454,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#444',
+  },
+  trackMeta: {
+    fontSize: 12,
+    color: '#333',
+    marginTop: 4,
   },
 });
