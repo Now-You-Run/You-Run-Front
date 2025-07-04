@@ -15,7 +15,6 @@ import {
   View
 } from 'react-native';
 import MapView, { Marker, Polyline, Region } from 'react-native-maps';
-import Running3DModel from '../dummy/Running3DModel'; // 3D 모델 컴포넌트 임포트
 
 // km/h = 60 / (pace_minutes + pace_seconds / 60)
 function paceToKmh(minutes: number, seconds: number): number {
@@ -164,7 +163,7 @@ export default function RunningScreen() {
   // 4) 총 거리 (meters)
   const trackDistanceMeters = trackInfo?.distanceMeters ?? 0;
 
-   const [heading, setHeading] = useState(0);
+  //  const [heading, setHeading] = useState(0);
   
   // RunningContext
   const { 
@@ -436,14 +435,14 @@ export default function RunningScreen() {
         )}
       </MapView>
 
-      {origin && (
+      {/* {origin && (
         <Running3DModel
           path={externalPath ?? path}
           origin={origin}
           heading={heading}
           botPosition={botPosition}
         />
-      )}
+      )} */}
 
       <View style={styles.overlay}>
         <Text style={styles.distance}>{liveDistanceKm.toFixed(2)} km</Text>

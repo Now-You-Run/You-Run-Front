@@ -49,7 +49,7 @@ export default function TrackDetailScreen() {
 
   // 2) 바로 bot-pace 화면으로 전환
   router.push({
-    pathname: '/bot-pace',
+    pathname: './bot-pace',
     params: { trackId },  // bot-pace 에서는 trackId만 넘기면 됩니다
   });
 

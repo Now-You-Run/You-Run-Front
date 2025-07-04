@@ -14,7 +14,7 @@ export default function ModeSelect() {
         <Pressable
           style={styles.button}
           onPress={() =>
-            router.push({ pathname: '/running', params: { mode: 'normal' } })
+            router.push({ pathname: './Running', params: { mode: 'normal' } })
           }
         >
           <Text style={styles.buttonText}>일반 모드</Text>
@@ -23,7 +23,7 @@ export default function ModeSelect() {
         <Pressable
           style={styles.button}
           onPress={() =>
-            router.push({ pathname: '/trackSetup', params: { mode: 'track' } })
+            router.push({ pathname: '/SelectTrack', params: { mode: 'track' } })
           }
         >
           <Text style={styles.buttonText}>트랙 모드</Text>

@@ -133,7 +133,7 @@ export default function RankingScreen() {
         onPress={() =>
           // bot-pace.page에 트랙 아이디, 속도 넘기기
           router.push({
-            pathname: '/bot-pace',
+            pathname: './bot-pace',
             params: {
               trackId,
               avgPaceMinutes,
