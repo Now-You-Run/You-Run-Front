@@ -1,12 +1,13 @@
 import { Section, useSectionAnnouncements } from '@/app/hooks/useSectionAnnouncements';
 import { useRunning } from '@/context/RunningContext';
-import { loadBotPace, loadLastTrack } from '@/storage/appStorage';
-import { loadPaths } from '@/storage/RunningStorage';
+//import { loadPaths } from '@/storage/RunningStorage';
+import { loadTrackInfo, TrackInfo } from '@/storage/appStorage';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -15,8 +16,6 @@ import {
 } from 'react-native';
 import MapView, { Marker, Polyline, Region } from 'react-native-maps';
 import Running3DModel from '../dummy/Running3DModel'; // 3D 모델 컴포넌트 임포트
-
-import { Alert } from 'react-native';
 
 // km/h = 60 / (pace_minutes + pace_seconds / 60)
 function paceToKmh(minutes: number, seconds: number): number {
@@ -68,14 +67,14 @@ function calculateInstantPace(speedKmh: number): string {
   return `${m}'${String(s).padStart(2,'0')}"`;
 }
 
-// 평균 페이스 계산 (1km당 시간)
-const calculatePace = (distanceKm: number, elapsedSeconds: number): string => {
-  if (!distanceKm || !elapsedSeconds) return '0\'00"';
-  const pace = elapsedSeconds / distanceKm;
-  const min = Math.floor(pace / 60);
-  const sec = Math.round(pace % 60);
-  return `${min}'${String(sec).padStart(2, '0')}"`;
-};
+// // 평균 페이스 계산 (1km당 시간)
+// const calculatePace = (distanceKm: number, elapsedSeconds: number): string => {
+//   if (!distanceKm || !elapsedSeconds) return '0\'00"';
+//   const pace = elapsedSeconds / distanceKm;
+//   const min = Math.floor(pace / 60);
+//   const sec = Math.round(pace % 60);
+//   return `${min}'${String(sec).padStart(2, '0')}"`;
+// };
 
 // 초를 MM:SS 형식으로 변환
 const formatTime = (sec: number) => {
@@ -117,74 +116,84 @@ function smoothPath(
 
 export default function RunningScreen() {
 
-  // 1) AsyncStorage에 저장된 마지막 트랙 요약과 봇 페이스 불러오기
-  const [summary, setSummary]     = useState<{ distanceMeters: number; durationSec: number } | null>(null);
-  const [storedPace, setStoredPace] = useState<{ minutes: number; seconds: number } | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      setSummary(   await loadLastTrack()   );
-      setStoredPace(await loadBotPace()     );
-    })();
-  }, []);
-
   const router = useRouter();
   const handleBackPress = () => {
     router.back();
   };
-  const { trackId, avgPaceMinutes, avgPaceSeconds } = useLocalSearchParams<{
+  const { trackId, botMin, botSec } = useLocalSearchParams<{
     trackId?: string;
-    avgPaceMinutes?: string;
-    avgPaceSeconds?: string;
+    botMin?: string;
+    botSec?: string;
   }>();
 
-  const botPace = useMemo(() => {
-    if (avgPaceMinutes && avgPaceSeconds) {
-      return {
-        minutes: parseInt(avgPaceMinutes, 10),
-        seconds: parseInt(avgPaceSeconds, 10),
-      };
+  // 1) AsyncStorage에서 저장해둔 TrackInfo 불러오기
+  const [trackInfo, setTrackInfo] = useState<TrackInfo | null>(null);
+  useEffect(() => {
+    if (trackId) {
+      loadTrackInfo(trackId).then(info => {
+        setTrackInfo(info);
+      });
     }
-    return { minutes: 0, seconds: 0 };
-  }, [avgPaceMinutes, avgPaceSeconds]);
+  }, [trackId]);
 
+  // 2) 불러온 trackInfo로 외부 경로, 시작점, 지도 영역 설정
   const [externalPath, setExternalPath] = useState<
     { latitude: number; longitude: number }[] | null
   >(null);
-  const [heading, setHeading] = useState(0);
-  const { isActive, elapsedTime, path, currentSpeed , startRunning, stopRunning, addToPath } =
-    useRunning();
-  const [origin, setOrigin] = useState<{
-    latitude: number;
-    longitude: number;
-  } | null>(null);
-  const [mapRegion, setMapRegion] = useState<Region | undefined>();
+  const [origin, setOrigin] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [mapRegion, setMapRegion] = useState<Region>();
+  useEffect(() => {
+    if (trackInfo) {
+      setExternalPath(trackInfo.path);
+      setOrigin(trackInfo.origin);
+      setMapRegion({
+        latitude: trackInfo.origin.latitude,
+        longitude: trackInfo.origin.longitude,
+        latitudeDelta: 0.005,
+        longitudeDelta: 0.005,
+      });
+    }
+  }, [trackInfo]);
 
+  // 3) 봇 페이스 계산
+   const botPace = useMemo(() => ({
+    minutes: botMin ? parseInt(botMin, 10) : 0,
+    seconds: botSec ? parseInt(botSec, 10) : 0,
+  }), [botMin, botSec]);
+
+  // 4) 총 거리 (meters)
+  const trackDistanceMeters = trackInfo?.distanceMeters ?? 0;
+
+   const [heading, setHeading] = useState(0);
+  
+  // RunningContext
+  const { 
+    isActive,
+    elapsedTime, 
+    path,
+    currentSpeed, 
+    startRunning, 
+    stopRunning, 
+  }  = useRunning();
+
+  // 실시간 이동 거리
   const liveDistanceKm = useMemo(() => calculateTotalDistance(path), [path]);
 
-  // 2) 저장된 전체 거리의 20%, 80% 지점으로 구간 정의 (meters 단위)
-  const sections: Section[] = summary ? [
-       { name: '본격 구간', endMeters: summary.distanceMeters * 0.2 },
-       { name: '마무리 구간', endMeters: summary.distanceMeters * 0.8 },
+  // 저장된 전체 거리의 20%, 80% 지점으로 구간 정의 (meters 단위)
+  const sections: Section[] = trackDistanceMeters ? [
+       { name: '본격 구간', endMeters: trackDistanceMeters * 0.2 },
+       { name: '마무리 구간', endMeters: trackDistanceMeters * 0.8 },
      ]: [];
 
-  // // 3) 100m마다 기본 안내, 구간 경계마다 구간명 안내
-  // useSectionAnnouncements(
-  //   liveDistanceKm * 1000,  // km → m 단위 실시간 거리
-  //   sections,               // 위에서 만든 구간 배열
-  //   100                     // 100m 간격 안내
-  // );
 
-  // 1) 초/km 로 환산한 순간 페이스
+  // 초/km 로 환산한 순간 페이스
   const currentPaceSec = currentSpeed > 0 ? 3600 / currentSpeed : undefined;
-  // 2) 목표 페이스 객체 (분/초)
-  const target = storedPace ?? botPace;
 
   useSectionAnnouncements(
     liveDistanceKm * 1000,  // km → m
     sections,
     100,                    // 100m 간격 안내
-    target,                 // 목표 페이스 { minutes, seconds }
+    botPace,                 // 목표 페이스 { minutes, seconds }
     currentPaceSec          // 현재 페이스 (초/km)
   );
 
@@ -202,8 +211,7 @@ export default function RunningScreen() {
   } | null>(null);
 
   // 속도 계산 (m/s)
-  const speedKmh = paceToKmh(botPace.minutes, botPace.seconds);
-  const speedMps = speedKmh / 3.6;
+  const speedMps = paceToKmh(botPace.minutes, botPace.seconds) / 3.6;
 
   // 애니메이션 상태 refs
   const animationRef = useRef<number | null>(null);
@@ -221,7 +229,7 @@ export default function RunningScreen() {
     lastTimeRef.current = null;
 
     const step = (timestamp: number) => {
-      if (lastTimeRef.current === null) {
+      if (lastTimeRef.current===null) {
         lastTimeRef.current = timestamp;
       }
       const elapsed = (timestamp - lastTimeRef.current) / 1000; // 초
@@ -266,8 +274,35 @@ export default function RunningScreen() {
     animationRef.current = requestAnimationFrame(step);
   };
 
+  // **threshold**: 시작 가능 반경 (미터)
+  const START_RADIUS_METERS = 20;
   // 시작 버튼 누르면 botRunning 시작 (기존 startRunning 대체)
-  const handleStart = () => {
+  const handleStart = async () => {
+    if(!origin){
+      Alert.alert('오류', '시작 위치 정보를 불러올 수 없습니다. ');
+      return;
+    }
+    const { coords } = await Location.getCurrentPositionAsync({});
+    const { latitude: curLat, longitude: curLon } = coords;
+
+    // 2) origin (트랙 첫 좌표) 와 비교
+    const startDistKm = haversineDistance(
+      origin.latitude,
+      origin.longitude,
+      curLat,
+      curLon
+    );
+    const startDistM = startDistKm * 1000;
+
+    if (startDistM > START_RADIUS_METERS) {
+      Alert.alert(
+        '시작 위치 오류',
+        `지정된 시작점에서 ${Math.round(startDistM)}m 떨어져 있습니다.\n` +
+        `시작점에서 ${START_RADIUS_METERS}m 이내로 이동한 뒤 다시 시도해 주세요.`
+      );
+      return;
+    }
+
     Speech.speak('러닝을 시작합니다. 웜업구간입니다. 속도를 천천히 올려주세요');
     startRunning();
     startBotRunning();
@@ -295,30 +330,6 @@ export default function RunningScreen() {
     });
 
   };
-
-  // 트랙 아이디에 따라 경로 불러오기
-  useEffect(() => {
-    if (!trackId) return;
-
-    (async () => {
-      try {
-        const savedTracks = await loadPaths();
-        const track = savedTracks.find((t) => t.id === trackId);
-        if (track) {
-          setExternalPath(track.path);
-          setOrigin(track.path[0]);
-          setMapRegion({
-            latitude: track.path[0].latitude,
-            longitude: track.path[0].longitude,
-            latitudeDelta: 0.005,
-            longitudeDelta: 0.005,
-          });
-        }
-      } catch (e) {
-        console.warn('트랙 로드 실패:', e);
-      }
-    })();
-  }, [trackId]);
 
   useEffect(() => {
     (async () => {

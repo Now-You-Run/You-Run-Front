@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const BOT_PACE_KEY   = '@bot_pace';
 export const LAST_TRACK_KEY = '@last_track_summary';
+export const TRACK_INFO_KEY = '@track_info';
 
 export interface BotPace {
   minutes: number;
@@ -13,6 +14,13 @@ export interface BotPace {
 export interface TrackSummary {
   distanceMeters: number;  // 총 이동 거리 (m 단위)
   durationSec:    number;  // 총 소요 시간 (초 단위)
+}
+
+export interface TrackInfo {
+  id: string;
+  path: { latitude: number; longitude: number }[];
+  origin: { latitude: number; longitude: number };
+  distanceMeters: number;
 }
 
 /**
@@ -59,6 +67,32 @@ export async function loadLastTrack(): Promise<TrackSummary | null> {
     return raw ? JSON.parse(raw) as TrackSummary : null;
   } catch (e) {
     console.error('마지막 달리기 요약 불러오기 실패:', e);
+    return null;
+  }
+}
+
+/**
+ * 선택한 트랙의 상세 정보를 저장
+ */
+export async function saveTrackInfo(info: TrackInfo): Promise<void> {
+  try {
+    const key = `${TRACK_INFO_KEY}${info.id}`;
+    await AsyncStorage.setItem(TRACK_INFO_KEY, JSON.stringify(info));
+  } catch (e) {
+    console.error('트랙 정보 저장 실패:', e);
+  }
+}
+
+/**
+ * 저장된 트랙 정보를 불러오기
+ */
+export async function loadTrackInfo(trackId: string): Promise<TrackInfo | null> {
+  try {
+    const key = `${TRACK_INFO_KEY}${trackId}`;
+    const raw = await AsyncStorage.getItem(TRACK_INFO_KEY);
+    return raw ? JSON.parse(raw) as TrackInfo : null;
+  } catch (e) {
+    console.error('트랙 정보 불러오기 실패:', e);
     return null;
   }
 }

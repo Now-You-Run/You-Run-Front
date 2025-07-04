@@ -1,5 +1,4 @@
 // 러닝 기능
-
 import { useRunning } from '@/context/RunningContext';
 import { savePath } from '@/storage/RunningStorage';
 import { saveLastTrack } from '@/storage/appStorage';
@@ -7,14 +6,14 @@ import { useRunningDataStore } from '@/stores/useRunningDataStore';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Modal,
+  Alert, Modal,
   Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import MapView, { Polyline, Region } from 'react-native-maps';
 
@@ -48,6 +47,10 @@ const formatTime = (totalSeconds: number) => {
 // ==================================================================
 
 export default function RunningScreen() {
+
+  // 타이머 ID 저장할 ref
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [isSavedModalVisible, setIsSavedModalVisible] = useState(false);
   const [summaryData, setSummaryData] = useState<{
     path: Coord[];
@@ -268,6 +271,35 @@ export default function RunningScreen() {
 
         {/* 버튼 행: 시작↔정지, (일시정지 후) 종료 */}
         <View style={styles.buttonRow}>
+          {/* 한 번이라도 실행 후 멈춘 상태일 때만 노출 */}
+          {(isPaused || (!isActive && elapsedTime > 0)) && (
+        <Pressable
+          style={[styles.controlButton, { backgroundColor: '#333' }]}
+          onPressIn={() => {
+            // 누르자마자 3초 타이머 시작
+            timeoutRef.current = setTimeout(() => {
+              // 3초 지나면 바로 종료
+              handleFinish();
+              // 타이머 소진 후에 null 처리
+              timeoutRef.current = null;
+            }, 3000);
+          }}
+          onPressOut={() => {
+            if (timeoutRef.current) {
+              // 3초 안에 뗀 거면 타이머 취소하고 안내
+              clearTimeout(timeoutRef.current);
+              timeoutRef.current = null;
+              Alert.alert(
+                '종료 안내',
+                '버튼을 3초간 꾹 누르고 있으면 자동으로 종료됩니다.',
+                [{ text: '알겠습니다' }]
+              );
+            }
+          }}
+        >
+          <Text style={styles.controlText}>종료</Text>
+        </Pressable>
+      )}
           <Pressable
             onPress={onMainPress}
             style={[
@@ -277,16 +309,6 @@ export default function RunningScreen() {
           >
             <Text style={styles.controlText}>{mainLabel}</Text>
           </Pressable>
-
-          {/* 한 번이라도 실행 후 멈춘 상태일 때만 노출 */}
-          {(isPaused || (!isActive && elapsedTime > 0)) && (
-            <Pressable
-              onPress={handleFinish}
-              style={[styles.controlButton, { backgroundColor: '#333' }]}
-            >
-              <Text style={styles.controlText}>종료</Text>
-            </Pressable>
-          )}
         </View>
         {/* ✅ 저장 완료 모달 */}
         <Modal
