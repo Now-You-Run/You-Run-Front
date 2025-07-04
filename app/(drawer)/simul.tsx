@@ -5,6 +5,7 @@ import { RouteProp, useRoute } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
+
 // 라우트 파라미터 타입 정의
 type RouteParams = {
   Simulation: {
@@ -14,7 +15,7 @@ type RouteParams = {
 
 const SimulationScreen = () => {
   const route = useRoute<RouteProp<RouteParams, 'Simulation'>>();
-  const trackId = route.params?.trackId || 1; // 기본값 1
+  const trackId = route.params?.trackId || 6; // 기본값 1
     // const trackId = 2
   const [track, setTrack] = useState<TrackRecordData | null>(null);
   const [loading, setLoading] = useState(false);

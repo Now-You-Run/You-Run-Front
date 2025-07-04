@@ -65,3 +65,20 @@ export const createPathTools = (coordinates: Coordinate[]): PathTools => {
     totalDistance
   };
 };
+
+const toRad = (deg: number) => (deg * Math.PI) / 180;
+const toDeg = (rad: number) => (rad * 180) / Math.PI;
+
+export const bearing = (start: Coordinate, end: Coordinate) => {
+  const lat1 = toRad(start.latitude);
+  const lat2 = toRad(end.latitude);
+  const dLon = toRad(end.longitude - start.longitude);
+
+  const y = Math.sin(dLon) * Math.cos(lat2);
+  const x =
+    Math.cos(lat1) * Math.sin(lat2) -
+    Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+
+  const brng = Math.atan2(y, x);
+  return (toDeg(brng) + 360) % 360; // 0~360도
+};

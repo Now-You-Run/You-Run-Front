@@ -1,14 +1,47 @@
+import * as Location from 'expo-location';
 import React, { useEffect, useRef, useState } from 'react';
-import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { Image, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import type { Coordinate } from '../../types/Coordinate';
-import { createPathTools } from '../../utils/PathTools';
+import { bearing, createPathTools } from '../../utils/PathTools';
 import { TrackSimulationMapProps } from './TrackSimulationMap.props';
 
 
 const TrackSimulationMap: React.FC<TrackSimulationMapProps> = ({ path }) => {
   const [currentPosition, setCurrentPosition] = useState<Coordinate | null>(null);
   const animationFrameId = useRef<number | null>(null);
+  const [userLocation, setUserLocation] = useState<Coordinate | null>(null);
+  //유저 추적
+  useEffect(() => {
+    let subscription: Location.LocationSubscription | null = null;
+
+    (async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.warn('Permission to access location was denied');
+        return;
+      }
+      subscription = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.High,
+          timeInterval: 1000, // ms
+          distanceInterval: 1, // meters
+        },
+        (location) => {
+          setUserLocation({
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          });
+        }
+      );
+    })();
+
+    return () => {
+      if (subscription) {
+        subscription.remove();
+      }
+    };
+  }, []);
 
   // 시뮬레이션 로직
   useEffect(() => {
@@ -68,8 +101,45 @@ const TrackSimulationMap: React.FC<TrackSimulationMapProps> = ({ path }) => {
         }}
       >
         <Polyline coordinates={path} strokeColor="blue" strokeWidth={4} />
+        {/* 방향 화살표 마커 추가 */}
+        {path.slice(0, -1).map((point, idx) => {
+          const next = path[idx + 1];
+          // 정확한 방향 각도 계산
+          const angleDeg = bearing(point, next) - 90;
+
+          // if (idx % 2 !== 0) return null;
+
+          return (
+            <Marker
+              key={`arrow-${idx}`}
+              coordinate={point}
+              anchor={{ x: 0.5, y: 0.5 }}
+            >
+              <Image
+                source={require('@/assets/images/arrow.png')}
+                style={{
+                  width: 24,
+                  height: 24,
+                  tintColor: 'blue',
+                  transform: [{ rotate: `${angleDeg}deg` }],
+                }}
+                resizeMode="contain"
+              />
+            </Marker>
+          );
+        })}
+
         {currentPosition && (
           <Marker coordinate={currentPosition} title="Bot" pinColor="red" />
+        )}
+        {userLocation && (
+          <Marker
+            coordinate={userLocation}
+            title="You"
+            pinColor="green"
+          // You can use a custom icon if you want:
+          // image={require('@/assets/images/runner.png')}
+          />
         )}
       </MapView>
     </SafeAreaView>
