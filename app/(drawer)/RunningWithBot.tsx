@@ -6,14 +6,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
-  Pressable,
+  Alert, Image, Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from 'react-native';
-import MapView, { Marker, Polyline, Region } from 'react-native-maps';
+import MapView, { Circle, Marker, Polyline, Region } from 'react-native-maps';
 import type { Coordinate } from '../../types/Coordinate';
 import { createPathTools } from '../../utils/PathTools';
 
@@ -36,8 +35,8 @@ const haversineDistance = (
   const a =
     Math.sin(dLat / 2) ** 2 +
     Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) ** 2;
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 };
@@ -64,7 +63,7 @@ function calculateInstantPace(speedKmh: number): string {
   const secPerKm = 3600 / speedKmh;           // 1km 당 걸리는 초
   const m = Math.floor(secPerKm / 60);
   const s = Math.round(secPerKm % 60);
-  return `${m}'${String(s).padStart(2,'0')}"`;
+  return `${m}'${String(s).padStart(2, '0')}"`;
 }
 
 // // 평균 페이스 계산 (1km당 시간)
@@ -154,35 +153,35 @@ export default function RunningScreen() {
   }, [trackInfo]);
 
   // 3) 봇 페이스 계산
-   const botPace = useMemo(() => ({
+  const botPace = useMemo(() => ({
     minutes: botMin ? parseInt(botMin, 10) : 0,
     seconds: botSec ? parseInt(botSec, 10) : 0,
   }), [botMin, botSec]);
 
   // // 4) 총 거리 (meters)
   // const trackDistanceMeters = trackInfo?.distanceMeters ?? 0;
-  
+
   // RunningContext
-  const { 
+  const {
     isActive,
-    elapsedTime, 
+    elapsedTime,
     path,
-    currentSpeed, 
-    startRunning, 
-    stopRunning, 
-  }  = useRunning();
+    currentSpeed,
+    startRunning,
+    stopRunning,
+  } = useRunning();
 
   // 실시간 통계(거리, 페이스)
   const liveDistanceKm = useMemo(() => calculateTotalDistance(path), [path]);
-  const instantPace = useMemo(() => calculateInstantPace(currentSpeed),[currentSpeed]);
+  const instantPace = useMemo(() => calculateInstantPace(currentSpeed), [currentSpeed]);
   // 초/km 로 환산한 순간 페이스
   const currentPaceSec = currentSpeed > 0 ? 3600 / currentSpeed : undefined;
-  
+
   // 저장된 전체 거리의 20%, 80% 지점으로 구간 정의 (meters 단위)
   const sections: Section[] = trackInfo ? [
-       { name: '본격 구간', endMeters: trackInfo.distanceMeters * 0.2 },
-       { name: '마무리 구간', endMeters: trackInfo.distanceMeters * 0.8 },
-     ]: [];
+    { name: '본격 구간', endMeters: trackInfo.distanceMeters * 0.2 },
+    { name: '마무리 구간', endMeters: trackInfo.distanceMeters * 0.8 },
+  ] : [];
 
   useSectionAnnouncements(
     liveDistanceKm * 1000,  // km → m
@@ -194,9 +193,17 @@ export default function RunningScreen() {
 
   // 시뮬레이션 상태 & position
   const [isSimulating, setIsSimulating] = useState(false);
-  const [currentPosition, setCurrentPosition] = useState<Coordinate | null> (null);
+  const [currentPosition, setCurrentPosition] = useState<Coordinate | null>(null);
+  const [startCoursePosition, setStartCoursePosition] = useState<Coordinate | null>(null);
+  const [endCoursePosition, setEndCoursePosition] = useState<Coordinate | null>(null);
   const animationFrameId = useRef<number | null>(null);
-  
+
+  useEffect(() => {
+    if (externalPath && externalPath.length > 0) {
+      setStartCoursePosition(externalPath[0]);
+      setEndCoursePosition(externalPath[externalPath.length - 1]);
+    }
+  }, [externalPath]);
   // simulation useEffect
   useEffect(() => {
     if (!externalPath || externalPath.length === 0) return;
@@ -205,7 +212,6 @@ export default function RunningScreen() {
     const tools = createPathTools(externalPath);
     const speedMps = paceToKmh(botPace.minutes, botPace.seconds) / 3.6; // m/s
     let startTime: number | null = null;
-
     setCurrentPosition(externalPath[0]);
     animationFrameId.current = requestAnimationFrame(function animate(ts) {
       if (!startTime) startTime = ts;
@@ -226,23 +232,23 @@ export default function RunningScreen() {
       }
     };
   }, [externalPath, botPace, isSimulating]);
-  
+
 
   // **threshold**: 시작 가능 반경 (미터)
-  const START_RADIUS_METERS = 20;
+  const START_RADIUS_METERS = 10;
   // 시작 버튼 누르면 botRunning 시작 (기존 startRunning 대체)
   const handleStart = async () => {
-    if(!origin){
-      Alert.alert('오류', '시작 위치 정보를 불러올 수 없습니다. ');
+    if (!externalPath || externalPath.length === 0) {
+      Alert.alert('오류', '트랙 경로 정보가 없습니다.');
       return;
     }
+    const startPoint = externalPath[0];
     const { coords } = await Location.getCurrentPositionAsync({});
     const { latitude: curLat, longitude: curLon } = coords;
 
-    // 2) origin (트랙 첫 좌표) 와 비교
     const startDistKm = haversineDistance(
-      origin.latitude,
-      origin.longitude,
+      startPoint.latitude,
+      startPoint.longitude,
       curLat,
       curLon
     );
@@ -260,7 +266,6 @@ export default function RunningScreen() {
     Speech.speak('러닝을 시작합니다. 웜업구간입니다. 속도를 천천히 올려주세요');
     startRunning();
     setIsSimulating(true);
-    //startBotRunning();
   };
 
   // 러닝 종료 처리
@@ -354,6 +359,33 @@ export default function RunningScreen() {
         pitchEnabled
         showsUserLocation
       >
+        {startCoursePosition && (
+          <Marker coordinate={startCoursePosition} title="Start">
+            <Image
+              source={require('@/assets/images/start-line.png')}
+              style={{ width: 40, height: 40 }}
+              resizeMode="contain"
+            />
+          </Marker>
+        )}
+        {startCoursePosition && (
+          <Circle
+            center={startCoursePosition}
+            radius={START_RADIUS_METERS}
+            strokeColor="rgba(0, 200, 0, 0.7)"  // Green border
+            fillColor="rgba(0, 200, 0, 0.2)"    // Transparent green fill
+          />
+        )}
+
+        {endCoursePosition && (
+          <Marker coordinate={endCoursePosition} title="Finish">
+            <Image
+              source={require('@/assets/images/finish-line.png')}
+              style={{ width: 40, height: 40 }}
+              resizeMode="contain"
+            />
+          </Marker>
+        )}
         {externalPath && (
           <Polyline
             coordinates={externalPath}
@@ -369,8 +401,9 @@ export default function RunningScreen() {
           strokeWidth={5}
         />
         {currentPosition && (
-        <Marker coordinate={currentPosition} title="Bot" pinColor="red" />
+          <Marker coordinate={currentPosition} title="Bot" pinColor="red" />
         )}
+
       </MapView>
 
       <View style={styles.overlay}>
@@ -381,10 +414,10 @@ export default function RunningScreen() {
           <Text style={styles.stat}>{instantPace} 페이스</Text>
         </View>
         <Pressable
-          onPress={isSimulating ?  handleStopRunning : handleStart} // 시작/종료 토글
+          onPress={isSimulating ? handleStopRunning : handleStart} // 시작/종료 토글
           style={({ pressed }) => [
             styles.runButton,
-            { backgroundColor: isSimulating ?  '#ff4d4d' :'#007aff'},
+            { backgroundColor: isSimulating ? '#ff4d4d' : '#007aff' },
             pressed && { opacity: 0.8 },
           ]}
         >
@@ -451,7 +484,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-    container: { flex: 1 },
+  container: { flex: 1 },
   map: { ...StyleSheet.absoluteFillObject },
   statusContainer: {
     flex: 1,

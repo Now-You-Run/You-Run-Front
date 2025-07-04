@@ -38,6 +38,7 @@ export default function MyRunningPath() {
 
   const handleSelectTrack = (track: RunningTrack) => {
     setSelectedTrack(track);
+    console.log(track)
     if (track.path.length > 0) {
       setRegion({
         latitude: track.path[0].latitude,
