@@ -1,6 +1,5 @@
 import { Section, useSectionAnnouncements } from '@/app/hooks/useSectionAnnouncements';
 import { useRunning } from '@/context/RunningContext';
-//import { loadPaths } from '@/storage/RunningStorage';
 import { loadTrackInfo, TrackInfo } from '@/storage/appStorage';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -15,6 +14,8 @@ import {
   View
 } from 'react-native';
 import MapView, { Marker, Polyline, Region } from 'react-native-maps';
+import type { Coordinate } from '../../types/Coordinate';
+import { createPathTools } from '../../utils/PathTools';
 
 // km/h = 60 / (pace_minutes + pace_seconds / 60)
 function paceToKmh(minutes: number, seconds: number): number {
@@ -136,10 +137,8 @@ export default function RunningScreen() {
   }, [trackId]);
 
   // 2) 불러온 trackInfo로 외부 경로, 시작점, 지도 영역 설정
-  const [externalPath, setExternalPath] = useState<
-    { latitude: number; longitude: number }[] | null
-  >(null);
-  const [origin, setOrigin] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [externalPath, setExternalPath] = useState<Coordinate[] | null>(null);
+  const [origin, setOrigin] = useState<Coordinate | null>(null);
   const [mapRegion, setMapRegion] = useState<Region>();
   useEffect(() => {
     if (trackInfo) {
@@ -160,10 +159,8 @@ export default function RunningScreen() {
     seconds: botSec ? parseInt(botSec, 10) : 0,
   }), [botMin, botSec]);
 
-  // 4) 총 거리 (meters)
-  const trackDistanceMeters = trackInfo?.distanceMeters ?? 0;
-
-  //  const [heading, setHeading] = useState(0);
+  // // 4) 총 거리 (meters)
+  // const trackDistanceMeters = trackInfo?.distanceMeters ?? 0;
   
   // RunningContext
   const { 
@@ -175,18 +172,17 @@ export default function RunningScreen() {
     stopRunning, 
   }  = useRunning();
 
-  // 실시간 이동 거리
+  // 실시간 통계(거리, 페이스)
   const liveDistanceKm = useMemo(() => calculateTotalDistance(path), [path]);
-
-  // 저장된 전체 거리의 20%, 80% 지점으로 구간 정의 (meters 단위)
-  const sections: Section[] = trackDistanceMeters ? [
-       { name: '본격 구간', endMeters: trackDistanceMeters * 0.2 },
-       { name: '마무리 구간', endMeters: trackDistanceMeters * 0.8 },
-     ]: [];
-
-
+  const instantPace = useMemo(() => calculateInstantPace(currentSpeed),[currentSpeed]);
   // 초/km 로 환산한 순간 페이스
   const currentPaceSec = currentSpeed > 0 ? 3600 / currentSpeed : undefined;
+  
+  // 저장된 전체 거리의 20%, 80% 지점으로 구간 정의 (meters 단위)
+  const sections: Section[] = trackInfo ? [
+       { name: '본격 구간', endMeters: trackInfo.distanceMeters * 0.2 },
+       { name: '마무리 구간', endMeters: trackInfo.distanceMeters * 0.8 },
+     ]: [];
 
   useSectionAnnouncements(
     liveDistanceKm * 1000,  // km → m
@@ -196,82 +192,41 @@ export default function RunningScreen() {
     currentPaceSec          // 현재 페이스 (초/km)
   );
 
+  // 시뮬레이션 상태 & position
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [currentPosition, setCurrentPosition] = useState<Coordinate | null> (null);
+  const animationFrameId = useRef<number | null>(null);
+  
+  // simulation useEffect
+  useEffect(() => {
+    if (!externalPath || externalPath.length === 0) return;
+    if (!isSimulating) return;
 
-  // 순간 페이스
-  const instantPace = useMemo(
-    () => calculateInstantPace(currentSpeed),
-    [currentSpeed]
-  );
+    const tools = createPathTools(externalPath);
+    const speedMps = paceToKmh(botPace.minutes, botPace.seconds) / 3.6; // m/s
+    let startTime: number | null = null;
 
-  // Bot 러닝 위치 상태
-  const [botPosition, setBotPosition] = useState<{
-    latitude: number;
-    longitude: number;
-  } | null>(null);
+    setCurrentPosition(externalPath[0]);
+    animationFrameId.current = requestAnimationFrame(function animate(ts) {
+      if (!startTime) startTime = ts;
+      const elapsedSec = (ts - startTime) / 1000;
+      const dist = elapsedSec * speedMps;
 
-  // 속도 계산 (m/s)
-  const speedMps = paceToKmh(botPace.minutes, botPace.seconds) / 3.6;
-
-  // 애니메이션 상태 refs
-  const animationRef = useRef<number | null>(null);
-  const indexRef = useRef(0);
-  const lastTimeRef = useRef<number | null>(null);
-
-  // 자동 경로 이동 함수
-  const startBotRunning = () => {
-    if (!externalPath || externalPath.length < 2) {
-      Alert.alert('경로가 충분하지 않습니다.');
-      return;
-    }
-
-    indexRef.current = 0;
-    lastTimeRef.current = null;
-
-    const step = (timestamp: number) => {
-      if (lastTimeRef.current===null) {
-        lastTimeRef.current = timestamp;
-      }
-      const elapsed = (timestamp - lastTimeRef.current) / 1000; // 초
-      lastTimeRef.current = timestamp;
-
-      const nextIndex = indexRef.current + 1;
-      if (nextIndex >= externalPath.length) {
-        cancelAnimationFrame(animationRef.current!);
-        animationRef.current = null;
+      if (dist >= tools.totalDistance) {
+        setCurrentPosition(tools.getCoordinateAt(tools.totalDistance));
         return;
       }
+      setCurrentPosition(tools.getCoordinateAt(dist));
+      animationFrameId.current = requestAnimationFrame(animate);
+    });
 
-      const current = externalPath[indexRef.current];
-      const next = externalPath[nextIndex];
-
-      const distance =
-        haversineDistance(
-          current.latitude,
-          current.longitude,
-          next.latitude,
-          next.longitude
-        ) * 1000; // m
-
-      const travel = speedMps * elapsed;
-
-      if (travel >= distance) {
-        indexRef.current = nextIndex;
-        setBotPosition(next);
-      } else {
-        const ratio = travel / distance;
-        setBotPosition({
-          latitude:
-            current.latitude + (next.latitude - current.latitude) * ratio,
-          longitude:
-            current.longitude + (next.longitude - current.longitude) * ratio,
-        });
+    return () => {
+      if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current);
       }
-
-      animationRef.current = requestAnimationFrame(step);
     };
-
-    animationRef.current = requestAnimationFrame(step);
-  };
+  }, [externalPath, botPace, isSimulating]);
+  
 
   // **threshold**: 시작 가능 반경 (미터)
   const START_RADIUS_METERS = 20;
@@ -304,17 +259,15 @@ export default function RunningScreen() {
 
     Speech.speak('러닝을 시작합니다. 웜업구간입니다. 속도를 천천히 올려주세요');
     startRunning();
-    startBotRunning();
+    setIsSimulating(true);
+    //startBotRunning();
   };
 
   // 러닝 종료 처리
   const handleStopRunning = async () => {
     Speech.speak('러닝을 종료합니다.');
     stopRunning();
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
-      animationRef.current = null;
-    }
+    setIsSimulating(false);
 
     // summary에 필요한 최소 데이터
     const summaryData = {
@@ -415,34 +368,10 @@ export default function RunningScreen() {
           strokeColor="#007aff"
           strokeWidth={5}
         />
-        {botPosition && (
-          <Marker coordinate={botPosition} anchor={{ x: 0.5, y: 0.5 }} flat>
-            <View
-              style={{
-                width: 0,
-                height: 0,
-                borderLeftWidth: 20,
-                borderRightWidth: 20,
-                borderBottomWidth: 30,
-                borderStyle: 'solid',
-                borderLeftColor: 'transparent',
-                borderRightColor: 'transparent',
-                borderBottomColor: 'rgba(0, 122, 255, 0.6)',
-                transform: [{ rotate: `0rad` }],
-              }}
-            />
-          </Marker>
+        {currentPosition && (
+        <Marker coordinate={currentPosition} title="Bot" pinColor="red" />
         )}
       </MapView>
-
-      {/* {origin && (
-        <Running3DModel
-          path={externalPath ?? path}
-          origin={origin}
-          heading={heading}
-          botPosition={botPosition}
-        />
-      )} */}
 
       <View style={styles.overlay}>
         <Text style={styles.distance}>{liveDistanceKm.toFixed(2)} km</Text>
@@ -452,15 +381,15 @@ export default function RunningScreen() {
           <Text style={styles.stat}>{instantPace} 페이스</Text>
         </View>
         <Pressable
-          onPress={!botPosition ? handleStart : handleStopRunning} // 시작/종료 토글
+          onPress={isSimulating ?  handleStopRunning : handleStart} // 시작/종료 토글
           style={({ pressed }) => [
             styles.runButton,
-            { backgroundColor: !botPosition ? '#007aff' : '#ff4d4d' },
+            { backgroundColor: isSimulating ?  '#ff4d4d' :'#007aff'},
             pressed && { opacity: 0.8 },
           ]}
         >
           <Text style={styles.runButtonText}>
-            {!botPosition ? '시작' : '정지'}
+            {!isSimulating ? '시작' : '종료'}
           </Text>
         </Pressable>
       </View>
@@ -521,5 +450,18 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+    container: { flex: 1 },
+  map: { ...StyleSheet.absoluteFillObject },
+  statusContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  statusText: {
+    marginTop: 20,
+    fontSize: 16,
+    color: '#333'
   },
 });
