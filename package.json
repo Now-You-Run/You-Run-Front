@@ -29,7 +29,7 @@
     "expo-haptics": "~14.1.4",
     "expo-image": "~2.3.0",
     "expo-linear-gradient": "~14.1.5",
-    "expo-linking": "~7.1.5",
+    "expo-linking": "~7.1.7",
     "expo-location": "~18.1.5",
     "expo-router": "~5.1.0",
     "expo-sensors": "~14.1.4",
@@ -54,7 +54,7 @@
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.11.1",
     "react-native-web": "~0.20.0",
-    "react-native-webview": "13.13.5",
+    "react-native-webview": "^13.13.5",
     "read-pkg-up": "^10.1.0",
     "three": "^0.166.1",
     "zustand": "^5.0.6"
