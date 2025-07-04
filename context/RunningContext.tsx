@@ -61,6 +61,7 @@ interface RunningState {
   resumeRunning: () => void;
   resetRunning: () => void;
   addToPath: (coords: Coord) => void;
+  addStartPointIfNeeded: () => Promise<void>;
 }
 
 const RunningContext = createContext<RunningState | undefined>(undefined);
@@ -210,6 +211,24 @@ export const RunningProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const addStartPointIfNeeded = async () => {
+  if (path.length === 0) {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      alert('위치 권한이 필요합니다.');
+      return;
+    }
+    const loc = await Location.getCurrentPositionAsync();
+    const startCoord = {
+      latitude: loc.coords.latitude,
+      longitude: loc.coords.longitude,
+    };
+    setPath([startCoord]);
+    lastCoordRef.current = startCoord; // Important: update lastCoordRef too!
+  }
+};
+
+
   // 경로에 좌표 추가 함수 (내부에서 사용)
   const addToPath = (coords: Coord) => {
     setPath((prev) => [...prev, coords]);
@@ -255,6 +274,7 @@ export const RunningProvider: React.FC<{ children: React.ReactNode }> = ({
         path,
         addToPath,
         currentSpeed,
+        addStartPointIfNeeded, 
         totalDistance,
         startRunning,
         stopRunning,
@@ -266,6 +286,8 @@ export const RunningProvider: React.FC<{ children: React.ReactNode }> = ({
     </RunningContext.Provider>
   );
 };
+
+
 
 export const useRunning = () => {
   const context = useContext(RunningContext);

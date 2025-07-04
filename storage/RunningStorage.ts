@@ -1,51 +1,20 @@
-// 트랙 경로 저장
-
+import { Track } from '@/types/response/RunningTrackResponse';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-const PATH_KEY = '@running_paths'; // 저장 Key
+const PATH_KEY = '@running_paths'; // Storage key
 
-/**
- * 러닝 트랙 타입
- */
-export interface RunningTrack {
-  id: string; // 고유 ID (Date.now().toString())
-  date: string; // '2025-06-29 19:32'
-  distance?: number; // 선택: 거리 (meters)
-  duration?: number; // 선택: 소요시간 (seconds)
-  path: { latitude: number; longitude: number }[];
-}
-
-/**
- * 러닝 트랙 저장
- */
-export async function savePath(
-  path: { latitude: number; longitude: number }[],
-  distance?: number,
-  duration?: number
-) {
+export async function savePath(track: Track) {
   try {
     const jsonValue = await AsyncStorage.getItem(PATH_KEY);
-    const tracks: RunningTrack[] = jsonValue ? JSON.parse(jsonValue) : [];
-
-    const now = new Date();
-    const track: RunningTrack = {
-      id: now.getTime().toString(),
-      date: now.toISOString(),
-      distance,
-      duration,
-      path,
-    };
-
-    tracks.unshift(track); // 최신 기록을 스택처럼 맨 앞에 추가
-
+    const tracks: Track[] = jsonValue ? JSON.parse(jsonValue) : [];
+    tracks.unshift(track);
     await AsyncStorage.setItem(PATH_KEY, JSON.stringify(tracks));
-    console.log('경로 스택 저장 완료');
+    console.log('Track saved!');
   } catch (e) {
-    console.error('경로 저장 실패:', e);
+    console.error('Failed to save track:', e);
   }
 }
 
-// 모든 경로를 저장하는 함수
-export async function saveAllPaths(tracks: RunningTrack[]) {
+export async function saveAllPaths(tracks: Track[]) {
   try {
     await AsyncStorage.setItem(PATH_KEY, JSON.stringify(tracks));
   } catch (e) {
@@ -53,10 +22,7 @@ export async function saveAllPaths(tracks: RunningTrack[]) {
   }
 }
 
-/**
- * 저장된 러닝 트랙 전체 불러오기
- */
-export async function loadPaths(): Promise<RunningTrack[]> {
+export async function loadPaths(): Promise<Track[]> {
   try {
     const jsonValue = await AsyncStorage.getItem(PATH_KEY);
     if (jsonValue != null) {
@@ -78,12 +44,8 @@ export async function loadPaths(): Promise<RunningTrack[]> {
   }
 }
 
-/**
- * 저장된 모든 러닝 트랙 삭제
- */
-// RunningStorage.ts
 export async function deletePath(id: string): Promise<void> {
   const all = await loadPaths();
   const filtered = all.filter((item) => item.id !== id);
-  await saveAllPaths(filtered); // 전체 목록을 통째로 저장
+  await saveAllPaths(filtered);
 }

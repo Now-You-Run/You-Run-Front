@@ -1,4 +1,4 @@
-import TrackSimulationMap from '@/components/simul/TrackSimutionMap';
+import TrackSimulationMap from '@/components/running/simul/TrackSimutionMap';
 import { TrackRecordRepository } from '@/storage/TrackRecordRepository';
 import { TrackRecordData } from "@/types/response/RunningTrackResponse";
 import { RouteProp, useRoute } from '@react-navigation/native';
