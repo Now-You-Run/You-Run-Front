@@ -26,6 +26,18 @@ export default function SummaryScreen() {
   const { data } = useLocalSearchParams<{ data: string }>();
   const { path, totalDistance, elapsedTime } = JSON.parse(data);
 
+  if (!Array.isArray(path) || path.length === 0 || typeof path[0]?.latitude !== 'number') {
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>Finish</Text>
+      <Text style={{ color: 'red', marginTop: 40 }}>경로 데이터가 올바르지 않습니다.</Text>
+      <Pressable style={styles.homeButton} onPress={() => router.replace('/')}>
+        <Text style={styles.homeIcon}>🏠</Text>
+      </Pressable>
+    </View>
+  );
+}
+
   // 화면 크기 기반으로 지도 크기 계산
   const { width } = Dimensions.get('window');
   const mapSize = width * 0.9;
@@ -41,24 +53,6 @@ export default function SummaryScreen() {
   const pace = calculateAveragePace(totalDistance, elapsedTime);
   // (칼로리는 따로 계산 로직을 넣으셔도 되고, 우선 예시로 고정)
   const calories = Math.round(totalDistance * 60);
-
-  // useEffect(() => {
-  //   const save = async () => {
-  //     const track: RunningTrackStoreRequest = {
-  //       userId: 1,
-  //       date: new Date().toString(),
-  //       distance: totalDistance,
-  //       path: path,
-  //     };
-  //     const success = await RunningTrackRepository.saveTrack(track);
-  //     if (success) {
-  //       console.log('Track saved successfully!');
-  //     } else {
-  //       console.log('Track save failed!');
-  //     }
-  //   };
-  //   save();
-  // }, []); // 의존성 배열이 빈 배열이므로 최초 1회만 실행
 
 
   return (

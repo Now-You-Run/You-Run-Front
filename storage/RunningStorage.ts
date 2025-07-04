@@ -2,31 +2,15 @@ import { Track } from '@/types/response/RunningTrackResponse';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 const PATH_KEY = '@running_paths'; // Storage key
 
-export async function savePath(
-  path: { latitude: number; longitude: number }[],
-  distance?: number,
-  duration?: number
-) {
+export async function savePath(track: Track) {
   try {
     const jsonValue = await AsyncStorage.getItem(PATH_KEY);
     const tracks: Track[] = jsonValue ? JSON.parse(jsonValue) : [];
-
-    const now = new Date();
-    const track: Track = {
-      name: `로컬${now.toISOString()}`, // <-- FIXED
-      id: now.getTime().toString(),
-      date: now.toISOString(),
-      distance,
-      duration,
-      path,
-    };
-
-    tracks.unshift(track); // Add newest at the front
-
+    tracks.unshift(track);
     await AsyncStorage.setItem(PATH_KEY, JSON.stringify(tracks));
-    console.log('경로 스택 저장 완료');
+    console.log('Track saved!');
   } catch (e) {
-    console.error('경로 저장 실패:', e);
+    console.error('Failed to save track:', e);
   }
 }
 
