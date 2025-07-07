@@ -22,7 +22,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.yourun",
-      config : {
+      config: {
         googleMapsApiKey: EXPO_PUBLIC_GOOGLE_MAP_API_KEY
       }
     },
@@ -33,7 +33,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       },
       config: {
         googleMaps: {
-          apiKey : EXPO_PUBLIC_GOOGLE_MAP_API_KEY
+          apiKey: EXPO_PUBLIC_GOOGLE_MAP_API_KEY
         }
       },
       edgeToEdgeEnabled: true,
@@ -68,7 +68,22 @@ export default ({ config }: ConfigContext): ExpoConfig => {
             newArchEnabled: true
           }
         }
-      ],
+      ], [
+        "expo-sqlite",
+        {
+          enableFTS: true,
+          useSQLCipher: true,
+          android: {
+            // Override the shared configuration for Android
+            enableFTS: false,
+            useSQLCipher: false
+          },
+          ios: {
+            // You can also override the shared configurations for iOS
+            customBuildFlags: ["-DSQLITE_ENABLE_DBSTAT_VTAB=1 -DSQLITE_ENABLE_SNAPSHOT=1"]
+          }
+        }
+      ]
     ],
     experiments: {
       typedRoutes: true
