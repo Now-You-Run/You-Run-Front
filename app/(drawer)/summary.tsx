@@ -33,7 +33,7 @@ export default function SummaryScreen() {
   const totalDistance = parsed.totalDistance;
   const elapsedTime   = parsed.elapsedTime;
 
-  if (!Array.isArray(path) || path.length === 0 || typeof path[0]?.latitude !== 'number') {
+  if (!Array.isArray(userPath) || userPath.length === 0 || typeof userPath[0]?.latitude !== 'number') {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Finish</Text>

@@ -1,17 +1,18 @@
 // app/(drawer)/MyPage.tsx
 
-import { loadPaths, RunningTrack } from '@/storage/RunningStorage';
+import { loadPaths } from '@/storage/RunningStorage';
+import type { Track as RunningTrack } from '@/types/response/RunningTrackResponse';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { isAfter, parseISO, subDays } from 'date-fns';
 import React, { useEffect, useState } from 'react';
 import {
-    Dimensions,
-    FlatList,
-    Pressable,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    View,
+  Dimensions,
+  FlatList,
+  Pressable,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 
 type Stat = { label: string; value: string };
