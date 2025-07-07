@@ -66,15 +66,6 @@ function calculateInstantPace(speedKmh: number): string {
   return `${m}'${String(s).padStart(2, '0')}"`;
 }
 
-// // 평균 페이스 계산 (1km당 시간)
-// const calculatePace = (distanceKm: number, elapsedSeconds: number): string => {
-//   if (!distanceKm || !elapsedSeconds) return '0\'00"';
-//   const pace = elapsedSeconds / distanceKm;
-//   const min = Math.floor(pace / 60);
-//   const sec = Math.round(pace % 60);
-//   return `${min}'${String(sec).padStart(2, '0')}"`;
-// };
-
 // 초를 MM:SS 형식으로 변환
 const formatTime = (sec: number) => {
   const m = Math.floor(sec / 60);
@@ -125,6 +116,12 @@ export default function RunningScreen() {
     botSec?: string;
   }>();
 
+  const mapRef = useRef<MapView>(null);
+
+  // 경로이탈을 위한 컴포넌트
+  const OFFCOURSE_THRESHOLD_M = 20;   // 코스 이탈 기준 거리 (10m)
+  const offCourseRef = useRef(false); // 안내 중복 방지 
+
   // 1) AsyncStorage에서 저장해둔 TrackInfo 불러오기
   const [trackInfo, setTrackInfo] = useState<TrackInfo | null>(null);
   useEffect(() => {
@@ -169,6 +166,7 @@ export default function RunningScreen() {
     currentSpeed,
     startRunning,
     stopRunning,
+    resetRunning,
   } = useRunning();
 
   // 실시간 통계(거리, 페이스)
@@ -183,27 +181,45 @@ export default function RunningScreen() {
     { name: '마무리 구간', endMeters: trackInfo.distanceMeters * 0.8 },
   ] : [];
 
-  useSectionAnnouncements(
-    liveDistanceKm * 1000,  // km → m
-    sections,
-    100,                    // 100m 간격 안내
-    botPace,                 // 목표 페이스 { minutes, seconds }
-    currentPaceSec          // 현재 페이스 (초/km)
-  );
-
   // 시뮬레이션 상태 & position
   const [isSimulating, setIsSimulating] = useState(false);
   const [currentPosition, setCurrentPosition] = useState<Coordinate | null>(null);
   const [startCoursePosition, setStartCoursePosition] = useState<Coordinate | null>(null);
   const [endCoursePosition, setEndCoursePosition] = useState<Coordinate | null>(null);
   const animationFrameId = useRef<number | null>(null);
+  
+  // 봇(currentPosition)↔사용자(path 마지막) 거리 (km)
+  const botDistanceKm = useMemo(() => {
+    if (!currentPosition || path.length === 0) return 0;
+    const userPos = path[path.length - 1];
+    return haversineDistance(
+      currentPosition.latitude,
+      currentPosition.longitude,
+      userPos.latitude,
+      userPos.longitude
+    );
+  }, [currentPosition, path]);
+
+  useSectionAnnouncements(
+    liveDistanceKm * 1000,  // km → m
+    sections,
+    100,                    // 100m 간격 안내
+    botPace,                // 목표 페이스 { minutes, seconds }
+    currentPaceSec,         // 현재 페이스 (초/km)
+    botDistanceKm * 1000    // 봇과의 거리(m)
+  );
+
+
 
   useEffect(() => {
     if (externalPath && externalPath.length > 0) {
       setStartCoursePosition(externalPath[0]);
       setEndCoursePosition(externalPath[externalPath.length - 1]);
+      setCurrentPosition(externalPath[0])
     }
   }, [externalPath]);
+
+
   // simulation useEffect
   useEffect(() => {
     if (!externalPath || externalPath.length === 0) return;
@@ -212,6 +228,7 @@ export default function RunningScreen() {
     const tools = createPathTools(externalPath);
     const speedMps = paceToKmh(botPace.minutes, botPace.seconds) / 3.6; // m/s
     let startTime: number | null = null;
+
     setCurrentPosition(externalPath[0]);
     animationFrameId.current = requestAnimationFrame(function animate(ts) {
       if (!startTime) startTime = ts;
@@ -219,7 +236,13 @@ export default function RunningScreen() {
       const dist = elapsedSec * speedMps;
 
       if (dist >= tools.totalDistance) {
+        // ② 끝 지점에서 한번 더 설정
         setCurrentPosition(tools.getCoordinateAt(tools.totalDistance));
+        // ③ 남아있는 애니메이션 프레임 취소
+        if (animationFrameId.current) {
+          cancelAnimationFrame(animationFrameId.current);
+          animationFrameId.current = null;
+        }
         return;
       }
       setCurrentPosition(tools.getCoordinateAt(dist));
@@ -229,10 +252,40 @@ export default function RunningScreen() {
     return () => {
       if (animationFrameId.current) {
         cancelAnimationFrame(animationFrameId.current);
+        animationFrameId.current = null;
       }
     };
   }, [externalPath, botPace, isSimulating]);
 
+
+  // 실제 사용자가 달리는 경로(path)와 설계된 코스(externalPath)를 비교해서
+  // 이탈 여부를 음성으로 안내합니다.
+  useEffect(() => {
+    if (!externalPath?.length || !path.length) return;
+
+    // 최신 사용자 위치
+    const userPos = path[path.length - 1];
+    // 코스 상의 모든 점과의 최소 거리 계산
+    let minDistM = Infinity;
+    for (const p of externalPath) {
+      const dKm = haversineDistance(
+        p.latitude, p.longitude,
+        userPos.latitude, userPos.longitude
+      );
+      minDistM = Math.min(minDistM, dKm * 1000);
+    }
+
+    // 이탈 감지
+    if (minDistM > OFFCOURSE_THRESHOLD_M && !offCourseRef.current) {
+      Speech.speak('트랙을 이탈했습니다. 복귀해주세요.');
+      offCourseRef.current = true;
+    }
+    // 복귀 감지
+    else if (minDistM <= OFFCOURSE_THRESHOLD_M && offCourseRef.current) {
+      Speech.speak('트랙으로 돌아왔습니다.');
+      offCourseRef.current = false;
+    }
+  }, [path, externalPath]);
 
   // **threshold**: 시작 가능 반경 (미터)
   const START_RADIUS_METERS = 10;
@@ -271,12 +324,27 @@ export default function RunningScreen() {
   // 러닝 종료 처리
   const handleStopRunning = async () => {
     Speech.speak('러닝을 종료합니다.');
+
+    // ① animationFrame 취소
+    if (animationFrameId.current) {
+      cancelAnimationFrame(animationFrameId.current);
+      animationFrameId.current = null;
+    }
+
+    // ② RunningContext 클린업
     stopRunning();
+    resetRunning();
+    
+    // ③ 로컬 상태 클린업
     setIsSimulating(false);
+    setCurrentPosition(null);
+    offCourseRef.current = false;       // 이탈 알림 초기화
+  
 
     // summary에 필요한 최소 데이터
     const summaryData = {
-      path: externalPath ?? path,
+      trackPath: externalPath ?? [],  // 트랙 경로
+      userPath: path,                 // 유저가 실제로 뛴 경로
       totalDistance: liveDistanceKm,  // km
       elapsedTime,                    // sec
     };
@@ -319,6 +387,7 @@ export default function RunningScreen() {
       });
     }
   }, [path]);
+
   if (!origin) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -345,6 +414,7 @@ export default function RunningScreen() {
         </TouchableOpacity>
       </View>
       <MapView
+        ref={mapRef}
         style={StyleSheet.absoluteFill}
         initialRegion={{
           latitude: origin.latitude,
@@ -352,7 +422,7 @@ export default function RunningScreen() {
           latitudeDelta: 0.01,
           longitudeDelta: 0.01,
         }}
-        region={mapRegion}
+        //region={mapRegion}
         zoomEnabled
         scrollEnabled
         rotateEnabled
@@ -407,6 +477,13 @@ export default function RunningScreen() {
       </MapView>
 
       <View style={styles.overlay}>
+        {/* ——— 봇과의 거리 표시 추가 ——— */}
+        <View style={styles.botDistanceRow}>
+          <Text style={styles.botDistanceLabel}>봇과의 거리</Text>
+          <Text style={styles.botDistanceValue}>
+          {(botDistanceKm * 1000).toFixed(0)} m
+          </Text>
+        </View>
         <Text style={styles.distance}>{liveDistanceKm.toFixed(2)} km</Text>
         <View style={styles.statsContainer}>
           <Text style={styles.stat}>{currentSpeed.toFixed(1)} km/h</Text>
@@ -496,5 +573,20 @@ const styles = StyleSheet.create({
     marginTop: 20,
     fontSize: 16,
     color: '#333'
+  },
+  botDistanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  botDistanceLabel: {
+    fontSize: 16,
+    color: '#333',
+    marginRight: 6,
+  },
+  botDistanceValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#007aff',
   },
 });

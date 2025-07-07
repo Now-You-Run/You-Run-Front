@@ -24,6 +24,7 @@ export function useSectionAnnouncements(
   announceInterval: number = 100,
   targetPace?: Pace,
   currentPaceSec?: number,
+  botDistanceMeters?: number,
 ) {
   // 마지막 안내된 구간/거리 기억
   const lastSectionIndexRef = useRef<number>(-1);
@@ -53,8 +54,18 @@ export function useSectionAnnouncements(
     // 기본 100m 안내
     const count = Math.floor(liveMeters / announceInterval);
     if (count > lastBasicCountRef.current) {
-      Speech.speak(`${count * announceInterval}미터 지점입니다.`);
+      const meterPoint = count * announceInterval;
+      if (botDistanceMeters != null) {
+        // 봇과의 거리 안내 포함
+        Speech.speak(
+          `${meterPoint}미터 지점입니다. 봇과의 거리는 ${
+            Math.round(botDistanceMeters)
+          }미터입니다.`
+        );
+      } else {
+        Speech.speak(`${meterPoint}미터 지점입니다.`);
+      }
       lastBasicCountRef.current = count;
     }
-  }, [liveMeters, sections, announceInterval, targetPace, currentPaceSec]);
+  }, [liveMeters, sections, announceInterval, targetPace, currentPaceSec, botDistanceMeters]);
 }

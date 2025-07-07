@@ -24,7 +24,14 @@ const calculateAveragePace = (km: number, sec: number): string => {
 export default function SummaryScreen() {
   const router = useRouter();
   const { data } = useLocalSearchParams<{ data: string }>();
-  const { path, totalDistance, elapsedTime } = JSON.parse(data);
+  const parsed = JSON.parse(data);
+
+  // 트랙 모드에서 넘긴 경우엔 parsed.trackPath / parsed.userPath
+  // 자유 모드에서 넘긴 경우엔 parsed.path
+  const trackPath = parsed.trackPath ?? [];
+  const userPath  = parsed.userPath  ?? parsed.path ?? [];
+  const totalDistance = parsed.totalDistance;
+  const elapsedTime   = parsed.elapsedTime;
 
   // 화면 크기 기반으로 지도 크기 계산
   const { width } = Dimensions.get('window');
@@ -68,16 +75,25 @@ export default function SummaryScreen() {
       <MapView
         style={{ width: mapSize, height: mapSize, borderRadius: 10 }}
         initialRegion={{
-          latitude: path[0].latitude,
-          longitude: path[0].longitude,
+          latitude: trackPath[0]?.latitude ?? userPath[0]?.latitude,
+          longitude: trackPath[0]?.longitude ?? userPath[0]?.longitude,
           latitudeDelta: 0.01,
           longitudeDelta: 0.01,
         }}
       >
+        {/* 1) 설계된 트랙 */}
         <Polyline
-          coordinates={path as LatLng[]}
-          strokeColor="#ff4d4d"
+          coordinates={trackPath as LatLng[]}
+          strokeColor="rgba(255,0,0,0.5)"
           strokeWidth={4}
+          lineDashPattern={[5,5]}
+        />
+
+        {/* 2) 실제 달린 사용자 경로 */}
+        <Polyline
+          coordinates={userPath as LatLng[]}
+          strokeColor="#007aff"
+          strokeWidth={5}
         />
       </MapView>
 
