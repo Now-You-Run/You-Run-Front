@@ -206,6 +206,9 @@ export default function HomeScreen() {
       </TouchableOpacity>
     </TouchableOpacity>
   );
+  useEffect(() => {
+    
+  })
 
   useEffect(() => {
     if (fontsLoaded) {

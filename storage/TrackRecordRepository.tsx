@@ -75,4 +75,41 @@ export class TrackRecordRepository {
       return [];
     }
   }
+
+  static async fetchPaginatedTrackListOrderByClose(
+  userLon: number,
+  userLat: number,
+  page: number,
+  size: number
+): Promise<{ tracks: Track[]; totalPages: number; totalElements: number }> {
+  try {
+    const response = await fetch(
+      `${SERVER_API_URL}/api/track/list/order/close?userLon=${userLon}&userLat=${userLat}&page=${page}&size=${size}`,
+      { method: 'GET', headers: { 'Content-Type': 'application/json' } }
+    );
+    if (!response.ok) {
+      console.error('Paginated track list fetch failed:', response.status, await response.text());
+      return { tracks: [], totalPages: 0, totalElements: 0 };
+    }
+    const json = await response.json();
+    if (
+      json &&
+      json.statuscode === '200' &&
+      json.data &&
+      Array.isArray(json.data.tracks)
+    ) {
+      return {
+        tracks: json.data.tracks,
+        totalPages: json.data.totalPages,
+        totalElements: json.data.totalElements,
+      };
+    } else {
+      console.error('Invalid paginated track list response structure:', json);
+      return { tracks: [], totalPages: 0, totalElements: 0 };
+    }
+  } catch (error) {
+    console.error('Error fetching paginated track list:', error);
+    return { tracks: [], totalPages: 0, totalElements: 0 };
+  }
+}
 }

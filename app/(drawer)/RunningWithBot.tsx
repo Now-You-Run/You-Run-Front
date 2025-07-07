@@ -1,4 +1,4 @@
-import { Section, useSectionAnnouncements } from '@/app/hooks/useSectionAnnouncements';
+import { Section, useSectionAnnouncements } from '@/hooks/useSectionAnnouncements';
 import { useRunning } from '@/context/RunningContext';
 import { loadTrackInfo, TrackInfo } from '@/storage/appStorage';
 import * as Location from 'expo-location';
@@ -13,8 +13,9 @@ import {
   View
 } from 'react-native';
 import MapView, { Circle, Marker, Polyline, Region } from 'react-native-maps';
-import type { Coordinate } from '../../types/Coordinate';
+import type { Coordinate, LocalTrack } from '../../types/LocalTrackDto';
 import { createPathTools } from '../../utils/PathTools';
+import { LocalTrackRepository } from '@/storage/LocalTrackRepository';
 
 // km/h = 60 / (pace_minutes + pace_seconds / 60)
 function paceToKmh(minutes: number, seconds: number): number {
@@ -350,7 +351,7 @@ export default function RunningScreen() {
     };
 
     router.replace({
-      pathname: '/Summary',
+      pathname: '/summary',
       params: { data: JSON.stringify(summaryData) },
     });
 
@@ -363,6 +364,7 @@ export default function RunningScreen() {
         console.warn('위치 권한이 거부되었습니다.');
         return;
       }
+      
 
       const location = await Location.getCurrentPositionAsync({});
       const { latitude, longitude } = location.coords;
