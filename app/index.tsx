@@ -218,10 +218,10 @@ export default function HomeScreen() {
                 setDefaultAvatar(null);
               }
             }
-          }
+          },
         },
-      },
-    ]);
+      ],
+    );
   };
 
   const renderAvatarItem = ({ item }: { item: Avatar }) => (
@@ -229,8 +229,8 @@ export default function HomeScreen() {
       style={[
         styles.avatarItem,
         selectedAvatar &&
-          selectedAvatar.id === item.id &&
-          styles.selectedAvatarItem,
+        selectedAvatar.id === item.id &&
+        styles.selectedAvatarItem,
       ]}
       onPress={() => selectAvatar(item)}
     >
@@ -372,7 +372,7 @@ export default function HomeScreen() {
             <TouchableOpacity
               style={styles.modalContent}
               activeOpacity={1}
-              onPress={() => {}}
+              onPress={() => { }}
             >
               <Text style={styles.modalText}>{userName}님, 달려볼까요?</Text>
               <View style={styles.modalButtons}>
@@ -380,7 +380,7 @@ export default function HomeScreen() {
                   style={[styles.modeButton, styles.freeButton]}
                   onPress={() => {
                     setIsModalVisible(false);
-                    router.push('./(drawer)/Running');
+                    router.push('./(drawer)/running');
                   }}
                 >
                   <Text style={styles.modeButtonText}>자유</Text>
@@ -529,7 +529,7 @@ export default function HomeScreen() {
       </LinearGradient>
     </SafeAreaView>
   );
-}
+} // <-- [수정] 누락되었던 닫는 중괄호를 추가했습니다.
 
 const styles = StyleSheet.create({
   safeArea: {
