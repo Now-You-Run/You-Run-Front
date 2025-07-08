@@ -420,7 +420,7 @@ export default function RunningScreen() {
     };
 
     router.replace({
-      pathname: '/summary',
+      pathname: '/Summary',
       params: { data: JSON.stringify(summaryData) },
     });
 
@@ -450,7 +450,7 @@ export default function RunningScreen() {
 
     if (distM <= FINISH_RADIUS_M && runLengthM >= TrackLengthM - 10) {
       hasFinishedRef.current = true;
-      Speech.speak('완주를 축하합니다! 러닝을 종료합니다.');
+      Speech.speak('완주를 축하합니다!');
       // 봇 애니메이션, 러닝 기록 모두 종료
       handleStopRunning();
     }
@@ -488,6 +488,24 @@ export default function RunningScreen() {
       });
     }
   }, [path]);
+
+   // ① 자동 포커스 토글 상태
+  const [isFollowing, setIsFollowing] = useState(true);
+
+  // ② 지도 터치 시 포커스 토글
+  const handleMapPress = () => {
+    if (isFollowing) {
+      // 자유 이동 모드로
+      setIsFollowing(false);
+    } else {
+      // 다시 사용자 위치로 포커스
+      setIsFollowing(true);
+      if (mapRef.current && mapRegion) {
+        mapRef.current.animateToRegion(mapRegion, 500);
+      }
+    }
+  };
+
 
   useEffect(() => {
     // 이 Effect는 화면이 처음 나타날 때 한 번만 실행됩니다.
@@ -536,6 +554,8 @@ export default function RunningScreen() {
           latitudeDelta: 0.01,
           longitudeDelta: 0.01,
         }}
+        followsUserLocation={isFollowing}  
+        onPress={handleMapPress}
         //region={mapRegion}
         zoomEnabled
         scrollEnabled

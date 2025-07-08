@@ -245,7 +245,10 @@ export default function SummaryScreen() {
             <View style={styles.modalButtonContainer}>
               <Pressable
                 style={[styles.modalButton, { backgroundColor: '#ccc' }]}
-                onPress={() => setModalType(null)}
+                onPress={() => {
+                  setModalType(null);
+                  router.replace('/');
+                }}
               >
                 <Text style={styles.modalButtonText}>취소</Text>
               </Pressable>
