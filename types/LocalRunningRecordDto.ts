@@ -1,6 +1,7 @@
 export interface RunningRecord {
   id: number;
   /** 사용자가 지정한 기록의 이름 (옵션) */
+  trackId: number;
   name?: string;
   /** 달리기 경로 좌표 배열의 JSON 문자열 */
   path: string;

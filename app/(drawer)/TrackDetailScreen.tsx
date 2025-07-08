@@ -1,5 +1,6 @@
 import { useRepositories } from '@/context/RepositoryContext';
 import { saveTrackInfo, TrackInfo } from '@/repositories/appStorage';
+import { RunningRecord } from '@/types/LocalRunningRecordDto'; // [1. 추가] 로컬 기록 타입을 가져옵니다.
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -14,14 +15,16 @@ interface DisplayableTrackDetail {
   path: { latitude: number; longitude: number }[];
   distance: number;
   rate?: number;
-  ranking?: { username: string; duration: number }[];
+  // [수정] 서버 랭킹과 로컬 랭킹의 타입을 모두 포함할 수 있도록 유니온 타입 사용
+  ranking?: ({ username: string; duration: number } | RunningRecord)[];
 }
 
 export default function TrackDetailScreen() {
   const router = useRouter();
   const { trackId, source } = useLocalSearchParams<{ trackId: string; source: SourceType }>();
-  
-  const { localTrackRepository, trackRecordRepository } = useRepositories();
+
+  // [2. 수정] localRunningRecordRepository도 가져옵니다.
+  const { localTrackRepository, trackRecordRepository, localRunningRecordRepository } = useRepositories();
 
   const [track, setTrack] = useState<DisplayableTrackDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -36,13 +39,11 @@ export default function TrackDetailScreen() {
       setIsLoading(true);
       try {
         let fetchedData: DisplayableTrackDetail | null = null;
-        
+
         if (source === 'server' && trackRecordRepository) {
           const serverData = await trackRecordRepository.fetchTrackRecord(trackId);
           if (serverData) {
             fetchedData = {
-              // [핵심 수정] 존재하지 않는 trackInfoDto.id 대신,
-              // 이미 알고 있는 trackId를 직접 사용합니다.
               id: trackId,
               name: serverData.trackInfoDto.name,
               path: serverData.trackInfoDto.path,
@@ -51,8 +52,12 @@ export default function TrackDetailScreen() {
               ranking: serverData.trackRecordDto,
             };
           }
-        } else if (source === 'local' && localTrackRepository) {
+        } else if (source === 'local' && localTrackRepository && localRunningRecordRepository) {
+          // [3. 핵심 수정] 로컬 트랙 상세 정보와 함께, 해당 트랙의 러닝 기록(랭킹)도 불러옵니다.
           const localData = await localTrackRepository.readById(parseInt(trackId, 10));
+          // `readByTrackId`는 LocalRunningRecordRepository에 구현되어 있어야 합니다.
+          const rankingsData = await localRunningRecordRepository.readByTrackId(parseInt(trackId, 10));
+
           if (localData) {
             fetchedData = {
               id: localData.id.toString(),
@@ -60,7 +65,8 @@ export default function TrackDetailScreen() {
               path: JSON.parse(localData.path || '[]'),
               distance: localData.totalDistance,
               rate: localData.rate,
-              ranking: [],
+              // 불러온 랭킹 데이터를 할당합니다.
+              ranking: rankingsData || [],
             };
           }
         }
@@ -73,7 +79,7 @@ export default function TrackDetailScreen() {
     };
 
     loadData();
-  }, [trackId, source, localTrackRepository, trackRecordRepository]);
+  }, [trackId, source, localTrackRepository, trackRecordRepository, localRunningRecordRepository]);
 
   if (isLoading) {
     return <View style={styles.centerContainer}><ActivityIndicator size="large" /></View>;
@@ -81,7 +87,7 @@ export default function TrackDetailScreen() {
   if (!track) {
     return <View style={styles.centerContainer}><Text>트랙 정보를 불러올 수 없습니다.</Text></View>;
   }
-  
+
   return (
     <SafeAreaView style={styles.container}>
       <MapView
@@ -95,19 +101,21 @@ export default function TrackDetailScreen() {
       >
         <Polyline coordinates={track.path} strokeWidth={4} strokeColor="#4a90e2" />
       </MapView>
-      
+
       <View style={styles.content}>
         <Text style={styles.title}>{track.name}</Text>
         <Text>총 거리: {(track.distance / 1000).toFixed(2)} km</Text>
         {track.rate != null && <Text>평점: {track.rate}</Text>}
       </View>
-      
+
       <View style={styles.content}>
         <Text style={styles.subtitle}>랭킹</Text>
+        {/* [4. 수정] `ranking` 배열의 타입이 다르므로, 타입 가드를 사용하여 안전하게 렌더링합니다. */}
         {track.ranking && track.ranking.length > 0 ? (
           track.ranking.map((record, idx) => (
             <View key={idx} style={styles.rankItem}>
-              <Text>{record.username}</Text>
+              {/* 서버 기록은 `username`, 로컬 기록은 `name` 속성을 가질 수 있으므로, 둘 다 확인합니다. */}
+              <Text>{'username' in record ? record.username : record.name || '나의 기록'}</Text>
               <Text>{Math.floor(record.duration / 60)}분 {record.duration % 60}초</Text>
             </View>
           ))
@@ -115,11 +123,22 @@ export default function TrackDetailScreen() {
           <Text>기록이 없습니다.</Text>
         )}
       </View>
-      
+
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.botButton}
           onPress={async () => {
+            const firstCoordinate = track.path?.[0];
+            const isPathValid =
+              firstCoordinate &&
+              typeof firstCoordinate.latitude === 'number' &&
+              typeof firstCoordinate.longitude === 'number';
+
+            if (!isPathValid) {
+              console.error("경로 정보가 비어있거나 유효하지 않아 대결을 시작할 수 없습니다.");
+              alert("유효한 경로 데이터가 없어 대결을 시작할 수 없습니다.");
+              return; // 함수 실행을 여기서 중단
+            }
             const info: TrackInfo = {
               id: track.id,
               path: track.path,
