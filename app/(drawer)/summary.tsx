@@ -1,6 +1,7 @@
 import { useRepositories } from '@/context/RepositoryContext';
 import { CreateRunningRecordDto } from '@/types/LocalRunningRecordDto';
 import { CreateTrackDto } from '@/types/LocalTrackDto';
+import { SaveRecordDto } from '@/types/ServerRecordDto';
 import { calculateAveragePace, formatDateTime, formatTime } from '@/utils/RunningUtils';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -21,7 +22,7 @@ export default function SummaryScreen() {
   const router = useRouter();
   const { data } = useLocalSearchParams<{ data: string }>();
 
-  const { addTrack, addRunningRecord } = useRepositories();
+  const { addTrack, addRunningRecord, trackRecordRepository } = useRepositories();
 
   // --- 상태 관리 ---
   const [modalType, setModalType] = useState<'saveNewTrack' | 'confirmSaveRecord' | null>(null);
@@ -42,35 +43,72 @@ export default function SummaryScreen() {
   const elapsedTime = parsed.elapsedTime;
   const trackId = parsed.trackId; // 트랙 모드일 때만 존재
   const isTrackMode = !!trackId; // 현재 모드를 명확히 하는 변수
+  const source = parsed.source; // 서버인지 로컬인지
 
   // 트랙 모드 전용 핸들러 (기록만 저장)
   const handleSaveRecordOnly = async () => {
     setIsSaving(true);
     try {
-      const newRecord: CreateRunningRecordDto = {
-        trackId: parseInt(trackId, 10),
-        name: `${formatDateTime(new Date())} 기록`,
-        path: JSON.stringify(userPath),
-        distance: Math.round(totalDistance * 1000),
-        duration: elapsedTime,
-        avgPace: 0,
-        calories: Math.round(totalDistance * 60),
-        startedAt: new Date(Date.now() - elapsedTime * 1000).toISOString(),
-        endedAt: new Date().toISOString(),
-      };
-      await addRunningRecord(newRecord);
-      setModalType(null);
-      Alert.alert('저장 완료', '러닝 기록이 저장되었습니다.', [
-        { text: '확인', onPress: () => router.replace('/') },
-      ]);
+      if (source === 'server') {
+        // --- 시나리오 1: 서버 트랙 기록을 서버에 전송 ---
+        if (!trackRecordRepository) {
+          Alert.alert("오류", "서버 통신 모듈을 찾을 수 없습니다.");
+          setIsSaving(false);
+          return;
+        }
+
+        const now = new Date();
+        const startedAt = new Date(now.getTime() - elapsedTime * 1000);
+
+        // 서버 API 형태에 맞는 DTO 객체 생성
+        const newServerRecord: SaveRecordDto = {
+          mode: 'BOT',
+          trackId: parseInt(trackId, 10),
+          opponentId: 0, // 봇과의 대결이므로 0 또는 다른 약속된 ID
+          isWinner: true, // 승리 여부 로직 (예: 봇보다 빨리 들어왔는지)
+          averagePace: parseFloat(calculateAveragePace(totalDistance, elapsedTime).replace("'", ".")), // "m'ss" -> m.ss 형태의 숫자로 변환
+          distance: Math.round(totalDistance * 1000), // km -> m 단위로 변환
+          startedAt: startedAt.toISOString(),
+          finishedAt: now.toISOString(),
+        };
+
+        const success = await trackRecordRepository.saveRunningRecord(newServerRecord);
+
+        if (success) {
+          setModalType(null);
+          Alert.alert('기록 전송 완료', '서버에 러닝 기록이 저장되었습니다.', [
+            { text: '확인', onPress: () => router.replace('/') },
+          ]);
+        } else {
+          Alert.alert('전송 실패', '서버에 기록을 저장하는 데 실패했습니다. 다시 시도해주세요.');
+        }
+
+      } else {
+        // --- 시나리오 2: 로컬 트랙 기록을 로컬 DB에 저장 (기존 로직) ---
+        const newLocalRecord: CreateRunningRecordDto = {
+          trackId: parseInt(trackId, 10),
+          name: `${formatDateTime(new Date())} 기록`,
+          path: JSON.stringify(userPath),
+          distance: Math.round(totalDistance * 1000),
+          duration: elapsedTime,
+          avgPace: parseFloat(calculateAveragePace(totalDistance, elapsedTime).replace("'", ".")),
+          calories: Math.round(totalDistance * 60),
+          startedAt: new Date(Date.now() - elapsedTime * 1000).toISOString(),
+          endedAt: new Date().toISOString(),
+        };
+        await addRunningRecord(newLocalRecord);
+        setModalType(null);
+        Alert.alert('저장 완료', '러닝 기록이 저장되었습니다.', [
+          { text: '확인', onPress: () => router.replace('/') },
+        ]);
+      }
     } catch (error) {
-      console.error('기록 저장 중 오류:', error);
-      Alert.alert('오류', '기록을 저장하는 데 실패했습니다.');
+      console.error('기록 저장/전송 중 오류:', error);
+      Alert.alert('오류', '데이터를 처리하는 중 문제가 발생했습니다.');
     } finally {
       setIsSaving(false);
     }
   };
-
   // 자유 모드 전용 핸들러 (트랙과 기록 모두 저장)
   const handleSaveNewTrackAndRecord = async () => {
     if (newTrackName.trim() === '') {

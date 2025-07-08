@@ -6,7 +6,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Polyline } from 'react-native-maps';
 
-type SourceType = 'local' | 'server';
+export type SourceType = 'local' | 'server';
 
 // 화면 표시에 사용할 통일된 데이터 구조 정의
 interface DisplayableTrackDetail {
@@ -68,6 +68,7 @@ export default function TrackDetailScreen() {
               // 불러온 랭킹 데이터를 할당합니다.
               ranking: rankingsData || [],
             };
+            console.log(`track data ${localData.path}`)
           }
         }
         setTrack(fetchedData);
@@ -76,6 +77,7 @@ export default function TrackDetailScreen() {
       } finally {
         setIsLoading(false);
       }
+      
     };
 
     loadData();
@@ -146,7 +148,7 @@ export default function TrackDetailScreen() {
               distanceMeters: track.distance,
             };
             await saveTrackInfo(info);
-            router.push({ pathname: './bot-pace', params: { trackId: track.id } });
+            router.push({ pathname: './bot-pace', params: { trackId: track.id , source: source,} });
           }}
         >
           <Text style={styles.botButtonText}>코칭 봇과의 대결</Text>

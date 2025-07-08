@@ -15,6 +15,7 @@ import {
 import MapView, { Circle, Marker, Polyline, Region } from 'react-native-maps';
 import type { Coordinate } from '../../types/LocalTrackDto';
 import { createPathTools } from '../../utils/PathTools';
+import { SourceType } from './TrackDetailScreen';
 
 // km/h = 60 / (pace_minutes + pace_seconds / 60)
 function paceToKmh(minutes: number, seconds: number): number {
@@ -129,10 +130,11 @@ export default function RunningScreen() {
       ]
     );
   };
-  const { trackId, botMin, botSec } = useLocalSearchParams<{
+  const { trackId, botMin, botSec, source } = useLocalSearchParams<{
     trackId?: string;
     botMin?: string;
     botSec?: string;
+    source: SourceType;
   }>();
 
   const mapRef = useRef<MapView>(null);
@@ -226,8 +228,8 @@ export default function RunningScreen() {
   }, [currentPosition, path]);
 
   useSectionAnnouncements(
-    liveDistanceKm * 1000,  // km → m
-    sections,
+     isActive ? liveDistanceKm * 1000 : 0,  // km → m
+    isActive ? sections : [],
     100,                    // 100m 간격 안내
     botPace,                // 목표 페이스 { minutes, seconds }
     currentPaceSec,         // 현재 페이스 (초/km)
@@ -351,6 +353,7 @@ export default function RunningScreen() {
 
   // **threshold**: 시작 가능 반경 (미터)
   const START_RADIUS_METERS = 10;
+  const FINISH_RADIUS_METERS = 10;
   // 시작 버튼 누르면 botRunning 시작 (기존 startRunning 대체)
   const handleStart = async () => {
 
@@ -412,6 +415,7 @@ export default function RunningScreen() {
       userPath: path,                 // 유저가 실제로 뛴 경로
       totalDistance: liveDistanceKm,  // km
       elapsedTime,                    // sec
+      source: source, //서버인지 로컬인지
       trackId: trackId
     };
 
@@ -548,13 +552,26 @@ export default function RunningScreen() {
             />
           </Marker>
         )}
-        {startCoursePosition && (
-          <Circle
-            center={startCoursePosition}
-            radius={START_RADIUS_METERS}
-            strokeColor="rgba(0, 200, 0, 0.7)"  // Green border
-            fillColor="rgba(0, 200, 0, 0.2)"    // Transparent green fill
-          />
+        {!isSimulating ? (
+          // --- 러닝 시작 전: 시작 지점에 초록색 원 표시 ---
+          startCoursePosition && (
+            <Circle
+              center={startCoursePosition}
+              radius={START_RADIUS_METERS}
+              strokeColor="rgba(0, 200, 0, 0.7)"
+              fillColor="rgba(0, 200, 0, 0.2)"
+            />
+          )
+        ) : (
+          // --- 러닝 시작 후: 도착 지점에 빨간색 원 표시 ---
+          endCoursePosition && (
+            <Circle
+              center={endCoursePosition}
+              radius={FINISH_RADIUS_METERS}
+              strokeColor="rgba(255, 0, 0, 0.7)" // 빨간색 테두리
+              fillColor="rgba(255, 0, 0, 0.2)"   // 투명한 빨간색 채우기
+            />
+          )
         )}
 
         {endCoursePosition && (
