@@ -1,5 +1,5 @@
 // screens/RankingScreen.tsx
-import { loadPaths } from '@/storage/RunningStorage';
+import { loadPaths } from '@/repositories/RunningStorage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {

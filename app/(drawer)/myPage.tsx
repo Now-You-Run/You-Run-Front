@@ -1,6 +1,6 @@
 // app/(drawer)/MyPage.tsx
 
-import { loadPaths } from '@/storage/RunningStorage';
+import { loadPaths } from '@/repositories/RunningStorage';
 import type { Track as RunningTrack } from '@/types/response/RunningTrackResponse';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { isAfter, parseISO, subDays } from 'date-fns';

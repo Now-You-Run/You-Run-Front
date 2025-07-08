@@ -1,7 +1,7 @@
 // /screens/RunningScreen.tsx
 
+import { useRepositories } from '@/context/RepositoryContext';
 import { useRunning } from '@/context/RunningContext';
-import { LocalTrackRepository } from '@/storage/LocalTrackRepository';
 import { CreateTrackDto } from '@/types/LocalTrackDto';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -48,7 +48,8 @@ const formatTime = (totalSeconds: number) => {
 
 export default function RunningScreen() {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [repo, setRepo] = useState<LocalTrackRepository | null>(null);
+  const { addTrack } = useRepositories();
+
   const [trackName, setTrackName] = useState('');
   const [isSaveModalVisible, setIsSaveModalVisible] = useState(false);
   const [summaryData, setSummaryData] = useState<{
@@ -57,18 +58,11 @@ export default function RunningScreen() {
     elapsedTime: number;
   } | null>(null);
 
+
   const router = useRouter();
 
-  useEffect(() => {
-    async function setupRepo() {
-      const repository = await LocalTrackRepository.getInstance();
-      setRepo(repository);
-    }
-    setupRepo();
-  }, []);
-
   const handleSaveTrack = async () => {
-    if (!repo || !summaryData) {
+    if (!summaryData) {
       Alert.alert('오류', '데이터를 저장할 준비가 되지 않았습니다.');
       return;
     }
@@ -88,18 +82,15 @@ export default function RunningScreen() {
     };
 
     try {
-      const result = await repo.create(newTrackForDb);
-      if (result && result.lastInsertRowId) {
-        console.log(`기록 저장 성공! ID: ${result.lastInsertRowId}`);
-        setIsSaveModalVisible(false);
-        setTrackName('');
-        router.replace({
-          pathname: '/Summary',
-          params: { data: JSON.stringify(summaryData) },
-        });
-      } else {
-        Alert.alert('저장 실패', '기록을 데이터베이스에 저장하지 못했습니다.');
-      }
+      await addTrack(newTrackForDb);
+      console.log(`기록 저장 성공! ID: ${newTrackForDb.name}`);
+      setIsSaveModalVisible(false);
+      setTrackName('');
+      router.replace({
+        pathname: '/Summary',
+        params: { data: JSON.stringify(summaryData) },
+      });
+
     } catch (error) {
       console.error('트랙 저장 중 오류 발생:', error);
       Alert.alert('오류', '데이터를 저장하는 중 문제가 발생했습니다.');
@@ -320,7 +311,7 @@ export default function RunningScreen() {
             <Text style={styles.controlText}>{mainLabel}</Text>
           </Pressable>
         </View>
-        
+
         {/* 저장 확인 모달 */}
         <Modal
           transparent

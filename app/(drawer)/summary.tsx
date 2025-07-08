@@ -1,25 +1,10 @@
 // 러닝 요약
 
+import { calculateAveragePace, formatTime } from '@/utils/RunningUtils';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { LatLng, Polyline } from 'react-native-maps';
-
-// 시간(mm:ss) 포맷 - 재사용할 헬퍼들 (복붙 혹은 별도 utils 파일로 분리)
-const formatTime = (sec: number) => {
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-};
-
-// 평균 페이스(분'초") 계산
-const calculateAveragePace = (km: number, sec: number): string => {
-  if (km < 0.01 || sec === 0) return `0'00"`;
-  const paceSec = sec / km;
-  const m = Math.floor(paceSec / 60);
-  const s = Math.round(paceSec % 60);
-  return `${m}'${String(s).padStart(2, '0')}"`;
-};
 
 export default function SummaryScreen() {
   const router = useRouter();

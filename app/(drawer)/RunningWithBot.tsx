@@ -1,6 +1,6 @@
 import { useRunning } from '@/context/RunningContext';
 import { Section, useSectionAnnouncements } from '@/hooks/useSectionAnnouncements';
-import { loadTrackInfo, TrackInfo } from '@/storage/appStorage';
+import { loadTrackInfo, TrackInfo } from '@/repositories/appStorage';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';

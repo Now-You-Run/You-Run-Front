@@ -1,7 +1,7 @@
 import CustomDrawer from '@/components/CustomDrawer'; // 사용자 정의 Drawer 컴포넌트
-import { DatabaseProvider } from '@/context/DatabaseContext';
 import { DrawerProvider, useDrawer } from '@/context/DrawerContext'; // 사용자 정의 Drawer Context
 import { PaceProvider } from '@/context/PaceContext';
+import { RepositoryProvider } from '@/context/RepositoryContext';
 import { RunningProvider } from '@/context/RunningContext';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native'; // React Navigation 테마
 import { useFonts } from 'expo-font'; // 커스텀 폰트 로드를 위한 Expo 훅
@@ -35,7 +35,7 @@ export default function RootLayout() {
   }
 
   return (
-    <DatabaseProvider>
+    <RepositoryProvider>
       <RunningProvider>
         <DrawerProvider>
           <PaceProvider>
@@ -46,7 +46,7 @@ export default function RootLayout() {
           </PaceProvider>
         </DrawerProvider>
       </RunningProvider>
-    </DatabaseProvider>
+    </RepositoryProvider>
 
   );
 }

@@ -1,5 +1,4 @@
 import CharacterSection from '@/components/CharacterSection';
-import CustomDrawer from '@/components/CustomDrawer';
 import FloatingActionButton from '@/components/FloatingActionButton';
 import ProfileIcons from '@/components/ProfileIcons';
 import { useDrawer } from '@/context/DrawerContext';
@@ -16,21 +15,22 @@ import * as SplashScreen from 'expo-splash-screen';
 import LottieView from 'lottie-react-native';
 import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
   Modal,
   SafeAreaView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
-  Alert,
-  Image,
-  FlatList,
-  ActivityIndicator
+  View
 } from 'react-native';
 
 // ReadyPlayerMe 관련 imports
 import AvatarCreator from '@/components/ReadyPlayerMe/AvatarCreator';
 import OutfitChanger from '@/components/ReadyPlayerMe/OutfitChanger';
+import { AuthAsyncStorage } from '@/repositories/AuthAsyncStorage';
 import { AvatarService } from '@/services/AvatarService';
 
 // Splash screen for font loading
@@ -90,6 +90,11 @@ export default function HomeScreen() {
     'Karantina-Bold': require('@/assets/fonts/Karantina-Bold.ttf'),
   });
 
+  useEffect(() => {
+    console.log('화면이 처음 나타났습니다!');
+    AuthAsyncStorage.saveUserId(1);
+
+  }, []);
   // Weather update logic
   const updateWeather = async () => {
     const { weatherMain, currentHour } = await getWeatherData();
@@ -126,7 +131,7 @@ export default function HomeScreen() {
 
   const handleAvatarCreated = async (avatarData: Avatar) => {
     console.log('새 아바타 생성됨:', avatarData);
-    
+
     await loadAvatars();
     setSelectedAvatar(avatarData);
     setDefaultAvatar(avatarData);
@@ -134,7 +139,7 @@ export default function HomeScreen() {
 
   const handleOutfitChanged = (outfitData: any) => {
     console.log('옷 변경됨:', outfitData);
-    
+
     if (selectedAvatar && selectedAvatar.id === outfitData.avatarId) {
       setSelectedAvatar({
         ...selectedAvatar,
@@ -162,7 +167,7 @@ export default function HomeScreen() {
             const success = await AvatarService.deleteAvatar(avatarId);
             if (success) {
               await loadAvatars();
-              
+
               if (selectedAvatar && selectedAvatar.id === avatarId) {
                 setSelectedAvatar(null);
                 setDefaultAvatar(null);
@@ -207,7 +212,7 @@ export default function HomeScreen() {
     </TouchableOpacity>
   );
   useEffect(() => {
-    
+
   })
 
   useEffect(() => {
@@ -253,7 +258,7 @@ export default function HomeScreen() {
 
         {/* Avatar quick access */}
         {defaultAvatar && (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.avatarQuickAccess}
             onPress={() => setShowAvatarManager(true)}
           >
@@ -283,7 +288,7 @@ export default function HomeScreen() {
               >
                 <Text style={styles.avatarButtonText}>아바타 생성</Text>
               </TouchableOpacity>
-              
+
               {selectedAvatar && (
                 <TouchableOpacity
                   style={styles.avatarButton}
@@ -293,7 +298,7 @@ export default function HomeScreen() {
                 </TouchableOpacity>
               )}
             </View>
-            
+
             {/* Run button */}
             <TouchableOpacity
               style={styles.runButton}
@@ -327,7 +332,7 @@ export default function HomeScreen() {
                   style={[styles.modeButton, styles.freeButton]}
                   onPress={() => {
                     setIsModalVisible(false);
-                    router.push('./(drawer)/Running');
+                    router.push('./(drawer)/running');
                   }}
                 >
                   <Text style={styles.modeButtonText}>자유</Text>
@@ -451,7 +456,7 @@ export default function HomeScreen() {
                 <Text style={styles.outfitChangerTitle}>옷 갈아입히기</Text>
                 <View style={styles.placeholder} />
               </View>
-              
+
               <OutfitChanger
                 avatarId={selectedAvatar.id}
                 onOutfitChanged={handleOutfitChanged}
