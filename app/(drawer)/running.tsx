@@ -94,7 +94,7 @@ export default function RunningScreen() {
         setIsSaveModalVisible(false);
         setTrackName('');
         router.replace({
-          pathname: '/summary',
+          pathname: '/Summary',
           params: { data: JSON.stringify(summaryData) },
         });
       } else {
@@ -351,7 +351,7 @@ export default function RunningScreen() {
                     setTrackName('');
                     if (summaryData) {
                       router.replace({
-                        pathname: '/summary',
+                        pathname: '/Summary',
                         params: { data: JSON.stringify(summaryData) },
                       });
                     }

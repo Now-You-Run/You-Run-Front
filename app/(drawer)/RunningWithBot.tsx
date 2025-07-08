@@ -1,5 +1,5 @@
-import { Section, useSectionAnnouncements } from '@/hooks/useSectionAnnouncements';
 import { useRunning } from '@/context/RunningContext';
+import { Section, useSectionAnnouncements } from '@/hooks/useSectionAnnouncements';
 import { loadTrackInfo, TrackInfo } from '@/storage/appStorage';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -13,9 +13,8 @@ import {
   View
 } from 'react-native';
 import MapView, { Circle, Marker, Polyline, Region } from 'react-native-maps';
-import type { Coordinate, LocalTrack } from '../../types/LocalTrackDto';
+import type { Coordinate } from '../../types/LocalTrackDto';
 import { createPathTools } from '../../utils/PathTools';
-import { LocalTrackRepository } from '@/storage/LocalTrackRepository';
 
 // km/h = 60 / (pace_minutes + pace_seconds / 60)
 function paceToKmh(minutes: number, seconds: number): number {
@@ -394,7 +393,7 @@ export default function RunningScreen() {
     };
 
     router.replace({
-      pathname: '/summary',
+      pathname: '/Summary',
       params: { data: JSON.stringify(summaryData) },
     });
 
