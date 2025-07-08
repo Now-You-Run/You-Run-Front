@@ -1,5 +1,4 @@
 import CharacterSection from '@/components/CharacterSection';
-import CustomDrawer from '@/components/CustomDrawer';
 import FloatingActionButton from '@/components/FloatingActionButton';
 import ProfileIcons from '@/components/ProfileIcons';
 import { useDrawer } from '@/context/DrawerContext';
@@ -7,7 +6,7 @@ import {
   getTimeBasedColors,
   getWeatherAnimationKey,
   getWeatherData,
-  WeatherAnimationKey
+  WeatherAnimationKey,
 } from '@/utils/WeatherUtils';
 import { useFonts } from 'expo-font';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,16 +15,16 @@ import * as SplashScreen from 'expo-splash-screen';
 import LottieView from 'lottie-react-native';
 import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
   Modal,
   SafeAreaView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  Alert,
-  Image,
-  FlatList,
-  ActivityIndicator
 } from 'react-native';
 
 // ReadyPlayerMe 관련 imports
@@ -56,18 +55,63 @@ export default function HomeScreen() {
   };
 
   const animationStyleObjects: Record<WeatherAnimationKey, object> = {
-    rain: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 5, pointerEvents: 'none' },
-    snow: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 5, pointerEvents: 'none' },
-    cloud: { position: 'absolute', top: 0, left: 0, right: 0, height: '40%', zIndex: 5, pointerEvents: 'none' },
-    sunny: { position: 'absolute', top: 50, left: 20, width: 120, height: 120, zIndex: 5, pointerEvents: 'none' },
-    moon: { position: 'absolute', top: 40, left: 10, width: 140, height: 140, zIndex: 5, pointerEvents: 'none' },
+    rain: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: 5,
+      pointerEvents: 'none',
+    },
+    snow: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: 5,
+      pointerEvents: 'none',
+    },
+    cloud: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      height: '40%',
+      zIndex: 5,
+      pointerEvents: 'none',
+    },
+    sunny: {
+      position: 'absolute',
+      top: 50,
+      left: 20,
+      width: 120,
+      height: 120,
+      zIndex: 5,
+      pointerEvents: 'none',
+    },
+    moon: {
+      position: 'absolute',
+      top: 40,
+      left: 10,
+      width: 140,
+      height: 140,
+      zIndex: 5,
+      pointerEvents: 'none',
+    },
   };
 
   // Original state
-  const [backgroundColors, setBackgroundColors] = useState<[string, string, string]>(['#E8E4F3', '#F8F9FA', '#FFFFFF']);
+  const [backgroundColors, setBackgroundColors] = useState<
+    [string, string, string]
+  >(['#E8E4F3', '#F8F9FA', '#FFFFFF']);
   const [currentWeather, setCurrentWeather] = useState('Clear');
-  const [animationKey, setAnimationKey] = useState<WeatherAnimationKey>('sunny');
-  const [weatherAnimation, setWeatherAnimation] = useState(animationSources.sunny);
+  const [animationKey, setAnimationKey] =
+    useState<WeatherAnimationKey>('sunny');
+  const [weatherAnimation, setWeatherAnimation] = useState(
+    animationSources.sunny
+  );
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [userName] = useState('나롱이');
 
@@ -126,7 +170,7 @@ export default function HomeScreen() {
 
   const handleAvatarCreated = async (avatarData: Avatar) => {
     console.log('새 아바타 생성됨:', avatarData);
-    
+
     await loadAvatars();
     setSelectedAvatar(avatarData);
     setDefaultAvatar(avatarData);
@@ -134,11 +178,11 @@ export default function HomeScreen() {
 
   const handleOutfitChanged = (outfitData: any) => {
     console.log('옷 변경됨:', outfitData);
-    
+
     if (selectedAvatar && selectedAvatar.id === outfitData.avatarId) {
       setSelectedAvatar({
         ...selectedAvatar,
-        updatedAt: outfitData.updatedAt
+        updatedAt: outfitData.updatedAt,
       });
     }
   };
@@ -150,35 +194,33 @@ export default function HomeScreen() {
   };
 
   const deleteAvatar = async (avatarId: string) => {
-    Alert.alert(
-      '아바타 삭제',
-      '정말로 이 아바타를 삭제하시겠습니까?',
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '삭제',
-          style: 'destructive',
-          onPress: async () => {
-            const success = await AvatarService.deleteAvatar(avatarId);
-            if (success) {
-              await loadAvatars();
-              
-              if (selectedAvatar && selectedAvatar.id === avatarId) {
-                setSelectedAvatar(null);
-                setDefaultAvatar(null);
-              }
+    Alert.alert('아바타 삭제', '정말로 이 아바타를 삭제하시겠습니까?', [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '삭제',
+        style: 'destructive',
+        onPress: async () => {
+          const success = await AvatarService.deleteAvatar(avatarId);
+          if (success) {
+            await loadAvatars();
+
+            if (selectedAvatar && selectedAvatar.id === avatarId) {
+              setSelectedAvatar(null);
+              setDefaultAvatar(null);
             }
           }
-        }
-      ]
-    );
+        },
+      },
+    ]);
   };
 
   const renderAvatarItem = ({ item }: { item: Avatar }) => (
     <TouchableOpacity
       style={[
         styles.avatarItem,
-        selectedAvatar && selectedAvatar.id === item.id && styles.selectedAvatarItem
+        selectedAvatar &&
+          selectedAvatar.id === item.id &&
+          styles.selectedAvatarItem,
       ]}
       onPress={() => selectAvatar(item)}
     >
@@ -188,7 +230,9 @@ export default function HomeScreen() {
         defaultSource={require('@/assets/images/avatar-placeholder.png')}
       />
       <View style={styles.avatarInfo}>
-        <Text style={styles.avatarId} numberOfLines={1}>ID: {item.id}</Text>
+        <Text style={styles.avatarId} numberOfLines={1}>
+          ID: {item.id}
+        </Text>
         <Text style={styles.avatarDate}>
           생성: {new Date(item.createdAt).toLocaleDateString()}
         </Text>
@@ -250,12 +294,14 @@ export default function HomeScreen() {
 
         {/* Avatar quick access */}
         {defaultAvatar && (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.avatarQuickAccess}
             onPress={() => setShowAvatarManager(true)}
           >
             <Image
-              source={{ uri: AvatarService.getAvatarThumbnailUrl(defaultAvatar.url) }}
+              source={{
+                uri: AvatarService.getAvatarThumbnailUrl(defaultAvatar.url),
+              }}
               style={styles.quickAvatarImage}
               defaultSource={require('@/assets/images/avatar-placeholder.png')}
             />
@@ -280,7 +326,7 @@ export default function HomeScreen() {
               >
                 <Text style={styles.avatarButtonText}>아바타 생성</Text>
               </TouchableOpacity>
-              
+
               {selectedAvatar && (
                 <TouchableOpacity
                   style={styles.avatarButton}
@@ -290,7 +336,7 @@ export default function HomeScreen() {
                 </TouchableOpacity>
               )}
             </View>
-            
+
             {/* Run button */}
             <TouchableOpacity
               style={styles.runButton}
@@ -316,7 +362,7 @@ export default function HomeScreen() {
             <TouchableOpacity
               style={styles.modalContent}
               activeOpacity={1}
-              onPress={() => { }}
+              onPress={() => {}}
             >
               <Text style={styles.modalText}>{userName}님, 달려볼까요?</Text>
               <View style={styles.modalButtons}>
@@ -353,7 +399,9 @@ export default function HomeScreen() {
           <View style={styles.avatarManagerOverlay}>
             <View style={styles.avatarManagerContent}>
               <View style={styles.avatarManagerHeader}>
-                <Text style={styles.avatarManagerTitle}>내 아바타 ({avatars.length})</Text>
+                <Text style={styles.avatarManagerTitle}>
+                  내 아바타 ({avatars.length})
+                </Text>
                 <TouchableOpacity
                   style={styles.closeButton}
                   onPress={() => setShowAvatarManager(false)}
@@ -368,12 +416,18 @@ export default function HomeScreen() {
                   <Text style={styles.currentAvatarTitle}>현재 아바타</Text>
                   <View style={styles.currentAvatarCard}>
                     <Image
-                      source={{ uri: AvatarService.getAvatarFullBodyUrl(selectedAvatar.url) }}
+                      source={{
+                        uri: AvatarService.getAvatarFullBodyUrl(
+                          selectedAvatar.url
+                        ),
+                      }}
                       style={styles.currentAvatarImage}
                       defaultSource={require('@/assets/images/avatar-placeholder.png')}
                     />
                     <View style={styles.currentAvatarInfo}>
-                      <Text style={styles.currentAvatarId}>ID: {selectedAvatar.id}</Text>
+                      <Text style={styles.currentAvatarId}>
+                        ID: {selectedAvatar.id}
+                      </Text>
                       <TouchableOpacity
                         style={styles.customizeButton}
                         onPress={() => {
@@ -381,7 +435,9 @@ export default function HomeScreen() {
                           setShowOutfitChanger(true);
                         }}
                       >
-                        <Text style={styles.customizeButtonText}>옷 갈아입히기</Text>
+                        <Text style={styles.customizeButtonText}>
+                          옷 갈아입히기
+                        </Text>
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -397,7 +453,9 @@ export default function HomeScreen() {
                   </View>
                 ) : avatars.length === 0 ? (
                   <View style={styles.emptyState}>
-                    <Text style={styles.emptyStateText}>아직 생성된 아바타가 없습니다</Text>
+                    <Text style={styles.emptyStateText}>
+                      아직 생성된 아바타가 없습니다
+                    </Text>
                     <TouchableOpacity
                       style={styles.createFirstAvatarButton}
                       onPress={() => {
@@ -405,7 +463,9 @@ export default function HomeScreen() {
                         setShowAvatarCreator(true);
                       }}
                     >
-                      <Text style={styles.createFirstAvatarText}>첫 아바타 만들기</Text>
+                      <Text style={styles.createFirstAvatarText}>
+                        첫 아바타 만들기
+                      </Text>
                     </TouchableOpacity>
                   </View>
                 ) : (
@@ -448,7 +508,7 @@ export default function HomeScreen() {
                 <Text style={styles.outfitChangerTitle}>옷 갈아입히기</Text>
                 <View style={styles.placeholder} />
               </View>
-              
+
               <OutfitChanger
                 avatarId={selectedAvatar.id}
                 onOutfitChanged={handleOutfitChanged}
