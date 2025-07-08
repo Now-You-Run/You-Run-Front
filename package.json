@@ -65,7 +65,8 @@
     "read-pkg-up": "^10.1.0",
     "three": "^0.166.1",
     "zustand": "^5.0.6",
-    "expo-device": "~7.1.4"
+    "expo-device": "~7.1.4",
+    "react-native-view-shot": "4.0.3"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

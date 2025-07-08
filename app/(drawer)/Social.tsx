@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 interface Friend {
   id: string;
@@ -24,6 +24,8 @@ interface Friend {
   image: any;
   x: number;
   y: number;
+  level?: number;
+  grade?: string;
 }
 
 const FRIEND_SIZE = 80;
@@ -71,6 +73,13 @@ function CustomToggle({
 
 export default function Social() {
   const navigation = useNavigation();
+
+  const HEADER_HEIGHT = 60 + 20 + 20; // paddingTop + headerContainer marginBottom + 여유
+  const [myPosition] = useState<{ x: number; y: number }>(() => ({
+    x: (width - FRIEND_SIZE) / 2,
+    y: (height - HEADER_HEIGHT - FRIEND_SIZE) / 2,
+  }));
+
   const [friends, setFriends] = useState<Friend[]>([]);
   const [loading, setLoading] = useState(true);
   const [pendingRequests, setPendingRequests] = useState<number>(0);
@@ -81,7 +90,14 @@ export default function Social() {
   useEffect(() => {
     fetchFriends();
     fetchFriendRequests();
-
+    // // 임시 친구 요청 데이터 주입
+    //     const mockRequests = [
+    //       { id: '1', senderId: 101, name: '철수' },
+    //       { id: '2', senderId: 102, name: '영희' },
+    //       { id: '3', senderId: 103, name: '바둑이' },
+    //     ];
+    //     setFriendRequests(mockRequests);
+    //     setPendingRequests(mockRequests.length);
     const interval = setInterval(fetchFriendRequests, 10000);
     return () => clearInterval(interval);
   }, []);
@@ -123,7 +139,9 @@ export default function Social() {
           emoji: '💛',
           image: require('../../assets/avatar/avatar2.jpeg'),
           x: Math.random() * (width - FRIEND_SIZE),
-          y: 80 + Math.random() * 400,
+          y: 80 + Math.random() * (height - 200),
+          level: item.level ?? 1,
+          grade: item.grade ?? '아이언',
         })
       );
 
@@ -133,8 +151,8 @@ export default function Social() {
         name: '나',
         emoji: '🏃',
         image: require('../../assets/avatar/avatar1.jpeg'),
-        x: (width - FRIEND_SIZE) / 2,
-        y: 250,
+        x: myPosition.x,
+        y: myPosition.y,
       };
 
       setFriends([me, ...processedFriends]);
@@ -154,7 +172,7 @@ export default function Social() {
       );
 
       if (response.ok) {
-        Alert.alert('완료', `${friend.name}님과 친구가 끊겼습니다.`);
+        Alert.alert('완료', `${friend.name}님이 삭제되었습니다.`);
         fetchFriends();
       } else {
         const text = await response.text();
@@ -169,14 +187,16 @@ export default function Social() {
     }
   };
 
+  // 친구 요청 수락
   const acceptRequest = async (senderId: string) => {
     try {
       const response = await fetch(
-        `${SERVER_API_URL}/api/friend/accept?senderId=${MY_USER_ID}&otherId=${senderId}`
+        `${SERVER_API_URL}/api/friend/accept?senderId=1&otherId=59`
         // GET 요청이라 method 옵션 제거해도 됩니다
       );
       if (response.ok) {
         Alert.alert('친구 요청 수락', '친구 요청을 수락했습니다.');
+
         fetchFriends();
         fetchFriendRequests();
       } else {
@@ -189,6 +209,7 @@ export default function Social() {
     }
   };
 
+  // 친구 요청 거절
   const rejectRequest = async (senderId: string) => {
     try {
       const response = await fetch(
@@ -242,6 +263,25 @@ export default function Social() {
                 </Text>
               </View>
             )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{ marginLeft: 12 }}
+            onPress={() =>
+              Alert.alert(
+                '임시 친구 수락',
+                '59번 유저의 친구 요청을 수락하시겠습니까?',
+                [
+                  { text: '취소', style: 'cancel' },
+                  {
+                    text: '확인',
+                    style: 'default',
+                    onPress: () => acceptRequest('59'),
+                  },
+                ]
+              )
+            }
+          >
+            <Ionicons name="person-add-outline" size={28} color="#32CD32" />
           </TouchableOpacity>
         </View>
       </View>
@@ -319,8 +359,15 @@ export default function Social() {
                 >
                   <Image source={friend.image} style={styles.friendImage} />
                   <View style={styles.friendNameContainer}>
-                    <Text style={styles.friendName}>{friend.name}</Text>
-                    <Text style={styles.friendEmoji}>{friend.emoji}</Text>
+                    <View style={{ alignItems: 'center' }}>
+                      <Text style={styles.friendName}>{friend.name}</Text>
+                      <Text style={styles.friendEmoji}>{friend.emoji}</Text>
+                      {friend.level && friend.grade && (
+                        <Text style={styles.friendLevelGrade}>
+                          Lv.{friend.level} | {friend.grade}
+                        </Text>
+                      )}
+                    </View>
                   </View>
                   {friend.friend_id !== MY_USER_ID.toString() && (
                     <TouchableOpacity
@@ -525,5 +572,10 @@ const styles = StyleSheet.create({
   closeButtonText: {
     color: '#fff',
     fontWeight: 'bold',
+  },
+  friendLevelGrade: {
+    fontSize: 10,
+    color: '#555',
+    marginTop: 2,
   },
 });

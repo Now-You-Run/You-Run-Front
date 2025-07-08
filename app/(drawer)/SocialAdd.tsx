@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
-import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import * as Sharing from 'expo-sharing';
 import jsQR from 'jsqr';
@@ -16,10 +15,22 @@ import {
   View,
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
+import ViewShot, { captureRef } from 'react-native-view-shot';
 
 const SERVER_API_URL = process.env.EXPO_PUBLIC_SERVER_API_URL;
 
+// ✅ 8자리 랜덤 코드 생성 함수
+function generateRandomCode() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = '';
+  for (let i = 0; i < 8; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
 export default function SocialAdd() {
+  const screenRef = useRef(null);
   const navigation = useNavigation();
   const [friendCode, setFriendCode] = useState('');
   const [myCode, setMyCode] = useState('');
@@ -39,81 +50,47 @@ export default function SocialAdd() {
     initUserId();
   }, []);
 
-  // ✅ QR 생성 보장
+  // ✅ 30초마다 랜덤 코드 갱신
   useEffect(() => {
     if (myUserId) {
-      generateNewCode();
+      setMyCode(generateRandomCode());
+      setRemainingSeconds(30);
     }
+    const interval = setInterval(() => {
+      setRemainingSeconds((prev) => {
+        if (prev <= 1) {
+          setMyCode(generateRandomCode());
+          return 30;
+        } else {
+          return prev - 1;
+        }
+      });
+    }, 1000);
+    return () => clearInterval(interval);
   }, [myUserId]);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setRemainingSeconds((prev) => {
-        if (prev <= 1) {
-          generateNewCode();
-          return 30;
-        } else {
-          return prev - 1;
-        }
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [myUserId]); // ✅ myUserId 의존성 추가해 안전하게 QR 재생성
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setRemainingSeconds((prev) => {
-        if (prev <= 1) {
-          generateNewCode();
-          return 30;
-        } else {
-          return prev - 1;
-        }
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const generateNewCode = () => {
-    if (myUserId) {
-      const timestamp = Date.now().toString();
-      setMyCode(`${myUserId}_${timestamp}`); // 예: "1_1720450192593"
-    }
-  };
 
   const copyToClipboard = async () => {
     await Clipboard.setStringAsync(myCode);
     Alert.alert('복사 완료', '내 코드를 클립보드에 복사했습니다.');
   };
 
-  const shareQRCode = async () => {
-    if (qrRef.current) {
-      (qrRef.current as any).toDataURL(async (dataURL: string) => {
-        try {
-          const filename = FileSystem.cacheDirectory + 'my_qr_code.png';
-          await FileSystem.writeAsStringAsync(filename, dataURL, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-
-          if (!(await Sharing.isAvailableAsync())) {
-            Alert.alert(
-              '공유 불가',
-              '이 기기에서 공유 기능을 사용할 수 없습니다.'
-            );
-            return;
-          }
-
-          await Sharing.shareAsync(filename, {
-            dialogTitle: '내 QR 코드 공유하기',
-          });
-          await Clipboard.setStringAsync(`${myCode}`);
-          Alert.alert('안내', '친구에게 QR을 공유하고 함께 달려보세요!');
-        } catch (error) {
-          console.error(error);
-          Alert.alert('오류', 'QR 코드 공유 중 오류가 발생했습니다.');
-        }
+  const shareFullScreen = async () => {
+    try {
+      const uri = await captureRef(screenRef, {
+        // ✅ .current 붙여야 정상 작동
+        format: 'png',
+        quality: 0.9,
       });
+
+      if (!(await Sharing.isAvailableAsync())) {
+        Alert.alert('공유 불가', '이 기기에서 공유 기능을 사용할 수 없습니다.');
+        return;
+      }
+
+      await Sharing.shareAsync(uri, { dialogTitle: '러닝 앱 화면 공유하기' });
+    } catch (error) {
+      console.error(error);
+      Alert.alert('오류', '화면 공유 중 오류가 발생했습니다.');
     }
   };
 
@@ -190,67 +167,87 @@ export default function SocialAdd() {
   };
 
   return (
-    <View style={styles.container}>
-      <TouchableOpacity onPress={() => navigation.goBack()}>
-        <Text style={styles.backButton}>←</Text>
-      </TouchableOpacity>
-
-      <View style={styles.qrWrapper}>
-        <View style={styles.qrBackground}>
-          {myCode !== '' && (
-            <QRCode
-              value={myCode}
-              size={150}
-              color="black"
-              backgroundColor="white"
-              getRef={(c) => {
-                qrRef.current = c;
-              }}
-            />
-          )}
-        </View>
-        <Text style={styles.timerText}>⏱️ {remainingSeconds}s 후 갱신</Text>
-      </View>
-
-      <View style={styles.myCodeWrapper}>
-        <Text style={styles.label}>내 코드 :</Text>
-        <View style={styles.codeBox}>
-          <Text style={styles.codeText}>{myCode}</Text>
-          <TouchableOpacity onPress={copyToClipboard} style={styles.copyButton}>
-            <Ionicons name="copy-outline" size={20} color="#555" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={shareQRCode} style={styles.copyButton}>
-            <Ionicons name="share-social-outline" size={20} color="#555" />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View style={styles.friendCodeWrapper}>
-        <TouchableOpacity
-          onPress={openCameraAndScanQR}
-          style={styles.cameraButton}
-        >
-          <Ionicons name="camera" size={30} color="black" />
+    <ViewShot
+      ref={screenRef}
+      options={{ format: 'png', quality: 0.9 }}
+      style={{ flex: 1 }}
+    >
+      <View style={styles.container}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Text style={styles.backButton}>←</Text>
         </TouchableOpacity>
 
-        <TextInput
-          style={styles.friendCodeInput}
-          placeholder="친구 코드:"
-          value={friendCode}
-          onChangeText={setFriendCode}
-          keyboardType="numeric"
-          maxLength={3}
-        />
+        <View style={styles.qrWrapper}>
+          <View style={styles.qrContainer}>
+            <View style={styles.qrBackground}>
+              {myCode !== '' && (
+                <QRCode
+                  value={myCode}
+                  size={270}
+                  color="black"
+                  backgroundColor="white"
+                  getRef={(c) => {
+                    qrRef.current = c;
+                  }}
+                />
+              )}
+            </View>
 
-        <TouchableOpacity onPress={sendFriendRequest} style={styles.copyButton}>
-          <Ionicons name="add-circle-outline" size={30} color="#32CD32" />
-        </TouchableOpacity>
+            {/* QR 코드 오른쪽 상단 공유 버튼 */}
+            <TouchableOpacity
+              onPress={shareFullScreen}
+              style={styles.shareButton}
+            >
+              <Ionicons name="share-social-outline" size={24} color="#333" />
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.timerText}>⏱️ {remainingSeconds}s 후 갱신</Text>
+        </View>
+
+        <View style={styles.myCodeWrapper}>
+          <Text style={styles.label}>내 코드 :</Text>
+          <View style={styles.codeBox}>
+            <Text style={styles.codeText}>{myCode}</Text>
+            <TouchableOpacity
+              onPress={copyToClipboard}
+              style={styles.copyButton}
+            >
+              <Ionicons name="copy-outline" size={20} color="#555" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.friendCodeWrapper}>
+          <TouchableOpacity
+            onPress={openCameraAndScanQR}
+            style={styles.cameraButton}
+          >
+            <Ionicons name="camera" size={50} color="black" />
+          </TouchableOpacity>
+
+          <TextInput
+            style={styles.friendCodeInput}
+            placeholder="친구 코드:"
+            value={friendCode}
+            onChangeText={setFriendCode}
+            keyboardType="numeric"
+            maxLength={3}
+          />
+
+          <TouchableOpacity
+            onPress={sendFriendRequest}
+            style={styles.copyButton}
+          >
+            <Ionicons name="add-circle-outline" size={30} color="#32CD32" />
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
+    </ViewShot>
   );
 }
 
-// ================= 스타일 =================
+// ================= 스타일 (기존 동일) =================
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -304,5 +301,21 @@ const styles = StyleSheet.create({
     borderColor: '#ccc',
     paddingVertical: 5,
     textAlign: 'center',
+  },
+  qrContainer: {
+    position: 'relative',
+  },
+  shareButton: {
+    position: 'absolute',
+    top: -43,
+    right: -30,
+    backgroundColor: '#fff',
+    padding: 8,
+    borderRadius: 20,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
   },
 });
