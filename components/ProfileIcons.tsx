@@ -1,10 +1,17 @@
+import { useRouter } from 'expo-router';
 import React from 'react';
 import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
-
 export default function ProfileIcons() {
+  const router = useRouter();
+  const navigateTo = (path: string) => {
+    router.push(path as any);
+  };
   return (
     <View style={styles.profileIcons}>
-      <TouchableOpacity style={styles.iconButton}>
+      <TouchableOpacity
+        style={styles.iconButton}
+        onPress={() => navigateTo('/(drawer)/SocialAdd')}
+      >
         <Image
           source={require('@/assets/images/profile-icon.png')}
           style={styles.iconImage}

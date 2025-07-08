@@ -3,66 +3,69 @@
 import { ConfigContext, ExpoConfig } from '@expo/config';
 
 // It's good practice to define environment variables or constants here if needed
-const EXPO_PUBLIC_KAKAO_API_KEY = process.env.EXPO_PUBLIC_KAKAO_API_KEY || "{{native app key default or placeholder}}"; // Or retrieve from .env or elsewhere
-const EXPO_PUBLIC_GOOGLE_MAP_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAP_API_KEY
+const EXPO_PUBLIC_KAKAO_API_KEY =
+  process.env.EXPO_PUBLIC_KAKAO_API_KEY ||
+  '{{native app key default or placeholder}}'; // Or retrieve from .env or elsewhere
+const EXPO_PUBLIC_GOOGLE_MAP_API_KEY =
+  process.env.EXPO_PUBLIC_GOOGLE_MAP_API_KEY;
 
 export default ({ config }: ConfigContext): ExpoConfig => {
   return {
     ...config, // Keep existing configuration if any, though usually you'd define it all here
-    name: "YouRun",
-    slug: "YouRun",
-    version: "1.0.0",
-    orientation: "portrait",
-    icon: "./assets/images/icon.png",
-    scheme: "yourun",
-    userInterfaceStyle: "automatic",
+    name: 'YouRun',
+    slug: 'YouRun',
+    version: '1.0.0',
+    orientation: 'portrait',
+    icon: './assets/images/icon.png',
+    scheme: 'yourun',
+    userInterfaceStyle: 'automatic',
     // Note: newArchEnabled is usually managed by Expo's SDK, but you can set it if explicitly needed
     // newArchEnabled: true, // This property is often handled by Expo's build process based on SDK version.
 
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.yourun",
+      bundleIdentifier: 'com.yourun',
       config: {
-        googleMapsApiKey: EXPO_PUBLIC_GOOGLE_MAP_API_KEY
-      }
+        googleMapsApiKey: EXPO_PUBLIC_GOOGLE_MAP_API_KEY,
+      },
     },
     android: {
       adaptiveIcon: {
-        foregroundImage: "./assets/images/adaptive-icon.png",
-        backgroundColor: "#ffffff"
+        foregroundImage: './assets/images/adaptive-icon.png',
+        backgroundColor: '#ffffff',
       },
       config: {
         googleMaps: {
-          apiKey: EXPO_PUBLIC_GOOGLE_MAP_API_KEY
-        }
+          apiKey: EXPO_PUBLIC_GOOGLE_MAP_API_KEY,
+        },
       },
       edgeToEdgeEnabled: true,
-      package: "com.zepelown.YouRun"
+      package: 'com.zepelown.YouRun',
     },
     web: {
-      bundler: "metro",
-      output: "static",
-      favicon: "./assets/images/favicon.png"
+      bundler: 'metro',
+      output: 'static',
+      favicon: './assets/images/favicon.png',
     },
     plugins: [
-      "expo-router",
+      'expo-router',
       [
-        "expo-splash-screen",
+        'expo-splash-screen',
         {
-          image: "./assets/images/splash-icon.png",
+          image: './assets/images/splash-icon.png',
           imageWidth: 200,
-          resizeMode: "contain",
-          backgroundColor: "#ffffff"
-        }
+          resizeMode: 'contain',
+          backgroundColor: '#ffffff',
+        },
       ],
       [
-        "expo-build-properties",
+        'expo-build-properties',
         {
           android: {
             extraMavenRepos: [
-              "https://devrepo.kakao.com/nexus/content/groups/public/"
+              'https://devrepo.kakao.com/nexus/content/groups/public/',
             ],
-            newArchEnabled: true
+            newArchEnabled: true,
           },
           ios: {
             newArchEnabled: true
@@ -86,7 +89,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       ]
     ],
     experiments: {
-      typedRoutes: true
+      typedRoutes: true,
     },
     // Optional: Add extra for custom values you might want to access in your app
     // extra: {
@@ -97,4 +100,3 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     // }
   };
 };
-
