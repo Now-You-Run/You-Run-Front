@@ -334,6 +334,9 @@ export default function RunningScreen() {
   const START_RADIUS_METERS = 10;
   // 시작 버튼 누르면 botRunning 시작 (기존 startRunning 대체)
   const handleStart = async () => {
+
+    hasFinishedRef.current = false;
+
     if (!externalPath || externalPath.length === 0) {
       Alert.alert('오류', '트랙 경로 정보가 없습니다.');
       return;
@@ -398,6 +401,36 @@ export default function RunningScreen() {
     });
 
   };
+
+  // 자동 종료용 useEffect 
+  const FINISH_RADIUS_M = 10;
+  const hasFinishedRef = useRef(false);
+
+  // off-course 감지 useEffect 바로 아래쯤에 추가
+  useEffect(() => {
+    if (!externalPath?.length || !userLocation || hasFinishedRef.current || !trackInfo) return;
+
+    const finishPoint = externalPath[externalPath.length - 1];
+    // m 단위 거리 계산
+    const distM =
+      haversineDistance(
+        finishPoint.latitude,
+        finishPoint.longitude,
+        userLocation.latitude,
+        userLocation.longitude
+      ) *
+      1000;
+
+    const TrackLengthM = trackInfo.distanceMeters;  // 트랙 길이
+    const runLengthM = liveDistanceKm * 1000;       // 실제 달린 거리
+
+    if (distM <= FINISH_RADIUS_M && runLengthM >= TrackLengthM -10) {
+      hasFinishedRef.current = true;
+      Speech.speak('완주를 축하합니다! 러닝을 종료합니다.');
+      // 봇 애니메이션, 러닝 기록 모두 종료
+      handleStopRunning();
+    }
+  }, [userLocation, externalPath, trackInfo,liveDistanceKm]);
 
   useEffect(() => {
     (async () => {
@@ -535,50 +568,52 @@ export default function RunningScreen() {
           <Text style={styles.stat}>{instantPace} 페이스</Text>
         </View>
 
-         {offCourseRef.current ? (
-        // ───────── 이탈 중 “경기 포기” 버튼 ─────────
-        <Pressable
-          style={styles.forfeitButton}
-          onPressIn={() => {
-            // 3초 롱프레스 타이머
-            forfeitTimeout.current = setTimeout(() => {
-              router.replace('/');         // 홈으로 이동
-            }, 3000);
-          }}
-          onPressOut={() => {
-            if (forfeitTimeout.current) {
-              clearTimeout(forfeitTimeout.current);
-              forfeitTimeout.current = null;
-              Alert.alert(
-                '안내',
-                '3초간 꾹 눌러야 경기를 포기합니다.\n지금까지 뛴 기록은 사라집니다.',
-                [{ text: '알겠습니다' }]
-              );
-            }
-          }}
-        >
-          <Text style={styles.forfeitText}>경기 포기</Text>
-        </Pressable>
-      ) : (
-        <Pressable
-          onPress={isSimulating ? handleStopRunning : handleStart} // 시작/종료 토글
-          style={({ pressed }) => [
-            styles.runButton,
-            { backgroundColor: isSimulating ? '#ff4d4d' : '#007aff' },
-            pressed && { opacity: 0.8 },
-          ]}
-        >
-          <Text style={styles.runButtonText}>
-            {!isSimulating ? '시작' : '종료'}
-          </Text>
-        </Pressable>
-        )}
+        <View style = {styles.buttonRow}>
+          {/* ───────── 이탈 중 “경기 포기” 버튼 ─────────*/}
+          <Pressable
+            style={styles.forfeitButton}
+            onPressIn={() => {
+              // 3초 롱프레스 타이머
+              forfeitTimeout.current = setTimeout(() => {
+                router.replace('/');         // 홈으로 이동
+              }, 3000);
+            }}
+            onPressOut={() => {
+              if (forfeitTimeout.current) {
+                clearTimeout(forfeitTimeout.current);
+                forfeitTimeout.current = null;
+                Alert.alert(
+                  '안내',
+                  '3초간 꾹 눌러야 경기를 포기합니다.\n지금까지 뛴 기록은 사라집니다.',
+                  [{ text: '알겠습니다' }]
+                );
+              }
+            }}
+            >
+            <Text style={styles.forfeitText}>경기 포기</Text>
+          </Pressable>
+          {/* 시작 전일 때만 “시작” 버튼 */}
+          {!isSimulating && (
+          <Pressable
+            onPress={handleStart}
+            style={styles.startButton}
+          >
+            <Text style={styles.startButtonText}>시작</Text>
+          </Pressable>
+          )}
+        </View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  buttonRow: {
+    flexDirection: 'row',
+    width: '100%',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
   backButtonText: {
     fontSize: 24,
     color: '#333',
@@ -661,13 +696,27 @@ const styles = StyleSheet.create({
     color: '#007aff',
   },
   forfeitButton: {
-    width: '100%',
+    flex:1,
+    marginRight:5,
     paddingVertical: 15,
     borderRadius: 12,
     backgroundColor: '#cc0000',
     alignItems: 'center',
   },
   forfeitText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  startButton: {
+    flex: 1,
+    marginLeft: 5,
+    paddingVertical: 15,
+    borderRadius: 12,
+    backgroundColor: '#007aff',
+    alignItems: 'center',
+  },
+  startButtonText: {
     color: 'white',
     fontSize: 18,
     fontWeight: '600',
