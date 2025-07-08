@@ -15,3 +15,12 @@ export const formatTime = (totalSeconds: number): string => {
   const s = totalSeconds % 60;
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 };
+
+
+export const calculateAveragePace = (km: number, sec: number): string => {
+  if (km < 0.01 || sec === 0) return `0'00"`;
+  const paceSec = sec / km;
+  const m = Math.floor(paceSec / 60);
+  const s = Math.round(paceSec % 60);
+  return `${m}'${String(s).padStart(2, '0')}"`;
+};

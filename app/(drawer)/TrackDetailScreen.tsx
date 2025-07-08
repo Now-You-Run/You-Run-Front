@@ -1,137 +1,133 @@
-import { saveTrackInfo, TrackInfo } from '@/storage/appStorage';
-import { loadPaths } from '@/storage/RunningStorage';
-import { TrackRecordRepository } from '@/storage/TrackRecordRepository';
-import type { Track, TrackRecordData } from '@/types/response/RunningTrackResponse';
+import { useRepositories } from '@/context/RepositoryContext';
+import { saveTrackInfo, TrackInfo } from '@/repositories/appStorage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Polyline } from 'react-native-maps';
 
 type SourceType = 'local' | 'server';
 
+// 화면 표시에 사용할 통일된 데이터 구조 정의
+interface DisplayableTrackDetail {
+  id: string;
+  name: string;
+  path: { latitude: number; longitude: number }[];
+  distance: number;
+  rate?: number;
+  ranking?: { username: string; duration: number }[];
+}
+
 export default function TrackDetailScreen() {
   const router = useRouter();
   const { trackId, source } = useLocalSearchParams<{ trackId: string; source: SourceType }>();
-  const [trackData, setTrackData] = useState<TrackRecordData | Track | null>(null);
+  
+  const { localTrackRepository, trackRecordRepository } = useRepositories();
+
+  const [track, setTrack] = useState<DisplayableTrackDetail | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!trackId) return;
-    if (source === 'server') {
-      TrackRecordRepository.fetchTrackRecord(trackId)
-        .then(setTrackData);
-    } else {
-      // Local track: load from AsyncStorage
-      loadPaths().then((tracks) => {
-        const found = tracks.find((t) => t.id === trackId);
-        setTrackData(found || null);
-      });
+    if (!trackId) {
+      setIsLoading(false);
+      return;
     }
-  }, [trackId, source]);
 
-  if (!trackData) {
-    return <Text>Loading...</Text>;
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        let fetchedData: DisplayableTrackDetail | null = null;
+        
+        if (source === 'server' && trackRecordRepository) {
+          const serverData = await trackRecordRepository.fetchTrackRecord(trackId);
+          if (serverData) {
+            fetchedData = {
+              // [핵심 수정] 존재하지 않는 trackInfoDto.id 대신,
+              // 이미 알고 있는 trackId를 직접 사용합니다.
+              id: trackId,
+              name: serverData.trackInfoDto.name,
+              path: serverData.trackInfoDto.path,
+              distance: serverData.trackInfoDto.totalDistance,
+              rate: serverData.trackInfoDto.rate,
+              ranking: serverData.trackRecordDto,
+            };
+          }
+        } else if (source === 'local' && localTrackRepository) {
+          const localData = await localTrackRepository.readById(parseInt(trackId, 10));
+          if (localData) {
+            fetchedData = {
+              id: localData.id.toString(),
+              name: localData.name,
+              path: JSON.parse(localData.path || '[]'),
+              distance: localData.totalDistance,
+              rate: localData.rate,
+              ranking: [],
+            };
+          }
+        }
+        setTrack(fetchedData);
+      } catch (error) {
+        console.error(`Failed to load track detail for id ${trackId}:`, error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, [trackId, source, localTrackRepository, trackRecordRepository]);
+
+  if (isLoading) {
+    return <View style={styles.centerContainer}><ActivityIndicator size="large" /></View>;
   }
-
-  // Server track
-  if (source === 'server') {
-    const { trackInfoDto, trackRecordDto } = trackData as TrackRecordData;
-    const path = trackInfoDto.path;
-    const origin = path[0];
-    return (
-      <SafeAreaView style={{ flex: 1 }}>
-        <MapView
-          style={{ width: '100%', height: 300 }}
-          initialRegion={{
-            latitude: path[0]?.latitude || 37.5665,
-            longitude: path[0]?.longitude || 126.978,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
-          }}
-        >
-          <Polyline coordinates={path} strokeWidth={4} strokeColor="#4a90e2" />
-        </MapView>
-        <View style={{ padding: 16 }}>
-          <Text style={{ fontSize: 20, fontWeight: 'bold' }}>{trackInfoDto.name}</Text>
-          <Text>총 거리: {(trackInfoDto.totalDistance / 1000).toFixed(2)} km</Text>
-          <Text>평점: {trackInfoDto.rate}</Text>
-        </View>
-        <View style={{ padding: 16 }}>
-          <Text style={{ fontSize: 18, fontWeight: 'bold' }}>랭킹</Text>
-          {trackRecordDto.length === 0 ? (
-            <Text>아직 기록이 없습니다.</Text>
-          ) : (
-            trackRecordDto.map((record, idx) => (
-              <View key={idx} style={{ flexDirection: 'row', justifyContent: 'space-between', marginVertical: 4 }}>
-                <Text>{record.username}</Text>
-                <Text>{Math.floor(record.duration / 60)}분 {record.duration % 60}초</Text>
-              </View>
-            ))
-          )}
-        </View>
-        <View style={styles.footer}>
-          <TouchableOpacity
-            style={styles.botButton}
-            onPress={async () => {
-              const info: TrackInfo = {
-                id: trackId,
-                path,
-                origin,
-                distanceMeters: trackInfoDto.totalDistance,
-              };
-              await saveTrackInfo(info);
-              router.push({
-                pathname: './bot-pace',
-                params: { trackId },
-              });
-            }}
-          >
-            <Text style={styles.botButtonText}>코칭 봇과의 대결</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
+  if (!track) {
+    return <View style={styles.centerContainer}><Text>트랙 정보를 불러올 수 없습니다.</Text></View>;
   }
-
-  // Local track
-  const track = trackData as Track;
-  const path = track.path;
-  const origin = path[0];
+  
   return (
-    <SafeAreaView style={{ flex: 1 }}>
+    <SafeAreaView style={styles.container}>
       <MapView
-        style={{ width: '100%', height: 300 }}
+        style={styles.map}
         initialRegion={{
-          latitude: path[0]?.latitude || 37.5665,
-          longitude: path[0]?.longitude || 126.978,
+          latitude: track.path[0]?.latitude || 37.5665,
+          longitude: track.path[0]?.longitude || 126.978,
           latitudeDelta: 0.01,
           longitudeDelta: 0.01,
         }}
       >
-        <Polyline coordinates={path} strokeWidth={4} strokeColor="#4a90e2" />
+        <Polyline coordinates={track.path} strokeWidth={4} strokeColor="#4a90e2" />
       </MapView>
-      <View style={{ padding: 16 }}>
-        <Text style={{ fontSize: 20, fontWeight: 'bold' }}>{track.name}</Text>
-        <Text>총 거리: {(track.distance ?? 0 / 1000).toFixed(2)} km</Text>
+      
+      <View style={styles.content}>
+        <Text style={styles.title}>{track.name}</Text>
+        <Text>총 거리: {(track.distance / 1000).toFixed(2)} km</Text>
+        {track.rate != null && <Text>평점: {track.rate}</Text>}
       </View>
-      <View style={{ padding: 16 }}>
-        <Text style={{ fontSize: 18, fontWeight: 'bold' }}>랭킹</Text>
-        <Text>로컬 트랙에는 기록이 없습니다.</Text>
+      
+      <View style={styles.content}>
+        <Text style={styles.subtitle}>랭킹</Text>
+        {track.ranking && track.ranking.length > 0 ? (
+          track.ranking.map((record, idx) => (
+            <View key={idx} style={styles.rankItem}>
+              <Text>{record.username}</Text>
+              <Text>{Math.floor(record.duration / 60)}분 {record.duration % 60}초</Text>
+            </View>
+          ))
+        ) : (
+          <Text>기록이 없습니다.</Text>
+        )}
       </View>
+      
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.botButton}
           onPress={async () => {
             const info: TrackInfo = {
-              id: trackId,
-              path,
-              origin,
-              distanceMeters: track.distance ?? 0,
+              id: track.id,
+              path: track.path,
+              origin: track.path[0],
+              distanceMeters: track.distance,
             };
             await saveTrackInfo(info);
-            router.push({
-              pathname: './bot-pace',
-              params: { trackId },
-            });
+            router.push({ pathname: './bot-pace', params: { trackId: track.id } });
           }}
         >
           <Text style={styles.botButtonText}>코칭 봇과의 대결</Text>
@@ -142,16 +138,14 @@ export default function TrackDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  footer: { padding: 16 },
-  botButton: {
-    backgroundColor: '#ff6666',
-    padding: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  botButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
-  },
+  container: { flex: 1, backgroundColor: '#fff' },
+  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  map: { width: '100%', height: 300 },
+  content: { padding: 16 },
+  title: { fontSize: 22, fontWeight: 'bold' },
+  subtitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 8 },
+  rankItem: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 4 },
+  footer: { padding: 16, marginTop: 'auto' },
+  botButton: { backgroundColor: '#ff6666', padding: 14, borderRadius: 10, alignItems: 'center' },
+  botButtonText: { color: '#fff', fontSize: 18, fontWeight: '700' },
 });

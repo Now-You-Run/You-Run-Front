@@ -41,9 +41,10 @@ export interface TrackListApiResponse {
 export type Track = {
   id: string;
   name: string;
-  path: { latitude: number; longitude: number }[];
+  path: string | { latitude: number; longitude: number }[];
   thumbnail?: string | null;
   distance?: number;
   date: string;
   duration?: number;
+  _sortKey?: number;
 };

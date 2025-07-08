@@ -1,5 +1,5 @@
 import { usePace } from '@/context/PaceContext';
-import { saveBotPace } from '@/storage/appStorage';
+import { saveBotPace } from '@/repositories/appStorage';
 import { Picker } from '@react-native-picker/picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';

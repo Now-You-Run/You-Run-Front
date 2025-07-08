@@ -5,12 +5,14 @@ import type { Track, TrackRecordApiResponse, TrackRecordData } from '../types/re
 const SERVER_API_URL = process.env.EXPO_PUBLIC_SERVER_API_URL; // 실제 서버 주소로 변경
 
 export class TrackRecordRepository {
+
+  constructor() {}
   /**
    * 트랙 기록 상세 조회
    * @param trackId 트랙 ID
    * @returns TrackRecordData | null
    */
-  static async fetchTrackRecord(trackId: number | string): Promise<TrackRecordData | null> {
+  public async fetchTrackRecord(trackId: number | string): Promise<TrackRecordData | null> {
     try {
       const response = await fetch(`${SERVER_API_URL}/api/track?trackId=${trackId}`, {
         method: 'GET',
@@ -46,7 +48,7 @@ export class TrackRecordRepository {
       return null;
     }
   }
-  static async fetchTrackList(): Promise<Track[]> {
+  public  async fetchTrackList(): Promise<Track[]> {
     try {
       const response = await fetch(`${SERVER_API_URL}/api/track/list`, {
         method: 'GET',
@@ -76,7 +78,7 @@ export class TrackRecordRepository {
     }
   }
 
-  static async fetchPaginatedTrackListOrderByClose(
+  public  async fetchPaginatedTrackListOrderByClose(
   userLon: number,
   userLat: number,
   page: number,
