@@ -1,4 +1,5 @@
 import CustomDrawer from '@/components/CustomDrawer'; // 사용자 정의 Drawer 컴포넌트
+import { DatabaseProvider } from '@/context/DatabaseContext';
 import { DrawerProvider, useDrawer } from '@/context/DrawerContext'; // 사용자 정의 Drawer Context
 import { PaceProvider } from '@/context/PaceContext';
 import { RunningProvider } from '@/context/RunningContext';
@@ -16,7 +17,7 @@ function RootLayoutNav() {
     <>
       {/* screenOptions를 사용하여 모든 스크린의 헤더를 숨깁니다. */}
       <Stack screenOptions={{ headerShown: false }}>
-        
+
       </Stack>
       {isMenuVisible && <CustomDrawer closeMenu={closeMenu} />}
     </>
@@ -34,15 +35,18 @@ export default function RootLayout() {
   }
 
   return (
-    <RunningProvider>
-      <DrawerProvider>
-        <PaceProvider>
-          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-            <RootLayoutNav />
-            <StatusBar style="auto" />
-          </ThemeProvider>
-        </PaceProvider>
-      </DrawerProvider>
-    </RunningProvider>
+    <DatabaseProvider>
+      <RunningProvider>
+        <DrawerProvider>
+          <PaceProvider>
+            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+              <RootLayoutNav />
+              <StatusBar style="auto" />
+            </ThemeProvider>
+          </PaceProvider>
+        </DrawerProvider>
+      </RunningProvider>
+    </DatabaseProvider>
+
   );
 }
