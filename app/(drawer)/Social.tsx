@@ -90,12 +90,7 @@ export default function Social() {
   useEffect(() => {
     fetchFriends();
     fetchFriendRequests();
-    // // 임시 친구 요청 데이터 주입
-    //     const mockRequests = [
-    //       { id: '1', senderId: 101, name: '철수' },
-    //       { id: '2', senderId: 102, name: '영희' },
-    //       { id: '3', senderId: 103, name: '바둑이' },
-    //     ];
+
     //     setFriendRequests(mockRequests);
     //     setPendingRequests(mockRequests.length);
     const interval = setInterval(fetchFriendRequests, 10000);
@@ -105,7 +100,7 @@ export default function Social() {
   const fetchFriendRequests = async () => {
     try {
       const response = await fetch(
-        `${SERVER_API_URL}/api/friend/requests?receiverId=${MY_USER_ID}`
+        `${SERVER_API_URL}/api/friend/list/receive?senderId=${MY_USER_ID}`
       );
       const json = await response.json();
       const data = json.data ?? [];
@@ -191,7 +186,7 @@ export default function Social() {
   const acceptRequest = async (senderId: string) => {
     try {
       const response = await fetch(
-        `${SERVER_API_URL}/api/friend/accept?senderId=1&otherId=59`
+        `${SERVER_API_URL}/api/friend/accept?senderId=${MY_USER_ID}&otherId=${senderId}`
         // GET 요청이라 method 옵션 제거해도 됩니다
       );
       if (response.ok) {
@@ -264,25 +259,6 @@ export default function Social() {
               </View>
             )}
           </TouchableOpacity>
-          <TouchableOpacity
-            style={{ marginLeft: 12 }}
-            onPress={() =>
-              Alert.alert(
-                '임시 친구 수락',
-                '59번 유저의 친구 요청을 수락하시겠습니까?',
-                [
-                  { text: '취소', style: 'cancel' },
-                  {
-                    text: '확인',
-                    style: 'default',
-                    onPress: () => acceptRequest('59'),
-                  },
-                ]
-              )
-            }
-          >
-            <Ionicons name="person-add-outline" size={28} color="#32CD32" />
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -310,13 +286,13 @@ export default function Social() {
                   <View style={styles.requestButtons}>
                     <TouchableOpacity
                       style={[styles.requestButton, styles.acceptButton]}
-                      onPress={() => acceptRequest(req.senderId.toString())}
+                      onPress={() => acceptRequest(req.friendId.toString())}
                     >
                       <Text style={styles.requestButtonText}>수락</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.requestButton, styles.rejectButton]}
-                      onPress={() => rejectRequest(req.senderId.toString())}
+                      onPress={() => rejectRequest(req.friendId.toString())}
                     >
                       <Text style={styles.requestButtonText}>거절</Text>
                     </TouchableOpacity>
