@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SourceType } from './TrackDetailScreen';
 
 export type RootStackParamList = {
   SelectTrack: undefined;
@@ -22,8 +23,9 @@ export type RootStackParamList = {
 interface FacePaceScreenProps {}
 
 const FacePaceScreen: React.FC<FacePaceScreenProps> = () => {
-  const { trackId } = useLocalSearchParams<{
+  const { trackId, source} = useLocalSearchParams<{
     trackId?: string;
+    source: SourceType
   }>();
     
   const [minutes, setMinutes] = useState<number>(0);
@@ -78,6 +80,7 @@ const FacePaceScreen: React.FC<FacePaceScreenProps> = () => {
         trackId,
         botMin: minutes.toString(),
         botSec: seconds.toString(),
+        source: source,
       },
     });
   };
