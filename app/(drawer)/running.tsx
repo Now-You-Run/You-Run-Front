@@ -81,6 +81,7 @@ export default function RunningScreen() {
     totalDistance,
     startRunning,
     stopRunning,
+    pauseRunning,
     resumeRunning,
     resetRunning,
     addStartPointIfNeeded
@@ -157,7 +158,7 @@ export default function RunningScreen() {
   const onMainPress = async () => {
     if (isActive) {
       // 달리는 중 → 일시정지
-      stopRunning();
+      pauseRunning();
       setIsPaused(true);
       Speech.speak('일시 정지 합니다.');
     } else if (isPaused) {

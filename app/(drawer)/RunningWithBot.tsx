@@ -121,6 +121,9 @@ export default function RunningScreen() {
   // 경로이탈을 위한 컴포넌트
   const OFFCOURSE_THRESHOLD_M = 20;   // 코스 이탈 기준 거리 (10m)
   const offCourseRef = useRef(false); // 안내 중복 방지 
+  const forfeitTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const pausedPositionRef = useRef<Coordinate | null>(null);
 
   // 1) AsyncStorage에서 저장해둔 TrackInfo 불러오기
   const [trackInfo, setTrackInfo] = useState<TrackInfo | null>(null);
@@ -165,8 +168,11 @@ export default function RunningScreen() {
     path,
     currentSpeed,
     startRunning,
+    pauseRunning,
+    resumeRunning,
     stopRunning,
     resetRunning,
+    userLocation,
   } = useRunning();
 
   // 실시간 통계(거리, 페이스)
@@ -225,11 +231,35 @@ export default function RunningScreen() {
     if (!externalPath || externalPath.length === 0) return;
     if (!isSimulating) return;
 
-    const tools = createPathTools(externalPath);
-    const speedMps = paceToKmh(botPace.minutes, botPace.seconds) / 3.6; // m/s
-    let startTime: number | null = null;
+    const pausedCoord = pausedPositionRef.current;
 
-    setCurrentPosition(externalPath[0]);
+     // ← 추가된 부분: 어디서부터 시작할지 정하기
+    // pausedPositionRef.current 가 있으면, 그 위치에 가장 가까운 인덱스를 찾아 경로를 잘라냅니다.
+    let startIndex = 0;
+    if (pausedCoord) {
+    let minD = Infinity;
+    externalPath.forEach((p, i) => {
+      const d = haversineDistance(
+        p.latitude, p.longitude,
+        pausedCoord.latitude, pausedCoord.longitude
+      ) * 1000;
+      if (d < minD) {
+        minD = d;
+        startIndex = i;
+      }
+    });
+  }
+
+    const simPath = externalPath.slice(startIndex);
+    
+    const tools = createPathTools(simPath);
+    const speedMps = paceToKmh(botPace.minutes, botPace.seconds) / 3.6; // m/s
+
+    // 3) 이 시점에만 pausedCoord 사용
+    setCurrentPosition(pausedCoord ?? simPath[0]);
+    pausedPositionRef.current = null;  
+    
+    let startTime: number | null = null;
     animationFrameId.current = requestAnimationFrame(function animate(ts) {
       if (!startTime) startTime = ts;
       const elapsedSec = (ts - startTime) / 1000;
@@ -261,10 +291,10 @@ export default function RunningScreen() {
   // 실제 사용자가 달리는 경로(path)와 설계된 코스(externalPath)를 비교해서
   // 이탈 여부를 음성으로 안내합니다.
   useEffect(() => {
-    if (!externalPath?.length || !path.length) return;
+    if (!externalPath?.length || !userLocation) return;
 
     // 최신 사용자 위치
-    const userPos = path[path.length - 1];
+    const userPos = userLocation;
     // 코스 상의 모든 점과의 최소 거리 계산
     let minDistM = Infinity;
     for (const p of externalPath) {
@@ -275,17 +305,30 @@ export default function RunningScreen() {
       minDistM = Math.min(minDistM, dKm * 1000);
     }
 
+    
+
     // 이탈 감지
     if (minDistM > OFFCOURSE_THRESHOLD_M && !offCourseRef.current) {
-      Speech.speak('트랙을 이탈했습니다. 복귀해주세요.');
+      // ← 추가된 부분: 이탈 시점에 봇 위치 저장
+      pausedPositionRef.current = currentPosition;
+      Speech.speak('트랙을 이탈했습니다. 복귀해주세요. 기록을 일시정지합니다.');
       offCourseRef.current = true;
+      pauseRunning();
+      if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current);
+        animationFrameId.current = null;
+      }
+      setIsSimulating(false);
     }
     // 복귀 감지
     else if (minDistM <= OFFCOURSE_THRESHOLD_M && offCourseRef.current) {
-      Speech.speak('트랙으로 돌아왔습니다.');
+      Speech.speak('트랙으로 돌아왔습니다. 러닝을 재개합니다.');
       offCourseRef.current = false;
+      //pausedPositionRef.current = null;
+      resumeRunning();
+      setIsSimulating(true);
     }
-  }, [path, externalPath]);
+  }, [userLocation, path, externalPath, pauseRunning,resumeRunning]);
 
   // **threshold**: 시작 가능 반경 (미터)
   const START_RADIUS_METERS = 10;
@@ -490,6 +533,32 @@ export default function RunningScreen() {
           <Text style={styles.stat}>{formatTime(elapsedTime)} 분:초</Text>
           <Text style={styles.stat}>{instantPace} 페이스</Text>
         </View>
+
+         {offCourseRef.current ? (
+        // ───────── 이탈 중 “경기 포기” 버튼 ─────────
+        <Pressable
+          style={styles.forfeitButton}
+          onPressIn={() => {
+            // 3초 롱프레스 타이머
+            forfeitTimeout.current = setTimeout(() => {
+              router.replace('/');         // 홈으로 이동
+            }, 3000);
+          }}
+          onPressOut={() => {
+            if (forfeitTimeout.current) {
+              clearTimeout(forfeitTimeout.current);
+              forfeitTimeout.current = null;
+              Alert.alert(
+                '안내',
+                '3초간 꾹 눌러야 경기를 포기합니다.\n지금까지 뛴 기록은 사라집니다.',
+                [{ text: '알겠습니다' }]
+              );
+            }
+          }}
+        >
+          <Text style={styles.forfeitText}>경기 포기</Text>
+        </Pressable>
+      ) : (
         <Pressable
           onPress={isSimulating ? handleStopRunning : handleStart} // 시작/종료 토글
           style={({ pressed }) => [
@@ -502,6 +571,7 @@ export default function RunningScreen() {
             {!isSimulating ? '시작' : '종료'}
           </Text>
         </Pressable>
+        )}
       </View>
     </View>
   );
@@ -588,5 +658,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#007aff',
+  },
+  forfeitButton: {
+    width: '100%',
+    paddingVertical: 15,
+    borderRadius: 12,
+    backgroundColor: '#cc0000',
+    alignItems: 'center',
+  },
+  forfeitText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: '600',
   },
 });

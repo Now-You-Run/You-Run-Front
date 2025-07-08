@@ -52,16 +52,19 @@ interface Coord {
 // 컨텍스트에 제공될 상태 타입
 interface RunningState {
   isActive: boolean;
+  isPaused: boolean;      // 일시 정지 상태
   elapsedTime: number;
   path: Coord[];
   currentSpeed: number; // 필터링된 순간 속도 (km/h)
   totalDistance: number; // 필터링된 누적 거리 (km)
   startRunning: () => void;
   stopRunning: () => void;
+  pauseRunning: () => void; 
   resumeRunning: () => void;
   resetRunning: () => void;
   addToPath: (coords: Coord) => void;
   addStartPointIfNeeded: () => Promise<void>;
+  userLocation: Coord | null;
 }
 
 const RunningContext = createContext<RunningState | undefined>(undefined);
@@ -71,6 +74,7 @@ export const RunningProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   // 상태 선언
   const [isActive, setIsActive] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [path, setPath] = useState<Coord[]>([]);
   const [currentSpeed, setCurrentSpeed] = useState(0);
@@ -81,6 +85,17 @@ export const RunningProvider: React.FC<{ children: React.ReactNode }> = ({
     null
   );
   const lastCoordRef = useRef<Coord | null>(null);
+
+  // 항상 최신 사용자 위치 저장
+  const [userLocation, setUserLocation] = useState<Coord | null>(null);
+
+
+  // 상태 동기화를 위한 Ref
+  const isActiveRef = useRef(isActive);
+  const isPausedRef = useRef(isPaused);
+  useEffect(() => { isActiveRef.current = isActive; }, [isActive]);  
+  useEffect(() => { isPausedRef.current = isPaused; }, [isPaused]); 
+
 
   // 칼만 필터 인스턴스
   const speedFilter = useRef(new KalmanFilter1D(0.01, 0.1));
@@ -124,6 +139,7 @@ export const RunningProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // 위치 구독 시작
   const startLocationTracking = async () => {
+    if (locationSubscription.current) return; // 중복 위치구독 방지
     // foreground 위치 구독 (권한 요청은 별도)
     locationSubscription.current = await Location.watchPositionAsync(
       {
@@ -135,37 +151,32 @@ export const RunningProvider: React.FC<{ children: React.ReactNode }> = ({
         const { latitude, longitude, speed } = location.coords;
 
         // 좌표 필터링 적용
-        const filteredLat = latFilter.current.filter(latitude);
-        const filteredLng = lngFilter.current.filter(longitude);
+        const fLat = latFilter.current.filter(latitude);
+        const fLng = lngFilter.current.filter(longitude);
+        const coord = { latitude: fLat, longitude: fLng };
 
-        const filteredCoord = { latitude: filteredLat, longitude: filteredLng };
+        // ← 추가: 매 GPS 틱마다 항상 최신 위치 갱신
+        setUserLocation(coord);
 
-
-        const prev = lastCoordRef.current;
-
-        if (prev) {
-          const rawDist = haversineDistance(
-            prev.latitude,
-            prev.longitude,
-            filteredLat,
-            filteredLng
-          );
-          const filtDist = distFilter.current.filter(rawDist);
-          setTotalDistance((d) => d + filtDist);
+        // **활성 & 일시정지 아님** 상태일 때만 기록
+        if (isActiveRef.current && !isPausedRef.current) {       // ← 수정됨
+          if (lastCoordRef.current) {
+            const rawDist = haversineDistance(
+              lastCoordRef.current.latitude,
+              lastCoordRef.current.longitude,
+              fLat, fLng
+            );
+            const filtDist = distFilter.current.filter(rawDist);
+            setTotalDistance(d => d + filtDist);
+          }
+          setPath(p => [...p, coord]);
+          const rawSp = speed != null ? speed * 3.6 : 0;
+          const filtSp = speedFilter.current.filter(rawSp);
+          setCurrentSpeed(filtSp > 0.5 ? filtSp : 0);
         }
 
-        lastCoordRef.current = filteredCoord;
-
-        // 경로에 좌표 추가
-        addToPath(filteredCoord);
-
-        // 속도 필터링
-        const rawSpeedKmH = speed != null ? speed * 3.6 : 0;
-        const filtSpeed = speedFilter.current.filter(rawSpeedKmH);
-
-        const speedThreshold = 0.5; // 0.5km/h 이하인 건 0 처리
-        const displaySpeed = filtSpeed > speedThreshold ? filtSpeed : 0;
-        setCurrentSpeed(displaySpeed);
+        // 항상 마지막 좌표는 갱신
+        lastCoordRef.current = coord;
       }
     );
 
@@ -239,26 +250,45 @@ export const RunningProvider: React.FC<{ children: React.ReactNode }> = ({
     setElapsedTime(0);
     setCurrentSpeed(0);
     setTotalDistance(0);
+    setIsPaused(false);
     setIsActive(true);
     startLocationTracking();
   };
 
+  // 일시정지 ⏸
+  const pauseRunning = () => {                             // ← 수정됨
+    if (!isActiveRef.current) return;
+    if (timerInterval.current) {
+      clearInterval(timerInterval.current);
+      timerInterval.current = null;
+    }
+    setIsPaused(true);                                     // ← 수정됨
+    setIsActive(false);
+    // 주의: 위치 구독은 유지 → off-course 감지용으로 계속 체크
+  };
+
   const stopRunning = () => {
+    setIsPaused(false);
     setIsActive(false);
     stopLocationTracking();
     // 서버 저장 등 추가 로직 가능
   };
 
   const resumeRunning = () => {
+    setIsPaused(false);                                    // ← 수정됨
     setIsActive(true);
-    startLocationTracking();
+    // 타이머만 다시 시작
+    timerInterval.current = setInterval(() => {
+      setElapsedTime(t => t + 1);
+    }, 1000);
+    // 위치 구독 콜백 안에서 isPausedRef를 보고 처리하므로, 기록이 자동 재개됩니다
   };
 
   const resetRunning = () => {
     stopLocationTracking();
     if (timerInterval.current) clearInterval(timerInterval.current);
     timerInterval.current = null;
-
+    setIsPaused(false);
     setIsActive(false);
     setElapsedTime(0);
     setPath([]);
@@ -270,6 +300,7 @@ export const RunningProvider: React.FC<{ children: React.ReactNode }> = ({
     <RunningContext.Provider
       value={{
         isActive,
+        isPaused,
         elapsedTime,
         path,
         addToPath,
@@ -277,9 +308,11 @@ export const RunningProvider: React.FC<{ children: React.ReactNode }> = ({
         addStartPointIfNeeded, 
         totalDistance,
         startRunning,
+        pauseRunning,
         stopRunning,
         resumeRunning,
         resetRunning,
+        userLocation,
       }}
     >
       {children}
