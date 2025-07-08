@@ -30,6 +30,7 @@ import {
 // ReadyPlayerMe 관련 imports
 import AvatarCreator from '@/components/ReadyPlayerMe/AvatarCreator';
 import OutfitChanger from '@/components/ReadyPlayerMe/OutfitChanger';
+import { AuthAsyncStorage } from '@/repositories/AuthAsyncStorage';
 import { AvatarService } from '@/services/AvatarService';
 
 // Splash screen for font loading
@@ -134,6 +135,11 @@ export default function HomeScreen() {
     'Karantina-Bold': require('@/assets/fonts/Karantina-Bold.ttf'),
   });
 
+  useEffect(() => {
+    console.log('화면이 처음 나타났습니다!');
+    AuthAsyncStorage.saveUserId(1);
+
+  }, []);
   // Weather update logic
   const updateWeather = async () => {
     const { weatherMain, currentHour } = await getWeatherData();
@@ -194,19 +200,23 @@ export default function HomeScreen() {
   };
 
   const deleteAvatar = async (avatarId: string) => {
-    Alert.alert('아바타 삭제', '정말로 이 아바타를 삭제하시겠습니까?', [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '삭제',
-        style: 'destructive',
-        onPress: async () => {
-          const success = await AvatarService.deleteAvatar(avatarId);
-          if (success) {
-            await loadAvatars();
+    Alert.alert(
+      '아바타 삭제',
+      '정말로 이 아바타를 삭제하시겠습니까?',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '삭제',
+          style: 'destructive',
+          onPress: async () => {
+            const success = await AvatarService.deleteAvatar(avatarId);
+            if (success) {
+              await loadAvatars();
 
-            if (selectedAvatar && selectedAvatar.id === avatarId) {
-              setSelectedAvatar(null);
-              setDefaultAvatar(null);
+              if (selectedAvatar && selectedAvatar.id === avatarId) {
+                setSelectedAvatar(null);
+                setDefaultAvatar(null);
+              }
             }
           }
         },
@@ -250,6 +260,9 @@ export default function HomeScreen() {
       </TouchableOpacity>
     </TouchableOpacity>
   );
+  useEffect(() => {
+
+  })
 
   useEffect(() => {
     if (fontsLoaded) {

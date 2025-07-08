@@ -1,30 +1,36 @@
 import TrackSimulationMap from '@/components/running/simul/TrackSimutionMap';
-import { TrackRecordRepository } from '@/storage/TrackRecordRepository';
+import { useRepositories } from '@/context/RepositoryContext'; // [1. 추가]
 import { TrackRecordData } from "@/types/response/RunningTrackResponse";
-import { RouteProp, useRoute } from '@react-navigation/native';
+import { useLocalSearchParams } from 'expo-router'; // [2. 수정] useRoute 대신 expo-router 훅 사용
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
+export default function SimulationScreen() {
+  const { trackId } = useLocalSearchParams<{ trackId: string }>();
+  const { trackRecordRepository } = useRepositories(); // [3. 추가]
 
-// 라우트 파라미터 타입 정의
-type RouteParams = {
-  Simulation: {
-    trackId: number;
-  };
-};
-
-const SimulationScreen = () => {
-  const route = useRoute<RouteProp<RouteParams, 'Simulation'>>();
-  const trackId = route.params?.trackId || 6; // 기본값 1
-    // const trackId = 2
   const [track, setTrack] = useState<TrackRecordData | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
   useEffect(() => {
-    setLoading(true);
-    TrackRecordRepository.fetchTrackRecord(trackId)
-      .then((trackRecordData) => setTrack(trackRecordData))
-      .finally(() => setLoading(false));
-  }, []);
+    // trackId나 repository가 준비되지 않았으면 실행하지 않습니다.
+    if (!trackId || !trackRecordRepository) return;
+
+    const fetchTrack = async () => {
+      setIsLoading(true);
+      try {
+        // [4. 수정] static 메서드 대신, 주입받은 인스턴스의 메서드를 호출합니다.
+        const trackData = await trackRecordRepository.fetchTrackRecord(trackId);
+        setTrack(trackData);
+      } catch (error) {
+        console.error("Failed to fetch track for simulation:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTrack();
+  }, [trackId, trackRecordRepository]); // 의존성 배열에 추가
 
   return (
     <View style={styles.container}>
@@ -32,7 +38,12 @@ const SimulationScreen = () => {
       <Text style={styles.subHeader}>Track ID: {trackId}</Text>
       
       <View style={styles.mapContainer}>
-       <TrackSimulationMap path={track?.trackInfoDto.path ?? []} />
+        {/* [5. 추가] 로딩 중일 때는 스피너를, 로딩 완료 시 지도를 보여줍니다. */}
+        {isLoading ? (
+          <ActivityIndicator style={StyleSheet.absoluteFill} size="large" color="#4a90e2" />
+        ) : (
+          <TrackSimulationMap path={track?.trackInfoDto.path ?? []} />
+        )}
       </View>
       
       <View style={styles.controls}>
@@ -67,6 +78,8 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,
     borderRadius: 10,
     overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   controls: {
     padding: 15,
@@ -75,5 +88,3 @@ const styles = StyleSheet.create({
     borderColor: '#eee',
   },
 });
-
-export default SimulationScreen;
