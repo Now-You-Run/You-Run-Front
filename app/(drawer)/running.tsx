@@ -1,21 +1,16 @@
-// /screens/RunningScreen.tsx
-
-import { useRepositories } from '@/context/RepositoryContext';
 import { useRunning } from '@/context/RunningContext';
-import { CreateTrackDto } from '@/types/LocalTrackDto';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Modal,
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import MapView, { Polyline, Region } from 'react-native-maps';
 
@@ -48,65 +43,18 @@ const formatTime = (totalSeconds: number) => {
 
 export default function RunningScreen() {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { addTrack } = useRepositories();
-
-  const [trackName, setTrackName] = useState('');
-  const [isSaveModalVisible, setIsSaveModalVisible] = useState(false);
-  const [summaryData, setSummaryData] = useState<{
-    path: Coord[];
-    totalDistance: number;
-    elapsedTime: number;
-  } | null>(null);
-
-
   const router = useRouter();
 
-  const handleSaveTrack = async () => {
-    if (!summaryData) {
-      Alert.alert('오류', '데이터를 저장할 준비가 되지 않았습니다.');
-      return;
-    }
-    if (summaryData.path.length === 0) {
-      Alert.alert('오류', '저장할 경로 데이터가 없습니다.');
-      return;
-    }
+  const [summaryData, setSummaryData] = useState<any>(null);
+  const [isFinishModalVisible, setIsFinishModalVisible] = useState(false);
 
-    const newTrackForDb: CreateTrackDto = {
-      name: trackName.trim() || `나의 러닝 ${new Date().toLocaleDateString()}`,
-      totalDistance: Math.round(summaryData.totalDistance * 1000),
-      rate: 0,
-      path: JSON.stringify(summaryData.path),
-      startLatitude: summaryData.path[0].latitude,
-      startLongitude: summaryData.path[0].longitude,
-      address: '주소 정보 없음',
-    };
-
-    try {
-      await addTrack(newTrackForDb);
-      console.log(`기록 저장 성공! ID: ${newTrackForDb.name}`);
-      setIsSaveModalVisible(false);
-      setTrackName('');
-      router.replace({
-        pathname: '/Summary',
-        params: { data: JSON.stringify(summaryData) },
-      });
-
-    } catch (error) {
-      console.error('트랙 저장 중 오류 발생:', error);
-      Alert.alert('오류', '데이터를 저장하는 중 문제가 발생했습니다.');
-    }
-  };
-
-  const handleBackPress = () => {
-    router.back();
-  };
-
-  const { mode, trackDistance } = useLocalSearchParams<{
+  const { mode, trackDistance, trackId } = useLocalSearchParams<{
     mode?: string;
     trackDistance?: string;
+    trackId?: string; // TrackList에서 전달받은 트랙 ID
   }>();
-  const trackKm =
-    mode === 'track' && trackDistance ? parseFloat(trackDistance) : undefined;
+
+  const trackKm = mode === 'track' && trackDistance ? parseFloat(trackDistance) : undefined;
 
   const {
     isActive,
@@ -139,6 +87,7 @@ export default function RunningScreen() {
   const [nextAnnounceKm, setNextAnnounceKm] = useState(0.1);
 
   useEffect(() => {
+    if (!isActive) return;
     if (mode === 'track' && sectionIndex < sections.length) {
       const sec = sections[sectionIndex];
       if (totalDistance >= sec.end) {
@@ -150,15 +99,18 @@ export default function RunningScreen() {
       Speech.speak(`${meters}미터 지점에 도달했습니다.`);
       setNextAnnounceKm((km) => km + 0.1);
     }
-  }, [totalDistance, mode, sections, sectionIndex, nextAnnounceKm]);
+  }, [totalDistance, isActive, mode, sections, sectionIndex, nextAnnounceKm]);
 
   const [mapRegion, setMapRegion] = useState<Region>();
   const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
-    (async () => {
+    const requestPermissions = async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
+      if (status !== 'granted') {
+        Alert.alert("위치 권한 필요", "러닝을 기록하려면 위치 권한이 필요합니다.");
+        return;
+      }
       const loc = await Location.getCurrentPositionAsync();
       setMapRegion({
         latitude: loc.coords.latitude,
@@ -166,7 +118,8 @@ export default function RunningScreen() {
         latitudeDelta: 0.01,
         longitudeDelta: 0.01,
       });
-    })();
+    };
+    requestPermissions();
   }, []);
 
   useEffect(() => {
@@ -183,7 +136,6 @@ export default function RunningScreen() {
 
   const onMainPress = async () => {
     if (isActive) {
-      // 달리는 중 → 일시정지
       pauseRunning();
       setIsPaused(true);
       Speech.speak('일시 정지 합니다.');
@@ -192,6 +144,7 @@ export default function RunningScreen() {
       setIsPaused(false);
       Speech.speak('러닝을 재개합니다.');
     } else {
+      resetRunning(); // 새 러닝 시작 전 초기화
       startRunning();
       setIsPaused(false);
       setSectionIndex(0);
@@ -211,16 +164,32 @@ export default function RunningScreen() {
       path: [...path],
       totalDistance,
       elapsedTime,
+      trackId,
     };
     setSummaryData(snapshot);
-    setIsSaveModalVisible(true);
-  }, [stopRunning, path, totalDistance, elapsedTime]);
+    setIsFinishModalVisible(true);
+  }, [stopRunning, path, totalDistance, elapsedTime, trackId]);
 
   useEffect(() => {
-    if (mode === 'track' && trackKm && totalDistance >= trackKm) {
+    if (isActive && mode === 'track' && trackKm && totalDistance >= trackKm) {
       handleFinish();
     }
-  }, [totalDistance, mode, trackKm, handleFinish]);
+  }, [totalDistance, isActive, mode, trackKm, handleFinish]);
+
+  const handleBackPress = () => {
+    if (elapsedTime > 0) {
+      Alert.alert(
+        "러닝 중단",
+        "진행 중인 러닝 기록이 사라집니다. 정말로 나가시겠습니까?",
+        [
+          { text: "취소", style: "cancel" },
+          { text: "나가기", style: "destructive", onPress: () => router.back() },
+        ]
+      );
+    } else {
+      router.back();
+    }
+  };
 
   const mainLabel = isActive ? '정지' : isPaused ? '재개' : '시작';
 
@@ -228,24 +197,13 @@ export default function RunningScreen() {
     return () => {
       resetRunning();
       setIsPaused(false);
-      setTrackName('');
-      setIsSaveModalVisible(false);
       setSummaryData(null);
     };
   }, []);
 
   return (
     <View style={styles.container}>
-      <View
-        style={{
-          position: 'absolute',
-          top: 50,
-          left: 20,
-          zIndex: 10,
-          backgroundColor: 'rgba(255,255,255,0.8)',
-          borderRadius: 20,
-        }}
-      >
+      <View style={styles.headerBar}>
         <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
@@ -253,27 +211,21 @@ export default function RunningScreen() {
 
       <MapView
         style={StyleSheet.absoluteFill}
-        initialRegion={{
-          latitude: 37.5665,
-          longitude: 126.978,
-          latitudeDelta: 0.0922,
-          longitudeDelta: 0.0421,
-        }}
-        {...(mapRegion && { region: mapRegion })}
+        initialRegion={mapRegion}
+        region={mapRegion}
         showsUserLocation
         followsUserLocation
-        showsMyLocationButton
+        showsMyLocationButton={false}
       >
         <Polyline coordinates={path} strokeColor="#007aff" strokeWidth={6} />
       </MapView>
 
       <View style={styles.overlay}>
         <Text style={styles.distance}>{totalDistance.toFixed(2)} km</Text>
-
         <View style={styles.statsContainer}>
           <Text style={styles.stat}>{displaySpeed.toFixed(1)} km/h</Text>
-          <Text style={styles.stat}>{formatTime(elapsedTime)} 시간</Text>
-          <Text style={styles.stat}>{instantPace} 페이스</Text>
+          <Text style={styles.stat}>{formatTime(elapsedTime)}</Text>
+          <Text style={styles.stat}>{instantPace}</Text>
         </View>
 
         <View style={styles.buttonRow}>
@@ -290,11 +242,7 @@ export default function RunningScreen() {
                 if (timeoutRef.current) {
                   clearTimeout(timeoutRef.current);
                   timeoutRef.current = null;
-                  Alert.alert(
-                    '종료 안내',
-                    '버튼을 3초간 꾹 누르고 있으면 자동으로 종료됩니다.',
-                    [{ text: '알겠습니다' }]
-                  );
+                  Alert.alert('종료 안내', '버튼을 3초간 꾹 누르고 있으면 자동으로 종료됩니다.', [{ text: '알겠습니다' }]);
                 }
               }}
             >
@@ -303,160 +251,60 @@ export default function RunningScreen() {
           )}
           <Pressable
             onPress={onMainPress}
-            style={[
-              styles.controlButton,
-              { backgroundColor: isActive ? '#ff4d4d' : '#007aff' },
-            ]}
+            style={[styles.controlButton, { backgroundColor: isActive ? '#ff4d4d' : '#007aff' }]}
           >
             <Text style={styles.controlText}>{mainLabel}</Text>
           </Pressable>
         </View>
-
-        {/* 저장 확인 모달 */}
-        <Modal
-          transparent
-          visible={isSaveModalVisible}
-          animationType="fade"
-          onRequestClose={() => setIsSaveModalVisible(false)}
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalText}>트랙을 저장하시겠습니까?</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="트랙 이름을 입력하세요"
-                value={trackName}
-                onChangeText={setTrackName}
-              />
-              <View style={{ flexDirection: 'row', marginTop: 16 }}>
-                <TouchableOpacity
-                  style={[styles.modalButton, { backgroundColor: '#007aff', marginRight: 10 }]}
-                  onPress={handleSaveTrack}
-                >
-                  <Text style={styles.modalButtonText}>저장</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.modalButton, { backgroundColor: '#ccc' }]}
-                  onPress={() => {
-                    setIsSaveModalVisible(false);
-                    setTrackName('');
-                    if (summaryData) {
-                      router.replace({
-                        pathname: '/Summary',
-                        params: { data: JSON.stringify(summaryData) },
-                      });
-                    }
-                  }}
-                >
-                  <Text style={[styles.modalButtonText, { color: '#333' }]}>취소</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
       </View>
+
+      <Modal
+        transparent
+        visible={isFinishModalVisible}
+        animationType="fade"
+        onRequestClose={() => setIsFinishModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>러닝 종료</Text>
+            <Text style={styles.modalText}>수고하셨습니다! 러닝이 안전하게 종료되었습니다.</Text>
+            <TouchableOpacity
+              style={styles.confirmButton}
+              onPress={() => {
+                if (summaryData) {
+                  router.replace({
+                    pathname: '/summary',
+                    params: { data: JSON.stringify(summaryData) },
+                  });
+                }
+                setIsFinishModalVisible(false);
+              }}
+            >
+              <Text style={styles.confirmButtonText}>결과 확인하기</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
-// ==================================================================
-// 스타일
-// ==================================================================
 const styles = StyleSheet.create({
-  backButtonText: {
-    fontSize: 24,
-    color: '#333',
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    padding: 20,
-    marginHorizontal: 30,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  modalText: {
-    fontSize: 18,
-    marginBottom: 20,
-  },
-  modalButton: {
-    backgroundColor: '#007aff',
-    paddingVertical: 10,
-    paddingHorizontal: 30,
-    borderRadius: 8,
-  },
-  modalButtonText: {
-    color: 'white',
-    fontSize: 16,
-  },
-  container: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-  },
-  overlay: {
-    width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    padding: 20,
-    paddingBottom: 40,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    alignItems: 'center',
-  },
-  distance: {
-    fontSize: 60,
-    fontWeight: '800',
-    color: '#1c1c1e',
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginTop: 15,
-    marginBottom: 20,
-  },
-  stat: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#333',
-    textAlign: 'center',
-    flex: 1,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    width: '100%',
-    justifyContent: 'space-between',
-  },
-  controlButton: {
-    flex: 1,
-    marginHorizontal: 5,
-    paddingVertical: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  controlText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 10,
-    width: 220,
-    marginTop: 10,
-    fontSize: 16,
-  },
+  container: { flex: 1, justifyContent: 'flex-end', alignItems: 'center' },
+  headerBar: { position: 'absolute', top: 50, left: 20, zIndex: 10, backgroundColor: 'rgba(255,255,255,0.8)', borderRadius: 20 },
+  backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+  backButtonText: { fontSize: 24, color: '#333' },
+  overlay: { width: '100%', backgroundColor: 'rgba(255,255,255,0.9)', padding: 20, paddingBottom: 40, borderTopLeftRadius: 20, borderTopRightRadius: 20, alignItems: 'center' },
+  distance: { fontSize: 60, fontWeight: '800', color: '#1c1c1e' },
+  statsContainer: { flexDirection: 'row', justifyContent: 'space-around', width: '100%', marginTop: 15, marginBottom: 20 },
+  stat: { fontSize: 24, fontWeight: '600', color: '#333', textAlign: 'center', flex: 1 },
+  buttonRow: { flexDirection: 'row', width: '100%', justifyContent: 'space-around' },
+  controlButton: { flex: 1, marginHorizontal: 5, paddingVertical: 15, borderRadius: 10, alignItems: 'center' },
+  controlText: { color: 'white', fontSize: 18, fontWeight: '600' },
+  modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)' },
+  modalContent: { width: '80%', backgroundColor: 'white', paddingVertical: 30, paddingHorizontal: 20, borderRadius: 15, alignItems: 'center' },
+  modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 10 },
+  modalText: { fontSize: 16, color: '#666', textAlign: 'center', marginBottom: 25, lineHeight: 22 },
+  confirmButton: { backgroundColor: '#007aff', paddingVertical: 12, paddingHorizontal: 40, borderRadius: 8 },
+  confirmButtonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
 });

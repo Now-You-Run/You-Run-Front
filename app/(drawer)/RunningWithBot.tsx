@@ -108,7 +108,26 @@ export default function RunningScreen() {
 
   const router = useRouter();
   const handleBackPress = () => {
-    router.back();
+    if (!isActive) {
+      router.back();
+      return;
+    }
+
+    Alert.alert(
+      "러닝 중단",
+      "정말로 현재 러닝을 중단하고 나가시겠습니까? 기록은 저장되지 않습니다.",
+      [
+        { text: "계속 달리기", style: "cancel" },
+        {
+          text: "나가기",
+          style: "destructive",
+          onPress: () => {
+            // 여기서 초기화를 하고 뒤로가도 좋지만, 위의 useEffect가 이미 처리해줍니다.
+            router.back();
+          },
+        },
+      ]
+    );
   };
   const { trackId, botMin, botSec } = useLocalSearchParams<{
     trackId?: string;
@@ -193,7 +212,7 @@ export default function RunningScreen() {
   const [startCoursePosition, setStartCoursePosition] = useState<Coordinate | null>(null);
   const [endCoursePosition, setEndCoursePosition] = useState<Coordinate | null>(null);
   const animationFrameId = useRef<number | null>(null);
-  
+
   // 봇(currentPosition)↔사용자(path 마지막) 거리 (km)
   const botDistanceKm = useMemo(() => {
     if (!currentPosition || path.length === 0) return 0;
@@ -233,32 +252,32 @@ export default function RunningScreen() {
 
     const pausedCoord = pausedPositionRef.current;
 
-     // ← 추가된 부분: 어디서부터 시작할지 정하기
+    // ← 추가된 부분: 어디서부터 시작할지 정하기
     // pausedPositionRef.current 가 있으면, 그 위치에 가장 가까운 인덱스를 찾아 경로를 잘라냅니다.
     let startIndex = 0;
     if (pausedCoord) {
-    let minD = Infinity;
-    externalPath.forEach((p, i) => {
-      const d = haversineDistance(
-        p.latitude, p.longitude,
-        pausedCoord.latitude, pausedCoord.longitude
-      ) * 1000;
-      if (d < minD) {
-        minD = d;
-        startIndex = i;
-      }
-    });
-  }
+      let minD = Infinity;
+      externalPath.forEach((p, i) => {
+        const d = haversineDistance(
+          p.latitude, p.longitude,
+          pausedCoord.latitude, pausedCoord.longitude
+        ) * 1000;
+        if (d < minD) {
+          minD = d;
+          startIndex = i;
+        }
+      });
+    }
 
     const simPath = externalPath.slice(startIndex);
-    
+
     const tools = createPathTools(simPath);
     const speedMps = paceToKmh(botPace.minutes, botPace.seconds) / 3.6; // m/s
 
     // 3) 이 시점에만 pausedCoord 사용
     setCurrentPosition(pausedCoord ?? simPath[0]);
-    pausedPositionRef.current = null;  
-    
+    pausedPositionRef.current = null;
+
     let startTime: number | null = null;
     animationFrameId.current = requestAnimationFrame(function animate(ts) {
       if (!startTime) startTime = ts;
@@ -305,7 +324,7 @@ export default function RunningScreen() {
       minDistM = Math.min(minDistM, dKm * 1000);
     }
 
-    
+
 
     // 이탈 감지
     if (minDistM > OFFCOURSE_THRESHOLD_M && !offCourseRef.current) {
@@ -328,7 +347,7 @@ export default function RunningScreen() {
       resumeRunning();
       setIsSimulating(true);
     }
-  }, [userLocation, path, externalPath, pauseRunning,resumeRunning]);
+  }, [userLocation, path, externalPath, pauseRunning, resumeRunning]);
 
   // **threshold**: 시작 가능 반경 (미터)
   const START_RADIUS_METERS = 10;
@@ -380,12 +399,12 @@ export default function RunningScreen() {
     // ② RunningContext 클린업
     stopRunning();
     resetRunning();
-    
+
     // ③ 로컬 상태 클린업
     setIsSimulating(false);
     setCurrentPosition(null);
     offCourseRef.current = false;       // 이탈 알림 초기화
-  
+
 
     // summary에 필요한 최소 데이터
     const summaryData = {
@@ -393,10 +412,11 @@ export default function RunningScreen() {
       userPath: path,                 // 유저가 실제로 뛴 경로
       totalDistance: liveDistanceKm,  // km
       elapsedTime,                    // sec
+      trackId: trackId
     };
 
     router.replace({
-      pathname: '/Summary',
+      pathname: '/summary',
       params: { data: JSON.stringify(summaryData) },
     });
 
@@ -424,13 +444,13 @@ export default function RunningScreen() {
     const TrackLengthM = trackInfo.distanceMeters;  // 트랙 길이
     const runLengthM = liveDistanceKm * 1000;       // 실제 달린 거리
 
-    if (distM <= FINISH_RADIUS_M && runLengthM >= TrackLengthM -10) {
+    if (distM <= FINISH_RADIUS_M && runLengthM >= TrackLengthM - 10) {
       hasFinishedRef.current = true;
       Speech.speak('완주를 축하합니다! 러닝을 종료합니다.');
       // 봇 애니메이션, 러닝 기록 모두 종료
       handleStopRunning();
     }
-  }, [userLocation, externalPath, trackInfo,liveDistanceKm]);
+  }, [userLocation, externalPath, trackInfo, liveDistanceKm]);
 
   useEffect(() => {
     (async () => {
@@ -439,7 +459,7 @@ export default function RunningScreen() {
         console.warn('위치 권한이 거부되었습니다.');
         return;
       }
-      
+
 
       const location = await Location.getCurrentPositionAsync({});
       const { latitude, longitude } = location.coords;
@@ -465,6 +485,17 @@ export default function RunningScreen() {
     }
   }, [path]);
 
+  useEffect(() => {
+    // 이 Effect는 화면이 처음 나타날 때 한 번만 실행됩니다.
+
+    // return 안에 있는 함수는 컴포넌트가 사라지기 직전에 호출됩니다.
+    return () => {
+      // 이 화면을 벗어나는 모든 경우(뒤로가기, 포기, 완주 후 이동 등)에 실행됩니다.
+      stopRunning();  // 진행 중이던 타이머나 위치 추적을 확실히 중지
+      resetRunning(); // 컨텍스트의 모든 데이터(경로, 시간 등)를 초기화
+    };
+  }, []); // 의존성 배열을 비워두어야 컴포넌트가 사라질 때 딱 한 번만 실행됩니다.
+
   if (!origin) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -472,6 +503,8 @@ export default function RunningScreen() {
       </View>
     );
   }
+
+
 
   return (
     <View style={{ flex: 1 }}>
@@ -558,7 +591,7 @@ export default function RunningScreen() {
         <View style={styles.botDistanceRow}>
           <Text style={styles.botDistanceLabel}>봇과의 거리</Text>
           <Text style={styles.botDistanceValue}>
-          {(botDistanceKm * 1000).toFixed(0)} m
+            {(botDistanceKm * 1000).toFixed(0)} m
           </Text>
         </View>
         <Text style={styles.distance}>{liveDistanceKm.toFixed(2)} km</Text>
@@ -568,7 +601,7 @@ export default function RunningScreen() {
           <Text style={styles.stat}>{instantPace} 페이스</Text>
         </View>
 
-        <View style = {styles.buttonRow}>
+        <View style={styles.buttonRow}>
           {/* ───────── 이탈 중 “경기 포기” 버튼 ─────────*/}
           <Pressable
             style={styles.forfeitButton}
@@ -589,17 +622,17 @@ export default function RunningScreen() {
                 );
               }
             }}
-            >
+          >
             <Text style={styles.forfeitText}>경기 포기</Text>
           </Pressable>
           {/* 시작 전일 때만 “시작” 버튼 */}
           {!isSimulating && (
-          <Pressable
-            onPress={handleStart}
-            style={styles.startButton}
-          >
-            <Text style={styles.startButtonText}>시작</Text>
-          </Pressable>
+            <Pressable
+              onPress={handleStart}
+              style={styles.startButton}
+            >
+              <Text style={styles.startButtonText}>시작</Text>
+            </Pressable>
           )}
         </View>
       </View>
@@ -696,8 +729,8 @@ const styles = StyleSheet.create({
     color: '#007aff',
   },
   forfeitButton: {
-    flex:1,
-    marginRight:5,
+    flex: 1,
+    marginRight: 5,
     paddingVertical: 15,
     borderRadius: 12,
     backgroundColor: '#cc0000',

@@ -260,9 +260,6 @@ export default function HomeScreen() {
       </TouchableOpacity>
     </TouchableOpacity>
   );
-  useEffect(() => {
-
-  })
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -392,7 +389,7 @@ export default function HomeScreen() {
                   style={[styles.modeButton, styles.trackButton]}
                   onPress={() => {
                     setIsModalVisible(false);
-                    router.push('/(drawer)/SelectTrack');
+                    router.push('/(drawer)/selectTrack');
                   }}
                 >
                   <Text style={styles.modeButtonText}>트랙</Text>
@@ -587,6 +584,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     alignItems: 'center',
+    zIndex: 10,
   },
   avatarButtons: {
     flexDirection: 'row',

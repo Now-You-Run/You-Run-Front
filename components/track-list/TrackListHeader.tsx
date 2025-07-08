@@ -46,7 +46,7 @@ export function TrackListHeader({ tab, distanceSortOption, onTabChange, onSortCh
             dropdownIconColor="#4a90e2"
           >
             {DISTANCE_SORT_OPTIONS.map(opt => (
-              <Picker.Item key={opt.value} label={opt.label} value={opt.value} />
+              <Picker.Item key={opt.value} label={opt.label} value={opt.value} style={styles.pickerItem} />
             ))}
           </Picker>
         </View>
@@ -65,6 +65,16 @@ const styles = StyleSheet.create({
   tabButtonText: { fontSize: 16, fontWeight: '600', color: '#333' },
   tabButtonTextActive: { color: '#fff' },
   pickerContainer: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 },
+  // ... (다른 스타일은 동일) ...
   pickerWrapper: { borderWidth: 1, borderColor: '#4a90e2', borderRadius: 20, overflow: 'hidden', width: 170 },
-  picker: { height: 40, color: '#4a90e2' },
+
+  // [수정] picker 스타일에서 color 제거
+  picker: {
+    height: 50,
+    // color: '#4a90e2', // 이 라인을 삭제하거나 주석 처리합니다.
+  },
+  pickerItem: {
+    color: '#4a90e2', // 여기에 텍스트 색상을 지정합니다.
+    fontSize: 16,     // 필요하다면 폰트 크기 등도 설정할 수 있습니다.
+  },
 });
