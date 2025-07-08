@@ -332,7 +332,7 @@ export default function HomeScreen() {
                   style={[styles.modeButton, styles.freeButton]}
                   onPress={() => {
                     setIsModalVisible(false);
-                    router.push('./(drawer)/running');
+                    router.push('./(drawer)/Running');
                   }}
                 >
                   <Text style={styles.modeButtonText}>자유</Text>
