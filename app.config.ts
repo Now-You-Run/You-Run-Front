@@ -1,5 +1,5 @@
 // app.config.ts
-
+import 'dotenv/config';
 import { ConfigContext, ExpoConfig } from '@expo/config';
 
 // It's good practice to define environment variables or constants here if needed
