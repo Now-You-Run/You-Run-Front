@@ -23,6 +23,7 @@ interface ScreenRecord {
   userId: number
   mode: 'BOT' | 'MATCH' | 'LOCAL'
   trackId: number
+  trackName?: string
   opponentId: number | null
   isWinner: boolean
   startedAt: string
@@ -36,6 +37,7 @@ type Stat = { label: string; value: string }
 type RecentRun = {
   recordId: string
   date: string
+  trackName?: string
   distanceKm: number
   timeSec: number
 }
@@ -44,7 +46,7 @@ export default function MyPageScreen() {
   // 'track' vs 'free' 모드
   type Mode = 'track' | 'free'
   const [mode, setMode] = useState<Mode>('track')
-  const { localRunningRecordRepository } = useRepositories()
+  const { localRunningRecordRepository, localTrackRepository } = useRepositories()
 
   const [records, setRecords] = useState<ScreenRecord[]>([])
   const [loading, setLoading] = useState(false)
@@ -76,22 +78,28 @@ export default function MyPageScreen() {
 
         // ─── 로컬 DB에서 trackId가 있는 기록만 가져오기 ─────────────────
         const allLocal = (await localRunningRecordRepository!.readAll()) ?? []
-        const localTrackRecs = allLocal
-          .filter(r => r.trackId != null && r.trackId > 0)
-          .map<ScreenRecord>(r => ({
-            id:           r.id,
-            userId:       userIdNum,
-            mode:         'LOCAL',
-            trackId:      r.trackId,
-            opponentId:   null,
-            isWinner:     false,
-            startedAt:    r.startedAt,
-            finishedAt:   r.endedAt,
-            resultTime:   r.duration,
-            distance:     r.distance,
-            averagePace:  r.avgPace,
-          }))
-
+        const localTrackRecs = await Promise.all(
+          allLocal
+          .filter(r => r.trackId > 0)
+          .map(async r => {
+            // 여기서는 이미 가져온 localTrackRepository 인스턴스를 사용
+            const track = await localTrackRepository!.readById(r.trackId)
+            return {
+              id:          r.id,
+              userId:      userIdNum,
+              mode:        'LOCAL',
+              trackId:     r.trackId,
+              trackName:   track?.name,
+              opponentId:  null,
+              isWinner:    false,
+              startedAt:   r.startedAt,
+              finishedAt:  r.endedAt,
+              resultTime:  r.duration,
+              distance:    r.distance,
+              averagePace: r.avgPace,
+            } as ScreenRecord
+          })
+        )
         // ③ 두 배열을 합쳐서 state에 반영
         setRecords( [...serverRecs, ...localTrackRecs]
           // b 가 더 최신이면 앞에 오도록 (내림차순)
@@ -160,6 +168,7 @@ export default function MyPageScreen() {
   const recent: RecentRun[] = weekRecs.map(r => ({
     recordId: String(r.id),
     date: new Date(r.finishedAt).toLocaleDateString(),
+    trackName : r.trackName,
     distanceKm: r.distance / 1000,
     timeSec: r.resultTime,
   }))
@@ -173,7 +182,9 @@ export default function MyPageScreen() {
     return (
       <View style={styles.matchRow}>
         <Text style={styles.matchText}>
-          {item.date} · {item.distanceKm.toFixed(1)}km
+          {item.date}
+          {item.trackName ? ` · ${item.trackName}` : ''}
+          {` · ${item.distanceKm.toFixed(1)}km`}
         </Text>
         <Text style={styles.matchResult}>
           {m}분{s}초
