@@ -10,6 +10,8 @@ const EXPO_PUBLIC_ANDROID_GOOGLE_MAP_API_KEY =
   process.env.EXPO_PUBLIC_ANDROID_GOOGLE_MAP_API_KEY;
 const EXPO_PUBLIC_IOS_GOOGLE_MAP_API_KEY =
   process.env.EXPO_PUBLIC_IOS_GOOGLE_MAP_API_KEY;
+const EXPO_PUBLIC_PROJECT_ID =
+  process.env.EXPO_PUBLIC_PROJECT_ID;
 
 export default ({ config }: ConfigContext): ExpoConfig => {
   return {
@@ -94,11 +96,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       typedRoutes: true,
     },
     // Optional: Add extra for custom values you might want to access in your app
-    // extra: {
-    //   someCustomValue: "hello",
-    //   eas: {
-    //     projectId: "YOUR_EAS_PROJECT_ID" // If you use EAS Build and want to define project ID here
-    //   }
-    // }
+    extra: {
+      eas: {
+        projectId: EXPO_PUBLIC_PROJECT_ID // If you use EAS Build and want to define project ID here
+      }
+    }
   };
 };
