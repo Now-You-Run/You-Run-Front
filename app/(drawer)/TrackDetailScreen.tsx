@@ -1,6 +1,8 @@
+import GradeBadge from '@/components/GradeBadge';
 import { useRepositories } from '@/context/RepositoryContext';
 import { saveTrackInfo, TrackInfo } from '@/repositories/appStorage';
 import { RunningRecord } from '@/types/LocalRunningRecordDto'; // [1. 추가] 로컬 기록 타입을 가져옵니다.
+import { ServerRankingRecord } from '@/types/ServerRecordDto';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -15,8 +17,7 @@ interface DisplayableTrackDetail {
   path: { latitude: number; longitude: number }[];
   distance: number;
   rate?: number;
-  // [수정] 서버 랭킹과 로컬 랭킹의 타입을 모두 포함할 수 있도록 유니온 타입 사용
-  ranking?: ({ username: string; duration: number } | RunningRecord)[];
+  ranking?: (ServerRankingRecord | RunningRecord)[];
 }
 
 export default function TrackDetailScreen() {
@@ -28,6 +29,11 @@ export default function TrackDetailScreen() {
 
   const [track, setTrack] = useState<DisplayableTrackDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const formatDuration = (duration: number) => {
+    return `${Math.floor(duration / 60)}분 ${duration % 60}초`;
+  };
+
 
   useEffect(() => {
     if (!trackId) {
@@ -77,7 +83,7 @@ export default function TrackDetailScreen() {
       } finally {
         setIsLoading(false);
       }
-      
+
     };
 
     loadData();
@@ -109,23 +115,38 @@ export default function TrackDetailScreen() {
         <Text>총 거리: {(track.distance / 1000).toFixed(2)} km</Text>
         {track.rate != null && <Text>평점: {track.rate}</Text>}
       </View>
-
       <View style={styles.content}>
-        <Text style={styles.subtitle}>랭킹</Text>
-        {/* [4. 수정] `ranking` 배열의 타입이 다르므로, 타입 가드를 사용하여 안전하게 렌더링합니다. */}
+        <Text style={styles.subtitle}>
+          {source === 'server' ? '서버 랭킹' : '나의 기록'}
+        </Text>
+
         {track.ranking && track.ranking.length > 0 ? (
-          track.ranking.map((record, idx) => (
-            <View key={idx} style={styles.rankItem}>
-              {/* 서버 기록은 `username`, 로컬 기록은 `name` 속성을 가질 수 있으므로, 둘 다 확인합니다. */}
-              <Text>{'username' in record ? record.username : record.name || '나의 기록'}</Text>
-              <Text>{Math.floor(record.duration / 60)}분 {record.duration % 60}초</Text>
-            </View>
-          ))
+          <>
+            {/* [핵심 수정] 서버 랭킹 UI */}
+            {source === 'server' &&
+              (track.ranking as ServerRankingRecord[]).map((record, idx) => (
+                <View key={idx} style={styles.rankItem}>
+                  <View style={styles.rankUserInfo}>
+                    <Text style={styles.rankUsername}>{idx + 1}. {record.username}</Text>
+                    <GradeBadge grade={record.grade} level={record.level} />
+                  </View>
+                  <Text style={styles.rankDuration}>{formatDuration(record.duration)}</Text>
+                </View>
+              ))}
+
+            {/* 로컬 기록 UI (기존과 동일) */}
+            {source === 'local' &&
+              (track.ranking as RunningRecord[]).map((record, idx) => (
+                <View key={idx} style={styles.rankItem}>
+                  <Text style={styles.rankUsername}>{record.name || `나의 ${idx + 1}번째 기록`}</Text>
+                  <Text style={styles.rankDuration}>{formatDuration(record.duration)}</Text>
+                </View>
+              ))}
+          </>
         ) : (
           <Text>기록이 없습니다.</Text>
         )}
       </View>
-
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.botButton}
@@ -165,8 +186,33 @@ const styles = StyleSheet.create({
   content: { padding: 16 },
   title: { fontSize: 22, fontWeight: 'bold' },
   subtitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 8 },
-  rankItem: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 4 },
   footer: { padding: 16, marginTop: 'auto' },
   botButton: { backgroundColor: '#ff6666', padding: 14, borderRadius: 10, alignItems: 'center' },
   botButtonText: { color: '#fff', fontSize: 18, fontWeight: '700' },
+
+    rankItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10, // Added a bit more vertical padding
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  rankUserInfo: {
+    flex: 1,
+    flexDirection: 'row', // [1. 수정] 세로(column) 정렬을 가로(row) 정렬로 변경
+    alignItems: 'center',  // [2. 수정] 닉네임과 뱃지를 세로축 중앙에 정렬
+    marginRight: 16,
+  },
+  rankUsername: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginRight: 8, // [3. 수정] 아래쪽 여백(marginBottom)을 오른쪽 여백(marginRight)으로 변경
+  },
+  rankDuration: {
+    fontSize: 16,
+    fontWeight: '500',
+    // No changes are needed here. It will now stay aligned to the right.
+  },
+
 });
