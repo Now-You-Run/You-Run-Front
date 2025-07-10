@@ -66,23 +66,24 @@ export default function MyPageScreen() {
         // ① 서버 응답 파싱
         const json = (await res.json()) as {
           data: Array<{
-            track: any
+            trackInfoDto:{name: string},
             record: ScreenRecord
           }>
         }
 
         // ② record 객체만 꺼내서 BOT/MATCH 필터링
         const serverRecs = json.data
-          .map(item => item.record)
-          .filter(r => r.mode === 'BOT' || r.mode === 'MATCH')
-
+          .filter(item => item.record.mode === 'BOT' || item.record.mode === 'MATCH')
+          .map(item => ({
+            ...item.record,
+            trackName: item.trackInfoDto.name,
+          }))
         // ─── 로컬 DB에서 trackId가 있는 기록만 가져오기 ─────────────────
         const allLocal = (await localRunningRecordRepository!.readAll()) ?? []
         const localTrackRecs = await Promise.all(
           allLocal
           .filter(r => r.trackId > 0)
           .map(async r => {
-            // 여기서는 이미 가져온 localTrackRepository 인스턴스를 사용
             const track = await localTrackRepository!.readById(r.trackId)
             return {
               id:          r.id,
