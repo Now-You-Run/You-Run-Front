@@ -70,6 +70,7 @@ export default function SummaryScreen() {
           distance: Math.round(totalDistance * 1000), // km -> m 단위로 변환
           startedAt: startedAt.toISOString(),
           finishedAt: now.toISOString(),
+          path: JSON.stringify(userPath),
         };
 
         const success = await trackRecordRepository.saveRunningRecord(newServerRecord);

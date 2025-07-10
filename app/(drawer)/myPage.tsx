@@ -3,6 +3,7 @@
 import { useRepositories } from '@/context/RepositoryContext'
 import { AuthAsyncStorage } from '@/repositories/AuthAsyncStorage'
 import { isAfter, parseISO, subDays } from 'date-fns'
+import { useRouter } from 'expo-router'
 import React, { useEffect, useState } from 'react'
 import {
   Alert,
@@ -43,6 +44,9 @@ type RecentRun = {
 }
 
 export default function MyPageScreen() {
+
+  const router = useRouter();
+
   // 'track' vs 'free' 모드
   type Mode = 'track' | 'free'
   const [mode, setMode] = useState<Mode>('track')
@@ -77,6 +81,7 @@ export default function MyPageScreen() {
           .map(item => ({
             ...item.record,
             trackName: item.trackInfoDto.name,
+            distance: item.record.distance,
           }))
         // ─── 로컬 DB에서 trackId가 있는 기록만 가져오기 ─────────────────
         const allLocal = (await localRunningRecordRepository!.readAll()) ?? []
@@ -161,7 +166,7 @@ export default function MyPageScreen() {
             ).padStart(2, '0')}"`
           : '-',
     },
-    { label: '달린 거리', value: `${weeklyDistance.toFixed(1)}km` },
+    { label: '달린 거리', value: `${weeklyDistance.toFixed(2)}km` },
     { label: '횟수', value: `${runCount}회` },
   ]
 
@@ -181,16 +186,19 @@ export default function MyPageScreen() {
     const m = Math.floor(item.timeSec / 60)
     const s = String(Math.round(item.timeSec % 60)).padStart(2, '0')
     return (
-      <View style={styles.matchRow}>
+      <Pressable
+        style={styles.matchRow}
+        onPress={() => router.push(`/record/${item.recordId}`)}
+        >
         <Text style={styles.matchText}>
           {item.date}
           {item.trackName ? ` · ${item.trackName}` : ''}
-          {` · ${item.distanceKm.toFixed(1)}km`}
+          {` · ${item.distanceKm.toFixed(2)}km`}
         </Text>
         <Text style={styles.matchResult}>
           {m}분{s}초
         </Text>
-      </View>
+      </Pressable>
     )
   }
 
