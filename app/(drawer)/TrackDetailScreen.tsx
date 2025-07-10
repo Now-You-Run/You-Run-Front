@@ -148,7 +148,7 @@ export default function TrackDetailScreen() {
               distanceMeters: track.distance,
             };
             await saveTrackInfo(info);
-            router.push({ pathname: './bot-pace', params: { trackId: track.id , source: source,} });
+            router.push({ pathname: './BotPace', params: { trackId: track.id , source: source,} });
           }}
         >
           <Text style={styles.botButtonText}>코칭 봇과의 대결</Text>
