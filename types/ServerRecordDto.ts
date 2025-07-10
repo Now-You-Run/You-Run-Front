@@ -1,3 +1,4 @@
+import { TrackRecordDto } from "./response/RunningTrackResponse";
 export interface SaveRecordDto {
   mode: 'BOT' | 'MATCH'; // 'track' 또는 'free' 등 서버와 약속된 모드
   trackId?: number; // 트랙 모드일 때만 필요
@@ -8,3 +9,5 @@ export interface SaveRecordDto {
   startedAt: string; // ISO 8601 형식 문자열
   finishedAt: string; // ISO 8601 형식 문자열
 }
+
+export type ServerRankingRecord = TrackRecordDto;

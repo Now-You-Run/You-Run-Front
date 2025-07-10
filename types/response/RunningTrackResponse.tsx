@@ -11,6 +11,8 @@ export interface TrackRecordDto {
   userId: number;
   username: string;
   duration: number;
+  grade : string,
+  level: number,
 }
 
 export interface TrackRecordData {
