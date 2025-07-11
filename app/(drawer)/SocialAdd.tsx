@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
@@ -18,82 +17,65 @@ import QRCode from 'react-native-qrcode-svg';
 import ViewShot, { captureRef } from 'react-native-view-shot';
 
 const SERVER_API_URL = process.env.EXPO_PUBLIC_SERVER_API_URL;
-
-// ✅ 8자리 랜덤 코드 생성 함수
-function generateRandomCode() {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let result = '';
-  for (let i = 0; i < 8; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
-}
+const MY_USER_ID = '1'; // ✅ 유저 아이디 고정
 
 export default function SocialAdd() {
-  const screenRef = useRef(null);
   const navigation = useNavigation();
+  const screenRef = useRef(null);
   const [friendCode, setFriendCode] = useState('');
   const [myCode, setMyCode] = useState('');
-  const [myUserId, setMyUserId] = useState<string | null>(null);
-  const [remainingSeconds, setRemainingSeconds] = useState(30);
   const qrRef = useRef<QRCode | null>(null);
 
-  // ✅ 유저 ID 불러오기
+  // 서버에서 내 코드 가져오기
   useEffect(() => {
-    const initUserId = async () => {
-      let savedId = await AsyncStorage.getItem('MY_USER_ID');
-      if (!savedId) {
-        savedId = '1';
-        await AsyncStorage.setItem('MY_USER_ID', savedId);
+    const fetchMyCode = async () => {
+      try {
+        const response = await fetch(
+          `${SERVER_API_URL}/api/user/${MY_USER_ID}/code`
+        );
+        if (!response.ok) {
+          const text = await response.text();
+          console.error('서버 응답 에러:', text);
+          return;
+        }
+        const data = await response.json();
+        console.log('내 코드 응답', data); // 디버깅용
+        setMyCode(data.data); // 수정된 부분
+      } catch (e) {
+        console.error('코드 가져오기 실패:', e);
       }
-      setMyUserId(savedId);
     };
-    initUserId();
+    fetchMyCode();
   }, []);
 
-  // ✅ 랜덤 코드 30초마다 갱신 및 서버 등록
-  useEffect(() => {
-    const generateAndRegisterCode = async () => {
-      if (!myUserId) return;
-      const newCode = generateRandomCode();
-      setMyCode(newCode);
+  // 서버에 QR코드 갱신 요청
+  const refreshCodeFromServer = async () => {
+    try {
+      const response = await fetch(
+        `${SERVER_API_URL}/api/user/${MY_USER_ID}/qr-refresh`,
+        { method: 'POST' }
+      );
+      if (!response.ok) {
+        const text = await response.text();
+        Alert.alert('갱신 실패', `코드 갱신에 실패했습니다: ${text}`);
+        return;
+      }
+      const data = await response.json();
+      setMyCode(data.data);
+      Alert.alert('갱신 완료', '새로운 코드가 발급되었습니다.');
+    } catch (error) {
+      console.error(error);
+      Alert.alert('오류', '코드 갱신 중 오류가 발생했습니다.');
+    }
+  };
 
-      //   try {
-      //     const response = await fetch(
-      //       `${SERVER_API_URL}/api/friend/code?userId=${myUserId}&code=${newCode}`,
-      //       { method: 'POST' }
-      //     );
-      //     if (!response.ok) {
-      //       console.error('코드 등록 실패:', await response.text());
-      //     }
-      //   } catch (e) {
-      //     console.error('코드 등록 중 오류:', e);
-      //   }
-    };
-
-    generateAndRegisterCode();
-    setRemainingSeconds(30);
-
-    const interval = setInterval(() => {
-      setRemainingSeconds((prev) => {
-        if (prev <= 1) {
-          generateAndRegisterCode();
-          return 30;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [myUserId]);
-
-  // ✅ 클립보드 복사
+  // 클립보드 복사
   const copyToClipboard = async () => {
     await Clipboard.setStringAsync(myCode);
     Alert.alert('복사 완료', '내 코드를 클립보드에 복사했습니다.');
   };
 
-  // ✅ 화면 전체 공유
+  // 화면 공유
   const shareFullScreen = async () => {
     try {
       const uri = await captureRef(screenRef, { format: 'png', quality: 0.9 });
@@ -108,7 +90,7 @@ export default function SocialAdd() {
     }
   };
 
-  // ✅ 친구 요청 보내기
+  // 친구 요청 보내기 (코드로)
   const sendFriendRequest = async (codeParam?: string) => {
     const codeToSend = codeParam ?? friendCode;
     if (!codeToSend) {
@@ -117,9 +99,8 @@ export default function SocialAdd() {
     }
 
     try {
-      const senderId = myUserId ?? '1';
       const response = await fetch(
-        `${SERVER_API_URL}/api/friend/request?senderId=${senderId}&code=${codeToSend}`,
+        `${SERVER_API_URL}/api/friend/request-by-code?senderId=${MY_USER_ID}&code=${codeToSend}`,
         { method: 'POST' }
       );
 
@@ -136,7 +117,7 @@ export default function SocialAdd() {
     }
   };
 
-  // ✅ 카메라 QR 스캔
+  // 카메라 QR 스캔
   const openCameraAndScanQR = async () => {
     try {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -192,7 +173,7 @@ export default function SocialAdd() {
         <View style={styles.qrWrapper}>
           <View style={styles.qrContainer}>
             <View style={styles.qrBackground}>
-              {myCode !== '' && (
+              {myCode ? (
                 <QRCode
                   value={myCode}
                   size={270}
@@ -202,6 +183,8 @@ export default function SocialAdd() {
                     qrRef.current = c;
                   }}
                 />
+              ) : (
+                <Text>코드가 없습니다</Text>
               )}
             </View>
             <TouchableOpacity
@@ -210,10 +193,13 @@ export default function SocialAdd() {
             >
               <Ionicons name="share-social-outline" size={24} color="#333" />
             </TouchableOpacity>
+            <TouchableOpacity
+              onPress={refreshCodeFromServer}
+              style={styles.refreshButton}
+            >
+              <Ionicons name="refresh" size={24} color="#333" />
+            </TouchableOpacity>
           </View>
-          <Text style={styles.timerText}>
-            ⏱️ {remainingSeconds}s 후 코드 갱신
-          </Text>
         </View>
 
         <View style={styles.myCodeWrapper}>
@@ -256,7 +242,7 @@ export default function SocialAdd() {
   );
 }
 
-// ================= 스타일 (기존 동일) =================
+// ================= 스타일 =================
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -265,12 +251,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   backButton: { fontSize: 24, color: '#333', marginBottom: 10 },
-  userIdText: {
-    fontSize: 14,
-    color: '#888',
-    textAlign: 'center',
-    marginBottom: 10,
-  },
   qrWrapper: { alignItems: 'center', marginBottom: 10 },
   qrBackground: {
     backgroundColor: '#CDA9FF',
@@ -278,7 +258,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 2,
   },
-  timerText: { marginTop: 6, fontSize: 12, color: '#666' },
   myCodeWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -313,11 +292,26 @@ const styles = StyleSheet.create({
   },
   qrContainer: {
     position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   shareButton: {
     position: 'absolute',
     top: -43,
-    right: -30,
+    right: -70,
+    backgroundColor: '#fff',
+    padding: 8,
+    borderRadius: 20,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+  },
+  refreshButton: {
+    position: 'absolute',
+    top: -43,
+    right: -20,
     backgroundColor: '#fff',
     padding: 8,
     borderRadius: 20,
