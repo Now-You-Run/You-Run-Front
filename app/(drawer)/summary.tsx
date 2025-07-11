@@ -70,6 +70,7 @@ export default function SummaryScreen() {
           distance: Math.round(totalDistance * 1000), // km -> m 단위로 변환
           startedAt: startedAt.toISOString(),
           finishedAt: now.toISOString(),
+          path: JSON.stringify(userPath),
         };
 
         const success = await trackRecordRepository.saveRunningRecord(newServerRecord);
@@ -156,6 +157,33 @@ export default function SummaryScreen() {
       setIsSaving(false);
     }
   };
+
+  // 자유 모드에서 “취소” 눌러도 로컬 기록만 저장하고 홈으로 돌아가기
+const handleCancelSave = async () => {
+  setIsSaving(true);
+  try {
+    const now = new Date();
+    const newLocalRecord: CreateRunningRecordDto = {
+      trackId: 0,  // 자유 모드이므로 트랙 없음
+      name:    `${formatDateTime(now)} 기록`, 
+      path:    JSON.stringify(userPath),
+      distance: Math.round(totalDistance * 1000),
+      duration: elapsedTime,
+      avgPace:  parseFloat(calculateAveragePace(totalDistance, elapsedTime).replace("'", ".")),
+      calories: Math.round(totalDistance * 60),
+      startedAt: new Date(now.getTime() - elapsedTime * 1000).toISOString(),
+      endedAt:   now.toISOString(),
+    };
+    await addRunningRecord(newLocalRecord);
+  } catch (e) {
+    console.error('취소 시 기록 저장 실패:', e);
+  } finally {
+    setIsSaving(false);
+    setModalType(null);
+    router.replace('/');
+  }
+};
+
 
   const handleCompletePress = () => {
     console.log(isTrackMode)
@@ -245,12 +273,13 @@ export default function SummaryScreen() {
             <View style={styles.modalButtonContainer}>
               <Pressable
                 style={[styles.modalButton, { backgroundColor: '#ccc' }]}
-                onPress={() => {
-                  setModalType(null);
-                  router.replace('/');
-                }}
+                onPress={handleCancelSave}
+                disabled={isSaving}
               >
-                <Text style={styles.modalButtonText}>취소</Text>
+                {isSaving
+                  ? <ActivityIndicator color="#444" />
+                  : <Text style={styles.modalButtonText}>취소</Text>
+                }
               </Pressable>
               <Pressable
                 style={[styles.modalButton, { backgroundColor: '#007aff' }]}

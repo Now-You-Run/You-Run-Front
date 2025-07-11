@@ -8,6 +8,7 @@ export interface SaveRecordDto {
   distance: number; // 미터(m) 단위
   startedAt: string; // ISO 8601 형식 문자열
   finishedAt: string; // ISO 8601 형식 문자열
+  path: string 
 }
 
 export type ServerRankingRecord = TrackRecordDto;
