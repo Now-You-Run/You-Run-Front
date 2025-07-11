@@ -7,22 +7,21 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  View,
+  View
 } from 'react-native';
-import MapView, { LatLng, Polyline } from 'react-native-maps';
+import MapView, { LatLng, Marker, Polyline } from 'react-native-maps';
 
 interface RecordDetail {
   id: number;
   mode: 'BOT' | 'MATCH' | 'LOCAL';
   trackId: number;
   trackName?: string;
-  // --- 새로 추가 ---
   trackPath: LatLng[];
-  userPath: LatLng[];
-  // ------------
+  userPath: Array<{ latitude: number; longitude: number; timestamp: number }>;
   distance: number;      // meters
   duration: number;      // seconds
   avgPace: number;       // sec/km
@@ -41,6 +40,10 @@ export default function RecordDetailScreen() {
 
   const [detail, setDetail] = useState<RecordDetail | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // 시뮬레이션 state 추가
+  const [simStep, setSimStep] = useState(0);
+  const [running, setRunning] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -111,6 +114,23 @@ export default function RecordDetailScreen() {
     })();
   }, [recordId]);
 
+  // 시뮬레이션 useEffect
+  useEffect(() => {
+    if (!detail || !running) return;
+    const userPath = detail.userPath;
+    if (simStep >= userPath.length - 1) {
+      setRunning(false);
+      return;
+    }
+    const cur = userPath[simStep];
+    const next = userPath[simStep + 1];
+    // 실제 시간차 (초) → ms, 최소 100ms 이상
+    const delay = Math.max(100, (next.timestamp - cur.timestamp) * 1000);
+    const id = setTimeout(() => setSimStep(s => s + 1), delay);
+    return () => clearTimeout(id);
+  }, [simStep, running, detail]);
+
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -128,31 +148,95 @@ export default function RecordDetailScreen() {
     distance, duration, avgPace, calories
   } = detail;
 
+  // 시뮬 중이 아니면 전체 경로, 진행중이면 simStep만큼만
+  const showPath = running || simStep > 0
+    ? userPath.slice(0, simStep + 1)
+    : userPath;
+
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.header}>기록 상세</Text>
       <MapView
         style={{ width, height: mapHeight }}
         initialRegion={{
-          latitude: trackPath[0]?.latitude  ?? userPath[0].latitude,
+          latitude: trackPath[0]?.latitude ?? userPath[0].latitude,
           longitude: trackPath[0]?.longitude ?? userPath[0].longitude,
           latitudeDelta: 0.01,
           longitudeDelta: 0.01,
         }}
       >
-        {/* 트랙 경로 (회색) */}
         <Polyline coordinates={trackPath} strokeColor="#999" strokeWidth={4} />
-        {/* 실제 달린 경로 (파랑) */}
-        <Polyline coordinates={userPath} strokeColor="#007aff" strokeWidth={4} />
+        <Polyline coordinates={showPath} strokeColor="#007aff" strokeWidth={4} />
+        {simStep > 0 && (
+          <Marker coordinate={userPath[simStep]} />
+        )}
       </MapView>
+
+      {/* 시뮬레이션 컨트롤 UI */}
+      <View style={{ flexDirection: 'row', justifyContent: 'center', margin: 12 }}>
+        {!running && (
+          <Pressable
+            onPress={() => {
+              setSimStep(1);
+              setRunning(true);
+            }}
+            style={{
+              padding: 8,
+              backgroundColor: '#007aff',
+              borderRadius: 8,
+              marginRight: 8,
+            }}
+          >
+            <Text style={{ color: 'white', fontWeight: 'bold' }}>시뮬레이션 시작</Text>
+          </Pressable>
+        )}
+        {running && (
+          <Pressable
+            onPress={() => setRunning(false)}
+            style={{
+              padding: 8,
+              backgroundColor: '#aaa',
+              borderRadius: 8,
+              marginRight: 8,
+            }}
+          >
+            <Text style={{ color: 'white' }}>정지</Text>
+          </Pressable>
+        )}
+        {!running && simStep > 0 && simStep < userPath.length - 1 && (
+          <Pressable
+            onPress={() => setRunning(true)}
+            style={{
+              padding: 8,
+              backgroundColor: '#007aff',
+              borderRadius: 8,
+              marginRight: 8,
+            }}
+          >
+            <Text style={{ color: 'white', fontWeight: 'bold' }}>이어 재생</Text>
+          </Pressable>
+        )}
+        {simStep > 0 && (
+          <Pressable
+            onPress={() => { setSimStep(0); setRunning(false); }}
+            style={{
+              padding: 8,
+              backgroundColor: '#eee',
+              borderRadius: 8,
+            }}
+          >
+            <Text style={{ color: '#444' }}>초기화</Text>
+          </Pressable>
+        )}
+      </View>
 
       <View style={styles.info}>
         <Text>모드: {mode}</Text>
         {trackName && <Text>트랙명: {trackName}</Text>}
-        <Text>거리: {(distance/1000).toFixed(2)} km</Text>
+        <Text>거리: {(distance / 1000).toFixed(2)} km</Text>
         <Text>시간: {formatTime(duration)}</Text>
         <Text>
-          페이스: {Math.floor(avgPace/60)}′{String(Math.round(avgPace%60)).padStart(2,'0')}″
+          페이스: {Math.floor(avgPace / 60)}′{String(Math.round(avgPace % 60)).padStart(2, '0')}″
         </Text>
         <Text>칼로리: {calories} kcal</Text>
       </View>
@@ -162,7 +246,7 @@ export default function RecordDetailScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
-  center:    { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header:    { fontSize: 24, fontWeight: 'bold', margin: 16 },
-  info:      { padding: 16, lineHeight: 28 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  header: { fontSize: 24, fontWeight: 'bold', margin: 16 },
+  info: { padding: 16, lineHeight: 28 },
 });
