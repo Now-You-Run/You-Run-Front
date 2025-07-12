@@ -3,7 +3,6 @@ import { useNavigation } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
 import * as Sharing from 'expo-sharing';
-import jsQR from 'jsqr';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
@@ -15,9 +14,90 @@ import {
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import ViewShot, { captureRef } from 'react-native-view-shot';
-
 const SERVER_API_URL = process.env.EXPO_PUBLIC_SERVER_API_URL;
+
 const MY_USER_ID = '1'; // ✅ 유저 아이디 고정
+
+// ================= 스타일 =================
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    paddingTop: 60,
+    paddingHorizontal: 20,
+    backgroundColor: '#fff',
+  },
+  backButton: { fontSize: 24, color: '#333', marginBottom: 10 },
+  qrWrapper: { alignItems: 'center', marginBottom: 10 },
+  qrBackground: {
+    backgroundColor: '#CDA9FF',
+    padding: 15,
+    borderRadius: 20,
+    borderWidth: 2,
+  },
+  myCodeWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 40,
+    justifyContent: 'center',
+  },
+  label: { fontSize: 18, marginRight: 10 },
+  codeBox: {
+    flexDirection: 'row',
+    backgroundColor: '#ddd',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 15,
+    alignItems: 'center',
+  },
+  codeText: { fontWeight: 'bold', fontSize: 18, letterSpacing: 2 },
+  copyButton: { marginLeft: 10 },
+  friendCodeWrapper: { flexDirection: 'row', alignItems: 'center' },
+  cameraButton: {
+    backgroundColor: '#eee',
+    padding: 15,
+    borderRadius: 40,
+    marginRight: 15,
+  },
+  friendCodeInput: {
+    flex: 1,
+    fontSize: 16,
+    borderBottomWidth: 1,
+    borderColor: '#ccc',
+    paddingVertical: 5,
+    textAlign: 'center',
+  },
+  qrContainer: {
+    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  shareButton: {
+    position: 'absolute',
+    top: -43,
+    right: -70,
+    backgroundColor: '#fff',
+    padding: 8,
+    borderRadius: 20,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+  },
+  refreshButton: {
+    position: 'absolute',
+    top: -43,
+    right: -20,
+    backgroundColor: '#fff',
+    padding: 8,
+    borderRadius: 20,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+  },
+});
 
 export default function SocialAdd() {
   const navigation = useNavigation();
@@ -117,45 +197,73 @@ export default function SocialAdd() {
     }
   };
 
-  // 카메라 QR 스캔
-  const openCameraAndScanQR = async () => {
-    try {
-      const permission = await ImagePicker.requestCameraPermissionsAsync();
-      if (!permission.granted) {
-        Alert.alert('권한 필요', '카메라 권한이 필요합니다.');
-        return;
-      }
+  // 갤러리 접근 권한 체크
+  const requestGalleryPermission = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('권한 필요', '갤러리 접근 권한이 필요합니다.');
+      return false;
+    }
+    return true;
+  };
 
-      const result = await ImagePicker.launchCameraAsync({
+  // 카메라 QR 스캔
+  const uploadQRAndAddFriend = async () => {
+    const hasPermission = await requestGalleryPermission();
+    if (!hasPermission) return;
+
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: false,
-        base64: true,
+        quality: 1,
       });
 
-      if (!result.canceled && result.assets && result.assets[0].base64) {
-        const base64 = result.assets[0].base64;
-        const rawData = Uint8ClampedArray.from(atob(base64), (c) =>
-          c.charCodeAt(0)
-        );
-        const size = Math.sqrt(rawData.length / 4);
-        const imageData = { data: rawData, width: size, height: size };
-        const qrCode = jsQR(imageData.data, imageData.width, imageData.height);
+      if (!result.canceled && result.assets && result.assets[0].uri) {
+        const uri = result.assets[0].uri;
 
-        if (qrCode && qrCode.data) {
-          setFriendCode(qrCode.data);
-          Alert.alert('QR 인식 성공', `코드: ${qrCode.data}`, [
+        // FormData 구성
+        const formData = new FormData();
+        formData.append('file', {
+          uri,
+          name: 'qr_image.jpg',
+          type: 'image/jpeg',
+        } as any);
+
+        const response = await fetch(`${SERVER_API_URL}/api/qrcode/scan`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+          body: formData,
+        });
+
+        const text = await response.text();
+        console.log('서버 응답 원문:', text);
+
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          // JSON 파싱 실패 시, 응답이 순수 텍스트일 수도 있으니 그대로 data에 넣음
+          data = { data: text.trim() };
+        }
+
+        if (response.ok) {
+          Alert.alert('QR 인식 성공', `코드: ${data.data}`, [
             {
               text: '친구 요청 보내기',
-              onPress: () => sendFriendRequest(qrCode.data),
+              onPress: () => sendFriendRequest(data.data),
             },
             { text: '취소', style: 'cancel' },
           ]);
         } else {
-          Alert.alert('QR 인식 실패', 'QR 코드를 인식하지 못했습니다.');
+          Alert.alert('QR 인식 실패', data.message || '인식 실패');
         }
       }
-    } catch (error) {
-      console.error(error);
-      Alert.alert('오류', 'QR 스캔 중 오류가 발생했습니다.');
+    } catch (e) {
+      console.error(e);
+      Alert.alert('오류', 'QR 업로드/인식 중 오류가 발생했습니다.');
     }
   };
 
@@ -217,7 +325,7 @@ export default function SocialAdd() {
 
         <View style={styles.friendCodeWrapper}>
           <TouchableOpacity
-            onPress={openCameraAndScanQR}
+            onPress={uploadQRAndAddFriend}
             style={styles.cameraButton}
           >
             <Ionicons name="camera" size={50} color="black" />
@@ -241,84 +349,3 @@ export default function SocialAdd() {
     </ViewShot>
   );
 }
-
-// ================= 스타일 =================
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingTop: 60,
-    paddingHorizontal: 20,
-    backgroundColor: '#fff',
-  },
-  backButton: { fontSize: 24, color: '#333', marginBottom: 10 },
-  qrWrapper: { alignItems: 'center', marginBottom: 10 },
-  qrBackground: {
-    backgroundColor: '#CDA9FF',
-    padding: 15,
-    borderRadius: 20,
-    borderWidth: 2,
-  },
-  myCodeWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 40,
-    justifyContent: 'center',
-  },
-  label: { fontSize: 18, marginRight: 10 },
-  codeBox: {
-    flexDirection: 'row',
-    backgroundColor: '#ddd',
-    borderRadius: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 15,
-    alignItems: 'center',
-  },
-  codeText: { fontWeight: 'bold', fontSize: 18, letterSpacing: 2 },
-  copyButton: { marginLeft: 10 },
-  friendCodeWrapper: { flexDirection: 'row', alignItems: 'center' },
-  cameraButton: {
-    backgroundColor: '#eee',
-    padding: 15,
-    borderRadius: 40,
-    marginRight: 15,
-  },
-  friendCodeInput: {
-    flex: 1,
-    fontSize: 16,
-    borderBottomWidth: 1,
-    borderColor: '#ccc',
-    paddingVertical: 5,
-    textAlign: 'center',
-  },
-  qrContainer: {
-    position: 'relative',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  shareButton: {
-    position: 'absolute',
-    top: -43,
-    right: -70,
-    backgroundColor: '#fff',
-    padding: 8,
-    borderRadius: 20,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.41,
-  },
-  refreshButton: {
-    position: 'absolute',
-    top: -43,
-    right: -20,
-    backgroundColor: '#fff',
-    padding: 8,
-    borderRadius: 20,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.41,
-  },
-});
