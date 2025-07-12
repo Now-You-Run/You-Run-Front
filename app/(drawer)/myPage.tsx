@@ -1,11 +1,12 @@
 // app/(drawer)/MyPage.tsx
 
-import { useRepositories } from '@/context/RepositoryContext'
 import { AuthAsyncStorage } from '@/repositories/AuthAsyncStorage'
+import { useUserStore } from '@/stores/userStore'
 import { isAfter, parseISO, subDays } from 'date-fns'
 import { useRouter } from 'expo-router'
 import React, { useEffect, useState } from 'react'
 import {
+  ActivityIndicator,
   Alert,
   Dimensions,
   FlatList,
@@ -13,7 +14,7 @@ import {
   SafeAreaView,
   StyleSheet,
   Text,
-  View,
+  View
 } from 'react-native'
 
 const API_BASE = 'https://yourun.shop'
@@ -22,7 +23,7 @@ const API_BASE = 'https://yourun.shop'
 interface ScreenRecord {
   id: number
   userId: number
-  mode: 'BOT' | 'MATCH' | 'LOCAL'
+  mode: 'BOT' | 'MATCH' | 'FREE'
   trackId: number
   trackName?: string
   opponentId: number | null
@@ -47,10 +48,12 @@ export default function MyPageScreen() {
 
   const router = useRouter();
 
+  // user store에서 프로필 불러오기
+  const user = useUserStore(state => state.profile);
+
   // 'track' vs 'free' 모드
   type Mode = 'track' | 'free'
   const [mode, setMode] = useState<Mode>('track')
-  const { localRunningRecordRepository, localTrackRepository } = useRepositories()
 
   const [records, setRecords] = useState<ScreenRecord[]>([])
   const [loading, setLoading] = useState(false)
@@ -62,76 +65,35 @@ export default function MyPageScreen() {
       if (!rawUserId) throw new Error('로그인 정보가 없습니다.')
       const userIdNum = rawUserId
 
-      if (mode === 'track') {
-        // ─── 서버에서 BOT/MATCH 기록만 ─────────────────
-        const res = await fetch(`${API_BASE}/api/record?userId=${userIdNum}`)
-        if (!res.ok) throw new Error(`status ${res.status}`)
+      // ─── 서버에서 BOT/MATCH 기록만 ─────────────────
+      const res = await fetch(`${API_BASE}/api/record?userId=${userIdNum}`)
+      if (!res.ok) throw new Error(`status ${res.status}`)
 
-        // ① 서버 응답 파싱
-        const json = (await res.json()) as {
-          data: Array<{
-            trackInfoDto:{name: string},
-            record: ScreenRecord
-          }>
-        }
-
-        // ② record 객체만 꺼내서 BOT/MATCH 필터링
-        const serverRecs = json.data
-          .filter(item => item.record.mode === 'BOT' || item.record.mode === 'MATCH')
-          .map(item => ({
-            ...item.record,
-            trackName: item.trackInfoDto.name,
-            distance: item.record.distance,
-          }))
-        // ─── 로컬 DB에서 trackId가 있는 기록만 가져오기 ─────────────────
-        const allLocal = (await localRunningRecordRepository!.readAll()) ?? []
-        const localTrackRecs = await Promise.all(
-          allLocal
-          .filter(r => r.trackId > 0)
-          .map(async r => {
-            const track = await localTrackRepository!.readById(r.trackId)
-            return {
-              id:          r.id,
-              userId:      userIdNum,
-              mode:        'LOCAL',
-              trackId:     r.trackId,
-              trackName:   track?.name,
-              opponentId:  null,
-              isWinner:    false,
-              startedAt:   r.startedAt,
-              finishedAt:  r.endedAt,
-              resultTime:  r.duration,
-              distance:    r.distance,
-              averagePace: r.avgPace,
-            } as ScreenRecord
-          })
-        )
-        // ③ 두 배열을 합쳐서 state에 반영
-        setRecords( [...serverRecs, ...localTrackRecs]
-          // b 가 더 최신이면 앞에 오도록 (내림차순)
-          .sort((a, b) => new Date(b.finishedAt).getTime() - new Date(a.finishedAt).getTime()
-    ))
-      } else {
-        // 자유 모드: 로컬 DB에서 trackId 없는 기록만
-        const allLocal = (await localRunningRecordRepository!.readAll()) ?? []
-        const localFreeRecs = allLocal
-          .filter(r => !r.trackId)
-          .map<ScreenRecord>(r => ({
-            id:           r.id,
-            userId:       userIdNum,
-            mode:         'LOCAL',
-            trackId:      r.trackId,
-            opponentId:   null,
-            isWinner:     false,
-            startedAt:    r.startedAt,
-            finishedAt:   r.endedAt,
-            resultTime:   r.duration,
-            distance:     r.distance,
-            averagePace:  r.avgPace,
-          }))
-
-        setRecords(localFreeRecs)
+      // ① 서버 응답 파싱
+      const json = (await res.json()) as {
+        data: Array<{
+          trackInfoDto:{name: string},
+          record: ScreenRecord
+        }>
       }
+
+      // ② record 객체만 꺼내서 BOT/MATCH 필터링
+      let serverRecs = json.data.map(item => ({
+            ...item.record,
+            trackName: item.trackInfoDto?.name,
+      }))
+
+      if (mode === 'track') {
+        serverRecs = serverRecs.filter(r => r.mode === 'BOT' || r.mode === 'MATCH')
+      } else {
+        serverRecs = serverRecs.filter(r => r.mode === 'FREE')
+      }
+
+      setRecords(
+        serverRecs.sort(
+          (a, b) => new Date(b.finishedAt).getTime() - new Date(a.finishedAt).getTime()
+        )
+      )
     } catch (e: any) {
       console.warn(e)
       Alert.alert('불러오기 실패', e.message)
@@ -221,8 +183,23 @@ export default function MyPageScreen() {
             {/* ─── 프로필 ─────────────── */}
             <View style={styles.headerRow}>
               <View>
-                <Text style={styles.userName}>나롱이님</Text>
-                <Text style={styles.userMeta}>Lv.4 · EXP 120 · P 500</Text>
+                {/* 👇 실제 유저 정보로 표시 */}
+                {!user ? (
+                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                    <ActivityIndicator size="small" />
+                    <Text style={{marginLeft: 10, color: '#aaa'}}>유저 정보를 불러오는 중…</Text>
+                  </View>
+                ) : (
+                  <>
+                    <Text style={styles.userName}>{user.username}님</Text>
+                    <Text style={styles.userMeta}>
+                      Lv.{user.level} · {user.grade} · {user.point}P
+                    </Text>
+                    <Text style={styles.userMeta}>
+                      총 거리: {(user.totalDistance/1000).toFixed(2)}km
+                    </Text>
+                  </>
+                )}
               </View>
             </View>
 
