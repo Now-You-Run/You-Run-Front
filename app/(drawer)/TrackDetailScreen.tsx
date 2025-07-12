@@ -8,7 +8,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Polyline } from 'react-native-maps';
 
-export type SourceType = 'local' | 'server';
+export type SourceType = 'my' | 'server';
 
 // 화면 표시에 사용할 통일된 데이터 구조 정의
 interface DisplayableTrackDetail {
@@ -45,8 +45,7 @@ export default function TrackDetailScreen() {
       setIsLoading(true);
       try {
         let fetchedData: DisplayableTrackDetail | null = null;
-
-        if (source === 'server' && trackRecordRepository) {
+        if (trackRecordRepository) {
           const serverData = await trackRecordRepository.fetchTrackRecord(trackId);
           if (serverData) {
             fetchedData = {
@@ -56,25 +55,9 @@ export default function TrackDetailScreen() {
               distance: serverData.trackInfoDto.totalDistance,
               rate: serverData.trackInfoDto.rate,
               ranking: serverData.trackRecordDto,
+              
             };
-          }
-        } else if (source === 'local' && localTrackRepository && localRunningRecordRepository) {
-          // [3. 핵심 수정] 로컬 트랙 상세 정보와 함께, 해당 트랙의 러닝 기록(랭킹)도 불러옵니다.
-          const localData = await localTrackRepository.readById(parseInt(trackId, 10));
-          // `readByTrackId`는 LocalRunningRecordRepository에 구현되어 있어야 합니다.
-          const rankingsData = await localRunningRecordRepository.readByTrackId(parseInt(trackId, 10));
-
-          if (localData) {
-            fetchedData = {
-              id: localData.id.toString(),
-              name: localData.name,
-              path: JSON.parse(localData.path || '[]'),
-              distance: localData.totalDistance,
-              rate: localData.rate,
-              // 불러온 랭킹 데이터를 할당합니다.
-              ranking: rankingsData || [],
-            };
-            console.log(`track data ${localData.path}`)
+              console.log(`track data ${fetchedData.path}`)      
           }
         }
         setTrack(fetchedData);
@@ -83,7 +66,6 @@ export default function TrackDetailScreen() {
       } finally {
         setIsLoading(false);
       }
-
     };
 
     loadData();
@@ -135,7 +117,7 @@ export default function TrackDetailScreen() {
               ))}
 
             {/* 로컬 기록 UI (기존과 동일) */}
-            {source === 'local' &&
+            {source === 'my' &&
               (track.ranking as RunningRecord[]).map((record, idx) => (
                 <View key={idx} style={styles.rankItem}>
                   <Text style={styles.rankUsername}>{record.name || `나의 ${idx + 1}번째 기록`}</Text>

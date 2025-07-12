@@ -1,7 +1,8 @@
 // /hooks/useTrackList.ts
 
 import { useRepositories } from '@/context/RepositoryContext';
-import { Coordinate } from '@/types/LocalTrackDto';
+import { AuthAsyncStorage } from '@/repositories/AuthAsyncStorage';
+import { Coordinate } from '@/types/TrackDto';
 import { Track } from '@/types/response/RunningTrackResponse';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
@@ -9,20 +10,29 @@ import { useCallback, useEffect, useState } from 'react';
 
 const PAGE_SIZE = 20;
 
+export const DISTANCE_SORT_OPTIONS = [
+  { label: '가까운 순', value: 'proximity' },
+  { label: '트랙 거리 순', value: 'trackDistance' },
+] as const;
+
+export type DistanceSortType = (typeof DISTANCE_SORT_OPTIONS)[number]['value'];
+
+// [수정] 반환 타입의 tab과 setTab 타입 변경
 interface UseTrackListReturn {
   isLoading: boolean;
   isRefreshing: boolean;
   tracks: Track[];
-  tab: 'server' | 'local';
-  distanceSortOption: 'proximity' | 'trackDistance';
-  setTab: (tab: 'server' | 'local') => void;
-  setDistanceSortOption: (option: 'proximity' | 'trackDistance') => void;
+  tab: 'my' | 'server';
+  distanceSortOption: DistanceSortType;
+  setTab: (tab: 'my' | 'server') => void;
+  setDistanceSortOption: (option: DistanceSortType) => void;
   handleRefresh: () => void;
   handleEndReached: () => void;
 }
 
 export function useTrackList(): UseTrackListReturn {
-  const { localTrackRepository, trackRecordRepository } = useRepositories();
+  // [수정] localTrackRepository는 더 이상 사용하지 않으므로 제거
+  const { trackRecordRepository } = useRepositories();
 
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -31,16 +41,41 @@ export function useTrackList(): UseTrackListReturn {
   const [page, setPage] = useState(0);
   const [canLoadMore, setCanLoadMore] = useState(true);
 
-  const [tab, setTab] = useState<'server' | 'local'>('local');
-  const [distanceSortOption, setDistanceSortOption] = useState<'proximity' | 'trackDistance'>('proximity');
+  // [수정] tab의 타입과 초기값을 'my'로 변경
+  const [tab, setTab] = useState<'my' | 'server'>('my');
+  const [distanceSortOption, setDistanceSortOption] = useState<DistanceSortType>('proximity');
   const [myLocation, setMyLocation] = useState<Coordinate | undefined>();
 
-  const fetchServerTracks = useCallback(async (isRefresh: boolean) => {
+  // [추가] '내 트랙'을 서버에서 가져오는 함수
+  const fetchMyTracks = useCallback(async (isRefresh: boolean) => {
+    // trackRecordRepository가 준비되지 않았거나, 위치 정보가 없거나, 이미 페이지네이션 중이면 실행하지 않음
     if (!trackRecordRepository || !myLocation || (isPaginating && !isRefresh)) return;
 
     const currentPage = isRefresh ? 0 : page;
     if (currentPage > 0 && !isRefresh) setIsPaginating(true);
+
+    const userId = await AuthAsyncStorage.getUserId();
+    const { tracks: newMyTracks, totalPages } = await trackRecordRepository.fetchPaginatedUserTrackListOrderByClose(
+      myLocation.longitude, myLocation.latitude,userId ?? 0, currentPage, PAGE_SIZE
+    );
     
+    if (currentPage >= totalPages - 1) setCanLoadMore(false);
+    
+    setPage(currentPage + 1);
+    setTracks(prev => (isRefresh ? newMyTracks : [...prev, ...newMyTracks]));
+    
+    setIsLoading(false);
+    setIsPaginating(false);
+  }, [page, isPaginating, myLocation, trackRecordRepository]);
+
+
+  // [이름 변경] 명확성을 위해 fetchServerTracks -> fetchAllServerTracks로 변경
+  const fetchAllServerTracks = useCallback(async (isRefresh: boolean) => {
+    if (!trackRecordRepository || !myLocation || (isPaginating && !isRefresh)) return;
+
+    const currentPage = isRefresh ? 0 : page;
+    if (currentPage > 0 && !isRefresh) setIsPaginating(true);
+
     const { tracks: newServerTracks, totalPages } = await trackRecordRepository.fetchPaginatedTrackListOrderByClose(
       myLocation.longitude, myLocation.latitude, currentPage, PAGE_SIZE
     );
@@ -53,29 +88,6 @@ export function useTrackList(): UseTrackListReturn {
     setIsLoading(false);
     setIsPaginating(false);
   }, [page, isPaginating, myLocation, trackRecordRepository]);
-
-  const fetchLocalTracks = useCallback(async (isRefresh: boolean) => {
-    if (!localTrackRepository || (isPaginating && !isRefresh)) return;
-
-    const currentPage = isRefresh ? 0 : page;
-    if (currentPage > 0 && !isRefresh) setIsPaginating(true);
-    
-    const newSummaries = await localTrackRepository.readPaginatedSummaries({
-      sortOption: distanceSortOption, myLocation, page: currentPage, pageSize: PAGE_SIZE,
-    });
-    
-    const newUiTracks: Track[] = newSummaries.map(t => ({
-      id: t.id.toString(), name: t.name, path: [], distance: t.totalDistance, date: t.createdAt,
-    }));
-
-    if (newUiTracks.length < PAGE_SIZE) setCanLoadMore(false);
-    
-    setPage(currentPage + 1);
-    setTracks(prev => (isRefresh ? newUiTracks : [...prev, ...newUiTracks]));
-
-    setIsLoading(false);
-    setIsPaginating(false);
-  }, [page, isPaginating, distanceSortOption, myLocation, localTrackRepository]);
   
   useEffect(() => {
     const loadLocation = async () => {
@@ -94,37 +106,37 @@ export function useTrackList(): UseTrackListReturn {
 
   const handleRefresh = useCallback(() => {
     setIsRefreshing(true);
-    if (tab === 'local') {
-      fetchLocalTracks(true).finally(() => setIsRefreshing(false));
+    // [수정] 탭에 따라 올바른 함수 호출
+    if (tab === 'my') {
+      fetchMyTracks(true).finally(() => setIsRefreshing(false));
     } else {
-      fetchServerTracks(true).finally(() => setIsRefreshing(false));
+      fetchAllServerTracks(true).finally(() => setIsRefreshing(false));
     }
-  }, [tab, fetchLocalTracks, fetchServerTracks]);
+  }, [tab, fetchMyTracks, fetchAllServerTracks]);
 
   // --- [핵심 수정] 탭, 정렬 옵션 등이 변경될 때 실행되는 메인 로직 ---
   useEffect(() => {
-    if (!localTrackRepository || !trackRecordRepository) return;
+    // [수정] localTrackRepository 의존성 제거
+    if (!trackRecordRepository) return;
     if (distanceSortOption === 'proximity' && !myLocation) {
       setIsLoading(true);
       setTracks([]);
       return;
     }
 
-    // 1. 상태가 변경되면, 로딩을 시작하고 목록을 비웁니다.
     setIsLoading(true);
     setTracks([]);
     setPage(0);
     setCanLoadMore(true);
 
-    // 2. 탭에 따라 올바른 함수를 호출하여 데이터를 가져옵니다.
-    if (tab === 'local') {
-      fetchLocalTracks(true);
+    // [수정] 탭에 따라 올바른 함수를 호출
+    if (tab === 'my') {
+      fetchMyTracks(true);
     } else if (tab === 'server') {
-      fetchServerTracks(true);
+      fetchAllServerTracks(true);
     }
-  }, [tab, distanceSortOption, myLocation, localTrackRepository, trackRecordRepository]);
+  }, [tab, distanceSortOption, myLocation, trackRecordRepository]); // fetch 함수들을 의존성 배열에서 제거하여 무한 루프 방지
 
-  // 다른 화면에서 돌아왔을 때 새로고침
   useFocusEffect(
     useCallback(() => {
       handleRefresh();
@@ -133,13 +145,14 @@ export function useTrackList(): UseTrackListReturn {
   
   const handleEndReached = useCallback(() => {
     if (canLoadMore && !isPaginating) {
-      if (tab === 'local') {
-        fetchLocalTracks(false);
+      // [수정] 탭에 따라 올바른 함수 호출
+      if (tab === 'my') {
+        fetchMyTracks(false);
       } else {
-        fetchServerTracks(false);
+        fetchAllServerTracks(false);
       }
     }
-  }, [canLoadMore, isPaginating, tab, fetchLocalTracks, fetchServerTracks]);
+  }, [canLoadMore, isPaginating, tab, fetchMyTracks, fetchAllServerTracks]);
 
   return {
     isLoading,

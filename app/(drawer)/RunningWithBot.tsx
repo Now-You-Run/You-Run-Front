@@ -13,7 +13,7 @@ import {
   View
 } from 'react-native';
 import MapView, { Circle, Marker, Polyline, Region } from 'react-native-maps';
-import type { Coordinate } from '../../types/LocalTrackDto';
+import type { Coordinate } from '../../types/TrackDto';
 import { createPathTools } from '../../utils/PathTools';
 import { SourceType } from './TrackDetailScreen';
 
@@ -420,7 +420,7 @@ export default function RunningScreen() {
     };
 
     router.replace({
-      pathname: '/Summary',
+      pathname: '/summary',
       params: { data: JSON.stringify(summaryData) },
     });
 

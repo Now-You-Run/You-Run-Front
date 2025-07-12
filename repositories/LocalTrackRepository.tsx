@@ -1,8 +1,8 @@
 // /repositories/LocalTrackRepository.ts
 
-import { Coordinate } from '@/types/LocalTrackDto';
+import { Coordinate } from '@/types/TrackDto';
 import * as SQLite from 'expo-sqlite';
-import { CreateTrackDto, LocalTrack } from '../types/LocalTrackDto';
+import { CreateTrackDto, LocalTrack } from '../types/TrackDto';
 
 export class LocalTrackRepository {
   private db: SQLite.SQLiteDatabase;

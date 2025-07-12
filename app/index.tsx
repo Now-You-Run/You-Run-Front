@@ -135,11 +135,7 @@ export default function HomeScreen() {
     'Karantina-Bold': require('@/assets/fonts/Karantina-Bold.ttf'),
   });
 
-  useEffect(() => {
-    console.log('화면이 처음 나타났습니다!');
-    AuthAsyncStorage.saveUserId(1);
 
-  }, []);
   // Weather update logic
   const updateWeather = async () => {
     const { weatherMain, currentHour } = await getWeatherData();
@@ -380,7 +376,7 @@ export default function HomeScreen() {
                   style={[styles.modeButton, styles.freeButton]}
                   onPress={() => {
                     setIsModalVisible(false);
-                    router.push('./(drawer)/Running');
+                    router.push('./(drawer)/running');
                   }}
                 >
                   <Text style={styles.modeButtonText}>자유</Text>

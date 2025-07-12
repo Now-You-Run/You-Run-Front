@@ -44,9 +44,10 @@ class KalmanFilter1D {
 }
 
 // 경로 좌표 타입
-interface Coord {
+export interface Coord {
   latitude: number;
   longitude: number;
+  timestamp: number;
 }
 
 // 컨텍스트에 제공될 상태 타입
@@ -153,8 +154,9 @@ export const RunningProvider: React.FC<{ children: React.ReactNode }> = ({
         // 좌표 필터링 적용
         const fLat = latFilter.current.filter(latitude);
         const fLng = lngFilter.current.filter(longitude);
-        const coord = { latitude: fLat, longitude: fLng };
-
+        const timestamp = Date.now()
+        const coord = { latitude: fLat, longitude: fLng , timestamp: timestamp};
+        
         // ← 추가: 매 GPS 틱마다 항상 최신 위치 갱신
         setUserLocation(coord);
 
@@ -233,6 +235,7 @@ export const RunningProvider: React.FC<{ children: React.ReactNode }> = ({
     const startCoord = {
       latitude: loc.coords.latitude,
       longitude: loc.coords.longitude,
+      timestamp: Date.now()
     };
     setPath([startCoord]);
     lastCoordRef.current = startCoord; // Important: update lastCoordRef too!

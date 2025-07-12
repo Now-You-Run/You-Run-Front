@@ -1,20 +1,16 @@
 // /components/track-list/TrackListHeader.tsx
 
-import { DistanceSortType } from '@/hooks/useTrackList';
+import { DISTANCE_SORT_OPTIONS, DistanceSortType } from '@/hooks/useTrackList';
 import { Picker } from '@react-native-picker/picker';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-const DISTANCE_SORT_OPTIONS = [
-  { label: '가까운 순', value: 'proximity' },
-  { label: '트랙 거리 순', value: 'trackDistance' },
-] as const;
-
+// [수정] Props의 tab 타입과 onTabChange 타입을 'my' | 'server'로 변경
 interface Props {
-  tab: 'server' | 'local';
+  tab: 'my' | 'server';
   distanceSortOption: DistanceSortType;
-  onTabChange: (tab: 'server' | 'local') => void;
+  onTabChange: (tab: 'my' | 'server') => void;
   onSortChange: (sort: DistanceSortType) => void;
 }
 
@@ -29,8 +25,9 @@ export function TrackListHeader({ tab, distanceSortOption, onTabChange, onSortCh
         </TouchableOpacity>
       </View>
       <View style={styles.tabContainer}>
-        <TouchableOpacity style={[styles.tabButton, tab === 'local' && styles.tabButtonActive]} onPress={() => onTabChange('local')}>
-          <Text style={[styles.tabButtonText, tab === 'local' && styles.tabButtonTextActive]}>내 로컬 트랙</Text>
+        {/* [수정] '내 트랙' 탭의 활성화 조건과 이벤트 핸들러 값 변경 */}
+        <TouchableOpacity style={[styles.tabButton, tab === 'my' && styles.tabButtonActive]} onPress={() => onTabChange('my')}>
+          <Text style={[styles.tabButtonText, tab === 'my' && styles.tabButtonTextActive]}>내 트랙</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.tabButton, tab === 'server' && styles.tabButtonActive]} onPress={() => onTabChange('server')}>
           <Text style={[styles.tabButtonText, tab === 'server' && styles.tabButtonTextActive]}>서버 트랙</Text>
@@ -55,6 +52,7 @@ export function TrackListHeader({ tab, distanceSortOption, onTabChange, onSortCh
   );
 }
 
+// 스타일 코드는 동일하게 유지합니다.
 const styles = StyleSheet.create({
   header: { position: 'absolute', top: 50, left: 20, zIndex: 10, backgroundColor: 'rgba(255,255,255,0.8)', borderRadius: 20 },
   backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
@@ -64,17 +62,13 @@ const styles = StyleSheet.create({
   tabButtonActive: { backgroundColor: '#4a90e2', borderColor: '#4a90e2' },
   tabButtonText: { fontSize: 16, fontWeight: '600', color: '#333' },
   tabButtonTextActive: { color: '#fff' },
-  pickerContainer: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 },
-  // ... (다른 스타일은 동일) ...
+  pickerContainer: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10, marginRight: 10 },
   pickerWrapper: { borderWidth: 1, borderColor: '#4a90e2', borderRadius: 20, overflow: 'hidden', width: 170 },
-
-  // [수정] picker 스타일에서 color 제거
   picker: {
     height: 50,
-    // color: '#4a90e2', // 이 라인을 삭제하거나 주석 처리합니다.
   },
   pickerItem: {
-    color: '#4a90e2', // 여기에 텍스트 색상을 지정합니다.
-    fontSize: 16,     // 필요하다면 폰트 크기 등도 설정할 수 있습니다.
+    color: '#4a90e2',
+    fontSize: 16,
   },
 });

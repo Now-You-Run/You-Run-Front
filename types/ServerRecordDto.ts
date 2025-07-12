@@ -1,3 +1,4 @@
+import { LatLng } from "react-native-maps";
 import { TrackRecordDto } from "./response/RunningTrackResponse";
 export interface SaveRecordDto {
   mode: 'BOT' | 'MATCH'; // 'track' 또는 'free' 등 서버와 약속된 모드
@@ -8,6 +9,7 @@ export interface SaveRecordDto {
   distance: number; // 미터(m) 단위
   startedAt: string; // ISO 8601 형식 문자열
   finishedAt: string; // ISO 8601 형식 문자열
+  userPath: LatLng[]
 }
 
 export type ServerRankingRecord = TrackRecordDto;
