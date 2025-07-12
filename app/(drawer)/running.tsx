@@ -1,20 +1,24 @@
 import { useRunning } from '@/context/RunningContext';
+import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  Animated,
+  Image,
   Modal,
   Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
-  Image
+  View
 } from 'react-native';
 import MapView, { Polyline, Region } from 'react-native-maps';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import WebView from 'react-native-webview';
+
 
 const avatarId = "686ece0ae610780c6c939703";
 
@@ -26,11 +30,11 @@ interface Coord {
 // ==================================================================
 // 아바타 오버레이 컴포넌트
 // ==================================================================
-const AvatarOverlay = React.memo(({ 
-  screenPos, 
-  isRunning, 
-  speed, 
-  onAvatarReady 
+const AvatarOverlay = React.memo(({
+  screenPos,
+  isRunning,
+  speed,
+  onAvatarReady
 }: {
   screenPos: { x: number; y: number } | null;
   isRunning: boolean;
@@ -298,8 +302,8 @@ const AvatarOverlay = React.memo(({
         ref={webViewRef}
         originWhitelist={["*"]}
         source={{ html: avatarHtml }}
-        style={{ 
-          flex: 1, 
+        style={{
+          flex: 1,
           backgroundColor: "transparent",
         }}
         javaScriptEnabled
@@ -342,11 +346,18 @@ export default function RunningScreen() {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mapRef = useRef<MapView>(null);
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [summaryData, setSummaryData] = useState<any>(null);
   const [isFinishModalVisible, setIsFinishModalVisible] = useState(false);
   const [avatarScreenPos, setAvatarScreenPos] = useState<{ x: number; y: number } | null>(null);
   const [avatarReady, setAvatarReady] = useState(false);
+
+    const [isFinishPressed, setIsFinishPressed] = useState(false);
+  const [finishProgress, setFinishProgress] = useState(0);
+  const progressAnimation = useRef(new Animated.Value(0)).current;
+  const scaleAnimation = useRef(new Animated.Value(1)).current;
+  const finishIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const enableAvatar = true;
 
@@ -412,23 +423,23 @@ export default function RunningScreen() {
   // ✅ 거리 기반 아바타 업데이트 (의존성 최소화)
   const updateAvatarPosition = useCallback((coord: Coord, force = false) => {
     if (!mapRef.current || !enableAvatar) return;
-    
+
     const now = Date.now();
-    
+
     // 거리 기반 업데이트: 최소 10m 이상 이동했을 때만 업데이트
     if (!force && pendingAvatarUpdate) {
       const distance = Math.sqrt(
         Math.pow((coord.latitude - pendingAvatarUpdate.latitude) * 111000, 2) +
         Math.pow((coord.longitude - pendingAvatarUpdate.longitude) * 111000, 2)
       );
-      
+
       // 10m 미만 이동이고 시간도 충분히 지나지 않았다면 스킵
       if (distance < 10 && now - lastAvatarUpdate < avatarUpdateInterval) {
         setPendingAvatarUpdate(coord);
         return;
       }
     }
-    
+
     try {
       mapRef.current
         .pointForCoordinate(coord)
@@ -464,6 +475,104 @@ export default function RunningScreen() {
   const [mapRegion, setMapRegion] = useState<Region>();
   const [isPaused, setIsPaused] = useState(false);
 
+  const startFinishPress = () => {
+  setIsFinishPressed(true);
+  setFinishProgress(0);
+  
+  // 즉시 진동 피드백
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  
+  // 버튼 스케일 애니메이션
+  Animated.spring(scaleAnimation, {
+    toValue: 0.95,
+    useNativeDriver: true,
+    tension: 100,
+    friction: 3,
+  }).start();
+  
+  // 프로그레스 애니메이션
+  Animated.timing(progressAnimation, {
+    toValue: 1,
+    duration: 3000,
+    useNativeDriver: false,
+  }).start();
+  
+  // 진행률 업데이트 및 중간 진동
+  let progress = 0;
+  finishIntervalRef.current = setInterval(() => {
+    progress += 1;
+    setFinishProgress(progress);
+    
+    // 33%, 66%에서 추가 진동
+    if (progress === 33 || progress === 66) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    
+    if (progress >= 100) {
+      // 완료 시 강한 진동
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      handleFinish();
+      clearInterval(finishIntervalRef.current!);
+      finishIntervalRef.current = null;
+    }
+  }, 30); // 30ms마다 업데이트 (3초 / 100 = 30ms)
+  
+  // 3초 후 자동 완료
+  timeoutRef.current = setTimeout(() => {
+    if (finishIntervalRef.current) {
+      clearInterval(finishIntervalRef.current);
+      finishIntervalRef.current = null;
+    }
+    handleFinish();
+    timeoutRef.current = null;
+  }, 3000);
+};
+
+const cancelFinishPress = () => {
+  setIsFinishPressed(false);
+  setFinishProgress(0);
+  
+  // 취소 진동
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  
+  // 애니메이션 리셋
+  Animated.spring(scaleAnimation, {
+    toValue: 1,
+    useNativeDriver: true,
+    tension: 100,
+    friction: 3,
+  }).start();
+  
+  progressAnimation.setValue(0);
+  
+  // 타이머 정리
+  if (timeoutRef.current) {
+    clearTimeout(timeoutRef.current);
+    timeoutRef.current = null;
+  }
+  
+  if (finishIntervalRef.current) {
+    clearInterval(finishIntervalRef.current);
+    finishIntervalRef.current = null;
+  }
+  
+  // 안내 메시지
+  Alert.alert('종료 취소', '러닝 종료가 취소되었습니다.', [{ text: '확인' }]);
+};
+
+  useEffect(() => {
+    // 컴포넌트 마운트 시 무조건 초기화
+    resetRunning();
+    setIsPaused(false);
+    setSummaryData(null);
+    setAvatarScreenPos(null);
+    setAvatarReady(false);
+    setSectionIndex(0);
+    setNextAnnounceKm(0.1);
+
+    console.log('🔄 러닝 화면 진입 - 모든 상태 초기화 완료');
+  }, []); // 마운트 시 한 번만 실행
+
   useEffect(() => {
     const requestPermissions = async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -471,6 +580,7 @@ export default function RunningScreen() {
         Alert.alert("위치 권한 필요", "러닝을 기록하려면 위치 권한이 필요합니다.");
         return;
       }
+
       const loc = await Location.getCurrentPositionAsync();
       const initialRegion = {
         latitude: loc.coords.latitude,
@@ -479,23 +589,23 @@ export default function RunningScreen() {
         longitudeDelta: 0.01,
       };
       setMapRegion(initialRegion);
-      
-      // 초기 아바타 위치 설정
-      const coord = {
-        latitude: loc.coords.latitude,
-        longitude: loc.coords.longitude,
-      };
-      updateAvatarPosition(coord, true); // 강제 업데이트
+
+      // ⚠️ 중요: 시작 버튼을 누르기 전까지는 아바타 위치만 설정
+      // 경로 기록은 하지 않음
+      console.log('📍 초기 위치 설정 완료 (경로 기록 시작 전)');
     };
-    requestPermissions();
-  }, []); // 의존성 배열 비움
+
+    // 초기화 완료 후 권한 요청
+    const timer = setTimeout(requestPermissions, 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   // ✅ 성능 기반 동적 조절
   useEffect(() => {
     const performanceCheck = setInterval(() => {
       const memoryUsage = (performance as any)?.memory?.usedJSHeapSize || 0;
       const isHighMemory = memoryUsage > 80 * 1024 * 1024; // 80MB로 임계점 상향
-      
+
       if (isHighMemory && performanceMode !== 'eco') {
         console.log('🔥 높은 메모리 사용 감지, ECO 모드로 전환');
         setPerformanceMode('eco');
@@ -506,7 +616,7 @@ export default function RunningScreen() {
         setAvatarUpdateInterval(2000); // 2초로 복귀
       }
     }, 20000); // 20초마다 체크로 빈도 감소
-    
+
     return () => clearInterval(performanceCheck);
   }, [performanceMode]);
 
@@ -514,25 +624,25 @@ export default function RunningScreen() {
   useEffect(() => {
     if (path.length > 0) {
       const current = path[path.length - 1];
-      
+
       // 지도 중심 이동 (GPS는 즉시 반영)
       if (path.length > 1) {
         const previous = path[path.length - 2];
         const direction = calculateDirection(previous, current);
-        
+
         if (direction !== null) {
           const headingDiff = Math.abs(direction - lastMapHeading);
           const shouldRotate = headingDiff > 15 || headingDiff > 345;
-          
+
           if (shouldRotate) {
             const animationDuration = performanceMode === 'eco' ? 1000 : 500;
-            
+
             try {
               mapRef.current?.animateCamera({
                 center: current,
                 heading: direction,
               }, { duration: animationDuration });
-              
+
               setLastMapHeading(direction);
             } catch (error) {
               console.log('지도 애니메이션 오류:', error);
@@ -556,7 +666,7 @@ export default function RunningScreen() {
         };
         setMapRegion(newRegion);
       }
-      
+
       // ✅ 아바타는 거리/시간 기반으로 선별적 업데이트
       updateAvatarPosition(current);
     }
@@ -657,18 +767,15 @@ export default function RunningScreen() {
         pitchEnabled={false}
         zoomEnabled={true}
         scrollEnabled={true}
-        onRegionChangeComplete={() => {
-          if (!path.length || !avatarReady || !enableAvatar) return;
-          
-          const latestCoord = path[path.length - 1];
-          updateAvatarPosition(latestCoord, true); // 아바타 위치 강제 업데이트
-        }}
       >
-        <Polyline 
-          coordinates={path} 
-          strokeColor="#007aff" 
-          strokeWidth={6} 
-        />
+        {/* ✅ 경로는 러닝이 시작되고 path에 데이터가 있을 때만 표시 */}
+        {isActive && path.length > 0 && (
+          <Polyline
+            coordinates={path}
+            strokeColor="#007aff"
+            strokeWidth={6}
+          />
+        )}
       </MapView>
 
       {avatarScreenPos && (
@@ -681,31 +788,31 @@ export default function RunningScreen() {
       )}
 
       <TouchableOpacity
-      style={{
-        position: 'absolute',
-        bottom: 260,
-        right: 15,
-        backgroundColor: 'rgba(246, 246, 246, 0.5)',
-        padding: 10,
-        borderRadius: 80,
-        zIndex: 1100,
-      }}
-      onPress={() => {
-        if (path.length === 0) return;
-        const lastCoord = path[path.length - 1];
-        mapRef.current?.animateCamera({
-          center: lastCoord,
-          zoom: 16,
-        }, { duration: 500 });
-        updateAvatarPosition(lastCoord, true);
-      }}
-    >
-      <Image
-        source={require('../../assets/images/MyLocation.png')}
-        style={{ width: 20, height: 20, tintColor: 'black' }}
-        resizeMode="contain"
-      />
-    </TouchableOpacity>
+        style={{
+          position: 'absolute',
+          bottom: 260 + insets.bottom,
+          right: 15,
+          backgroundColor: 'rgba(246, 246, 246, 0.5)',
+          padding: 10,
+          borderRadius: 80,
+          zIndex: 1100,
+        }}
+        onPress={() => {
+          if (path.length === 0) return;
+          const lastCoord = path[path.length - 1];
+          mapRef.current?.animateCamera({
+            center: lastCoord,
+            zoom: 16,
+          }, { duration: 500 });
+          updateAvatarPosition(lastCoord, true);
+        }}
+      >
+        <Image
+          source={require('../../assets/images/MyLocation.png')}
+          style={{ width: 20, height: 20, tintColor: 'black' }}
+          resizeMode="contain"
+        />
+      </TouchableOpacity>
 
       {/* 🔍 디버깅용: 마커와 아바타 위치 비교 */}
       {__DEV__ && avatarScreenPos && (
@@ -739,7 +846,7 @@ export default function RunningScreen() {
         </View>
       )}
 
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, , { paddingBottom: 40 + insets.bottom }]}>
         <Text style={styles.distance}>{totalDistance.toFixed(2)} km</Text>
         <View style={styles.statsContainer}>
           <Text style={styles.stat}>{displaySpeed.toFixed(1)} km/h</Text>
@@ -747,27 +854,79 @@ export default function RunningScreen() {
           <Text style={styles.stat}>{instantPace}</Text>
         </View>
 
-        <View style={styles.buttonRow}>
-          {(isPaused || (!isActive && elapsedTime > 0)) && (
-            <Pressable
-              style={[styles.controlButton, { backgroundColor: '#333' }]}
-              onPressIn={() => {
-                timeoutRef.current = setTimeout(() => {
-                  handleFinish();
-                  timeoutRef.current = null;
-                }, 3000);
-              }}
-              onPressOut={() => {
-                if (timeoutRef.current) {
-                  clearTimeout(timeoutRef.current);
-                  timeoutRef.current = null;
-                  Alert.alert('종료 안내', '버튼을 3초간 꾹 누르고 있으면 자동으로 종료됩니다.', [{ text: '알겠습니다' }]);
-                }
-              }}
-            >
-              <Text style={styles.controlText}>종료</Text>
-            </Pressable>
-          )}
+<View style={styles.buttonRow}>
+  {(isPaused || (!isActive && elapsedTime > 0)) && (
+    <Animated.View 
+      style={[
+        { flex: 1, marginHorizontal: 5 },
+        { transform: [{ scale: scaleAnimation }] }
+      ]}
+    >
+      <Pressable
+        style={[
+          styles.controlButton, 
+          { 
+            backgroundColor: isFinishPressed ? '#ff6b6b' : '#333',
+            position: 'relative',
+            overflow: 'hidden',
+          }
+        ]}
+        onPressIn={startFinishPress}
+        onPressOut={cancelFinishPress}
+      >
+        {/* 배경 프로그레스 바 */}
+        <Animated.View
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            bottom: 0,
+            backgroundColor: '#ff4444',
+            width: progressAnimation.interpolate({
+              inputRange: [0, 1],
+              outputRange: ['0%', '100%'],
+            }),
+            opacity: isFinishPressed ? 0.3 : 0,
+          }}
+        />
+        
+        {/* 원형 프로그레스 인디케이터 */}
+        {isFinishPressed && (
+          <View style={styles.progressContainer}>
+            <View style={styles.progressCircle}>
+              <Animated.View
+                style={[
+                  styles.progressFill,
+                  {
+                    transform: [{
+                      rotate: progressAnimation.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ['0deg', '360deg'],
+                      }),
+                    }],
+                  },
+                ]}
+              />
+            </View>
+            <Text style={[styles.controlText, { fontSize: 12 }]}>
+              {Math.round(finishProgress)}%
+            </Text>
+          </View>
+        )}
+        
+        {/* 버튼 텍스트 */}
+        <Text style={[
+          styles.controlText,
+          { 
+            opacity: isFinishPressed ? 0.8 : 1,
+            fontSize: isFinishPressed ? 14 : 18,
+          }
+        ]}>
+          {isFinishPressed ? '종료 중...' : '종료'}
+        </Text>
+      </Pressable>
+    </Animated.View>
+  )}
           <Pressable
             onPress={onMainPress}
             style={[styles.controlButton, { backgroundColor: isActive ? '#ff4d4d' : '#007aff' }]}
@@ -818,7 +977,6 @@ const styles = StyleSheet.create({
   statsContainer: { flexDirection: 'row', justifyContent: 'space-around', width: '100%', marginTop: 15, marginBottom: 20 },
   stat: { fontSize: 24, fontWeight: '600', color: '#333', textAlign: 'center', flex: 1 },
   buttonRow: { flexDirection: 'row', width: '100%', justifyContent: 'space-around' },
-  controlButton: { flex: 1, marginHorizontal: 5, paddingVertical: 15, borderRadius: 10, alignItems: 'center' },
   controlText: { color: 'white', fontSize: 18, fontWeight: '600' },
   modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)' },
   modalContent: { width: '80%', backgroundColor: 'white', paddingVertical: 30, paddingHorizontal: 20, borderRadius: 15, alignItems: 'center' },
@@ -826,4 +984,41 @@ const styles = StyleSheet.create({
   modalText: { fontSize: 16, color: '#666', textAlign: 'center', marginBottom: 25, lineHeight: 22 },
   confirmButton: { backgroundColor: '#007aff', paddingVertical: 12, paddingHorizontal: 40, borderRadius: 8 },
   confirmButtonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
+    progressContainer: {
+    position: 'absolute',
+    top: 5,
+    right: 5,
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  progressCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    position: 'absolute',
+    top: -12,
+    left: -12,
+    width: 24,
+    height: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 12,
+  },
+  controlButton: { 
+    flex: 1, 
+    marginHorizontal: 5, 
+    paddingVertical: 15, 
+    borderRadius: 10, 
+    alignItems: 'center',
+    minHeight: 50,
+    justifyContent: 'center',
+    position: 'relative', // 프로그레스 바를 위해 추가
+  },
 });
