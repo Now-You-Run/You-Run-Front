@@ -2,7 +2,7 @@ import * as Location from 'expo-location';
 import React, { useEffect, useRef, useState } from 'react';
 import { Image, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
-import type { Coordinate } from '../../../types/LocalTrackDto';
+import type { Coordinate } from '../../../types/TrackDto';
 import { bearing, createPathTools } from '../../../utils/PathTools';
 import { TrackSimulationMapProps } from './TrackSimulationMap.props';
 

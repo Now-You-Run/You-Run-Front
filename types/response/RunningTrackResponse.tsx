@@ -1,4 +1,4 @@
-import { Coordinate } from "../LocalTrackDto";
+import { Coordinate } from "../TrackDto";
 
 export interface TrackInfoDto {
   path: Coordinate[];

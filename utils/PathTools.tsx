@@ -1,4 +1,4 @@
-import type { Coordinate } from '../types/LocalTrackDto';
+import type { Coordinate } from '../types/TrackDto';
 
 
 interface PathTools {

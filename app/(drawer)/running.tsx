@@ -792,7 +792,7 @@ export default function RunningScreen() {
               onPress={() => {
                 if (summaryData) {
                   router.replace({
-                    pathname: '/Summary',
+                    pathname: '/summary',
                     params: { data: JSON.stringify(summaryData) },
                   });
                 }

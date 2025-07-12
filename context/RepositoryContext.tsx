@@ -2,7 +2,7 @@ import { LocalRunningRecordRepository } from '@/repositories/LocalRunningRecordR
 import { LocalTrackRepository } from '@/repositories/LocalTrackRepository';
 import { TrackRecordRepository } from '@/repositories/TrackRecordRepository';
 import { CreateRunningRecordDto } from '@/types/LocalRunningRecordDto';
-import { CreateTrackDto } from '@/types/LocalTrackDto';
+import { CreateTrackDto } from '@/types/TrackDto';
 import * as SQLite from 'expo-sqlite';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
