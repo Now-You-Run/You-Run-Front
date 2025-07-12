@@ -20,6 +20,7 @@
     "@react-navigation/elements": "^2.5.2",
     "@react-navigation/native": "^7.1.6",
     "axios": "^1.10.0",
+    "@stomp/stompjs": "^7.1.1",
     "date-fns": "^4.1.0",
     "dotenv": "^17.1.0",
     "expo": "53.0.19",
@@ -69,8 +70,10 @@
     "react-native-webview": "13.13.5",
     "react-native-worklets-core": "^1.6.0",
     "read-pkg-up": "^10.1.0",
+    "sockjs-client": "^1.6.1",
     "three": "^0.166.1",
-    "zustand": "^5.0.6"
+    "zustand": "^5.0.6",
+    "expo-image-manipulator": "~13.1.7"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

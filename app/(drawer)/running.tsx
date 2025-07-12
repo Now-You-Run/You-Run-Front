@@ -10,14 +10,311 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
+  Image
 } from 'react-native';
 import MapView, { Polyline, Region } from 'react-native-maps';
+import WebView from 'react-native-webview';
+
+const avatarId = "686ece0ae610780c6c939703";
 
 interface Coord {
   latitude: number;
   longitude: number;
 }
+
+// ==================================================================
+// 아바타 오버레이 컴포넌트
+// ==================================================================
+const AvatarOverlay = React.memo(({ 
+  screenPos, 
+  isRunning, 
+  speed, 
+  onAvatarReady 
+}: {
+  screenPos: { x: number; y: number } | null;
+  isRunning: boolean;
+  speed: number;
+  onAvatarReady: () => void;
+}) => {
+  const [avatarLoaded, setAvatarLoaded] = useState(false);
+  const webViewRef = useRef<WebView>(null);
+
+  const avatarHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <style>
+    body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+    canvas { display: block; background: transparent; }
+  </style>
+</head>
+<body>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script>
+    const avatarUrl = "https://models.readyplayer.me/${avatarId}.glb";
+    const animUrls = {
+      idle: "https://euns0o.github.io/mixamo-animations/idle.glb",
+      run: "https://euns0o.github.io/mixamo-animations/running.glb",
+    };
+
+    let scene, camera, renderer, avatar, mixer;
+    let actions = {};
+    let currentAction = null;
+    let clock = new THREE.Clock();
+
+    async function loadGLTF(url) {
+      const loader = new THREE.GLTFLoader();
+      return new Promise((resolve, reject) => {
+        loader.load(url, resolve, undefined, reject);
+      });
+    }
+
+    async function loadAvatar() {
+      try {
+        const gltf = await loadGLTF(avatarUrl);
+        avatar = gltf.scene;
+        avatar.scale.setScalar(1.2);
+        // ✅ 초기 위치만 설정하고, 이후에는 고정하지 않음
+        avatar.position.set(0, -0.9, 0);
+        avatar.rotation.y = 0;
+        scene.add(avatar);
+
+        avatar.traverse((child) => {
+          if (child.isMesh) {
+            child.visible = true;
+            child.frustumCulled = false;
+
+            if (child.material && child.material.map) {
+              child.material.map.minFilter = THREE.LinearFilter;
+              child.material.map.magFilter = THREE.LinearFilter;
+              child.material.map.generateMipmaps = false;
+            }
+          }
+        });
+
+        camera.position.set(0.5, -1.5, -1.5);
+        camera.lookAt(0, 0, 0);
+  
+        mixer = new THREE.AnimationMixer(avatar);
+        await loadAnimations();
+        playAction("idle");
+        animate();
+        
+        window.ReactNativeWebView?.postMessage(JSON.stringify({ type: "avatarReady" }));
+      } catch (e) {
+        console.error("아바타 로딩 실패:", e);
+      }
+    }
+
+    async function loadAnimations() {
+      for (const [name, url] of Object.entries(animUrls)) {
+        try {
+          const gltf = await loadGLTF(url);
+          if (gltf.animations && gltf.animations.length > 0) {
+            const originalClip = gltf.animations[0];
+            const remappedClip = RemapBones(originalClip, name);
+            
+            if (remappedClip) {
+              const action = mixer.clipAction(remappedClip);
+              action.setLoop(THREE.LoopRepeat);
+              actions[name] = action;
+            }
+          }
+        } catch (e) {
+          console.error(\`\${name} 애니메이션 로딩 실패:\`, e);
+        }
+      }
+    }
+
+    function RemapBones(clip, animationName) {
+      const coreBoneMapping = {
+        'mixamorigHips': 'Hips',
+        'mixamorigSpine': 'Spine',
+        'mixamorigSpine1': 'Spine1',
+        'mixamorigSpine2': 'Spine2',
+        'mixamorigNeck': 'Neck',
+        'mixamorigHead': 'Head',
+        'mixamorigLeftShoulder': 'LeftShoulder',
+        'mixamorigRightShoulder': 'RightShoulder',
+        'mixamorigLeftArm': 'LeftArm',
+        'mixamorigRightArm': 'RightArm',
+        'mixamorigLeftForeArm': 'LeftForeArm',
+        'mixamorigRightForeArm': 'RightForeArm',
+        'mixamorigLeftHand': 'LeftHand',
+        'mixamorigRightHand': 'RightHand',
+        'mixamorigLeftUpLeg': 'LeftUpLeg',
+        'mixamorigRightUpLeg': 'RightUpLeg',
+        'mixamorigLeftLeg': 'LeftLeg',
+        'mixamorigRightLeg': 'RightLeg',
+        'mixamorigLeftFoot': 'LeftFoot',
+        'mixamorigRightFoot': 'RightFoot'
+      };
+      
+      const newTracks = [];
+      
+      clip.tracks.forEach(track => {
+        const parts = track.name.split('.');
+        const boneName = parts[0];
+        const property = parts.slice(1).join('.');
+        
+        const mappedBoneName = coreBoneMapping[boneName];
+        
+        if (mappedBoneName) {
+          if (boneName === 'mixamorigHips' && property === 'position') {         
+            const limitedValues = track.values.slice();
+            for (let i = 0; i < limitedValues.length; i += 3) {
+              limitedValues[i] = 0;     
+              limitedValues[i + 1] = 0;
+              limitedValues[i + 2] = 0; 
+            }
+            const newTrack = new THREE.VectorKeyframeTrack(
+              mappedBoneName + '.' + property, 
+              track.times, 
+              limitedValues
+            );
+            newTracks.push(newTrack);
+          } else if (property === 'quaternion') {
+            const newTrack = new THREE.QuaternionKeyframeTrack(
+              mappedBoneName + '.' + property, 
+              track.times, 
+              track.values
+            );
+            newTracks.push(newTrack);
+          } 
+        }
+      });
+
+      return new THREE.AnimationClip(animationName + '_remapped', clip.duration, newTracks);
+    }
+
+    function playAction(animationName) {
+      if (!actions[animationName]) return;
+      
+      if (currentAction) {
+        currentAction.fadeOut(0.3);
+      }
+      
+      const action = actions[animationName];
+      action.reset().fadeIn(0.3).play();
+      currentAction = action;
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = clock.getDelta();
+      if (mixer) mixer.update(delta);
+      // ✅ 아바타 위치 고정 코드를 완전히 제거
+      // 아바타가 WebView 내에서 자유롭게 움직일 수 있도록 함
+      renderer.render(scene, camera);
+    }
+
+    function init() {
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.01, 1000);
+      
+      renderer = new THREE.WebGLRenderer({
+       alpha: true, 
+       antialias: true,
+       powerPreference: "default",
+       precision: "mediump" 
+      });
+      
+      const pixelRatio = Math.min(window.devicePixelRatio, 2);
+      renderer.setPixelRatio(pixelRatio); 
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setClearColor(0x000000, 0);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+      document.body.appendChild(renderer.domElement);
+      
+      scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+      const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+      dirLight.position.set(5, 10, 5);
+      dirLight.castShadow = false;
+      scene.add(dirLight);
+
+      loadAvatar();
+    }
+   
+    window.addEventListener("message", (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "setAnimation") {
+          const animName = data.isRunning ? "run" : "idle";
+          playAction(animName);
+        }
+      } catch (e) {
+        console.error("메시지 파싱 실패:", e);
+      }
+    });
+
+    init();
+  </script>
+</body>
+</html>
+`;
+
+  const handleMessage = useCallback((event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+
+      if (data.type === 'avatarReady') {
+        setAvatarLoaded(true);
+        onAvatarReady();
+      }
+    } catch (e) {
+      console.error('Message parsing error:', e);
+    }
+  }, [onAvatarReady]);
+
+  useEffect(() => {
+    if (avatarLoaded && webViewRef.current) {
+      webViewRef.current.postMessage(JSON.stringify({
+        type: 'setAnimation',
+        isRunning: isRunning,
+      }));
+    }
+  }, [isRunning, avatarLoaded]);
+
+  if (!screenPos) return null;
+
+  return (
+    <View
+      pointerEvents="none"
+      style={{
+        position: "absolute",
+        left: screenPos.x - 35, // 아바타를 빨간 점 바로 위에 정확히 위치
+        top: screenPos.y - 70,  // 아바타 발이 빨간 점에 오도록 조정
+        width: 70,              // WebView 크기 축소로 성능 향상
+        height: 80,
+        zIndex: 999,
+      }}
+    >
+      <WebView
+        ref={webViewRef}
+        originWhitelist={["*"]}
+        source={{ html: avatarHtml }}
+        style={{ 
+          flex: 1, 
+          backgroundColor: "transparent",
+        }}
+        javaScriptEnabled
+        domStorageEnabled
+        onMessage={handleMessage}
+        allowsInlineMediaPlayback
+        mediaPlaybackRequiresUserAction={false}
+        cacheEnabled={true}
+        scalesPageToFit={false}
+        scrollEnabled={false}
+        bounces={false}
+      />
+    </View>
+  );
+});
 
 // ==================================================================
 // 헬퍼 함수 (계산 로직)
@@ -43,15 +340,20 @@ const formatTime = (totalSeconds: number) => {
 
 export default function RunningScreen() {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mapRef = useRef<MapView>(null);
   const router = useRouter();
 
   const [summaryData, setSummaryData] = useState<any>(null);
   const [isFinishModalVisible, setIsFinishModalVisible] = useState(false);
+  const [avatarScreenPos, setAvatarScreenPos] = useState<{ x: number; y: number } | null>(null);
+  const [avatarReady, setAvatarReady] = useState(false);
+
+  const enableAvatar = true;
 
   const { mode, trackDistance, trackId } = useLocalSearchParams<{
     mode?: string;
     trackDistance?: string;
-    trackId?: string; // TrackList에서 전달받은 트랙 ID
+    trackId?: string;
   }>();
 
   const trackKm = mode === 'track' && trackDistance ? parseFloat(trackDistance) : undefined;
@@ -86,6 +388,64 @@ export default function RunningScreen() {
   const [sectionIndex, setSectionIndex] = useState(0);
   const [nextAnnounceKm, setNextAnnounceKm] = useState(0.1);
 
+  const calculateDirection = useCallback((from: Coord, to: Coord): number | null => {
+    const deltaLng = to.longitude - from.longitude;
+    const deltaLat = to.latitude - from.latitude;
+
+    const distance = Math.sqrt(deltaLng * deltaLng + deltaLat * deltaLat);
+    if (distance < 0.00001) {
+      return null;
+    }
+
+    let angle = Math.atan2(deltaLng, deltaLat) * (180 / Math.PI);
+    return angle;
+  }, []);
+
+  const [lastMapHeading, setLastMapHeading] = useState(0);
+
+  // ✅ 아바타 업데이트를 적절한 빈도로 조절
+  const [lastAvatarUpdate, setLastAvatarUpdate] = useState(0);
+  const [avatarUpdateInterval, setAvatarUpdateInterval] = useState(2000);
+  const [performanceMode, setPerformanceMode] = useState('normal');
+  const [pendingAvatarUpdate, setPendingAvatarUpdate] = useState<Coord | null>(null);
+
+  // ✅ 거리 기반 아바타 업데이트 (의존성 최소화)
+  const updateAvatarPosition = useCallback((coord: Coord, force = false) => {
+    if (!mapRef.current || !enableAvatar) return;
+    
+    const now = Date.now();
+    
+    // 거리 기반 업데이트: 최소 10m 이상 이동했을 때만 업데이트
+    if (!force && pendingAvatarUpdate) {
+      const distance = Math.sqrt(
+        Math.pow((coord.latitude - pendingAvatarUpdate.latitude) * 111000, 2) +
+        Math.pow((coord.longitude - pendingAvatarUpdate.longitude) * 111000, 2)
+      );
+      
+      // 10m 미만 이동이고 시간도 충분히 지나지 않았다면 스킵
+      if (distance < 10 && now - lastAvatarUpdate < avatarUpdateInterval) {
+        setPendingAvatarUpdate(coord);
+        return;
+      }
+    }
+    
+    try {
+      mapRef.current
+        .pointForCoordinate(coord)
+        .then(({ x, y }) => {
+          setAvatarScreenPos({ x, y });
+          setLastAvatarUpdate(now);
+          setPendingAvatarUpdate(null);
+        })
+        .catch((error) => {
+          console.log('아바타 위치 업데이트 실패:', error);
+          setAvatarScreenPos(null);
+        });
+    } catch (error) {
+      console.log('아바타 위치 계산 오류:', error);
+    }
+  }, [enableAvatar, pendingAvatarUpdate]); // 의존성 최소화
+
   useEffect(() => {
     if (!isActive) return;
     if (mode === 'track' && sectionIndex < sections.length) {
@@ -112,27 +472,95 @@ export default function RunningScreen() {
         return;
       }
       const loc = await Location.getCurrentPositionAsync();
-      setMapRegion({
+      const initialRegion = {
         latitude: loc.coords.latitude,
         longitude: loc.coords.longitude,
         latitudeDelta: 0.01,
         longitudeDelta: 0.01,
-      });
+      };
+      setMapRegion(initialRegion);
+      
+      // 초기 아바타 위치 설정
+      const coord = {
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+      };
+      updateAvatarPosition(coord, true); // 강제 업데이트
     };
     requestPermissions();
-  }, []);
+  }, []); // 의존성 배열 비움
 
+  // ✅ 성능 기반 동적 조절
+  useEffect(() => {
+    const performanceCheck = setInterval(() => {
+      const memoryUsage = (performance as any)?.memory?.usedJSHeapSize || 0;
+      const isHighMemory = memoryUsage > 80 * 1024 * 1024; // 80MB로 임계점 상향
+      
+      if (isHighMemory && performanceMode !== 'eco') {
+        console.log('🔥 높은 메모리 사용 감지, ECO 모드로 전환');
+        setPerformanceMode('eco');
+        setAvatarUpdateInterval(5000); // 5초로 설정
+      } else if (!isHighMemory && performanceMode !== 'normal') {
+        console.log('✅ 메모리 사용량 정상, 일반 모드로 복귀');
+        setPerformanceMode('normal');
+        setAvatarUpdateInterval(2000); // 2초로 복귀
+      }
+    }, 20000); // 20초마다 체크로 빈도 감소
+    
+    return () => clearInterval(performanceCheck);
+  }, [performanceMode]);
+
+  // ✅ GPS 경로 따라 아바타 이동 - 성능 최적화
   useEffect(() => {
     if (path.length > 0) {
-      const last = path[path.length - 1];
-      setMapRegion({
-        latitude: last.latitude,
-        longitude: last.longitude,
-        latitudeDelta: 0.005,
-        longitudeDelta: 0.005,
-      });
+      const current = path[path.length - 1];
+      
+      // 지도 중심 이동 (GPS는 즉시 반영)
+      if (path.length > 1) {
+        const previous = path[path.length - 2];
+        const direction = calculateDirection(previous, current);
+        
+        if (direction !== null) {
+          const headingDiff = Math.abs(direction - lastMapHeading);
+          const shouldRotate = headingDiff > 15 || headingDiff > 345;
+          
+          if (shouldRotate) {
+            const animationDuration = performanceMode === 'eco' ? 1000 : 500;
+            
+            try {
+              mapRef.current?.animateCamera({
+                center: current,
+                heading: direction,
+              }, { duration: animationDuration });
+              
+              setLastMapHeading(direction);
+            } catch (error) {
+              console.log('지도 애니메이션 오류:', error);
+            }
+          } else {
+            try {
+              mapRef.current?.animateCamera({
+                center: current,
+              }, { duration: 300 });
+            } catch (error) {
+              console.log('지도 중심 이동 오류:', error);
+            }
+          }
+        }
+      } else {
+        const newRegion = {
+          latitude: current.latitude,
+          longitude: current.longitude,
+          latitudeDelta: 0.005,
+          longitudeDelta: 0.005,
+        };
+        setMapRegion(newRegion);
+      }
+      
+      // ✅ 아바타는 거리/시간 기반으로 선별적 업데이트
+      updateAvatarPosition(current);
     }
-  }, [path]);
+  }, [path, performanceMode, lastMapHeading]); // updateAvatarPosition 의존성 제거
 
   const onMainPress = async () => {
     if (isActive) {
@@ -144,7 +572,7 @@ export default function RunningScreen() {
       setIsPaused(false);
       Speech.speak('러닝을 재개합니다.');
     } else {
-      resetRunning(); // 새 러닝 시작 전 초기화
+      resetRunning();
       startRunning();
       setIsPaused(false);
       setSectionIndex(0);
@@ -191,6 +619,14 @@ export default function RunningScreen() {
     }
   };
 
+  const handleAvatarReady = useCallback(() => {
+    setAvatarReady(true);
+    if (path.length > 0) {
+      const coord = path[path.length - 1];
+      updateAvatarPosition(coord, true); // 강제 업데이트
+    }
+  }, [path]); // updateAvatarPosition 의존성 제거
+
   const mainLabel = isActive ? '정지' : isPaused ? '재개' : '시작';
 
   useEffect(() => {
@@ -210,15 +646,98 @@ export default function RunningScreen() {
       </View>
 
       <MapView
+        ref={mapRef}
         style={StyleSheet.absoluteFill}
         initialRegion={mapRegion}
         region={mapRegion}
-        showsUserLocation
-        followsUserLocation
+        showsUserLocation={false}
+        followsUserLocation={false}
         showsMyLocationButton={false}
+        rotateEnabled={true}
+        pitchEnabled={false}
+        zoomEnabled={true}
+        scrollEnabled={true}
+        onRegionChangeComplete={() => {
+          if (!path.length || !avatarReady || !enableAvatar) return;
+          
+          const latestCoord = path[path.length - 1];
+          updateAvatarPosition(latestCoord, true); // 아바타 위치 강제 업데이트
+        }}
       >
-        <Polyline coordinates={path} strokeColor="#007aff" strokeWidth={6} />
+        <Polyline 
+          coordinates={path} 
+          strokeColor="#007aff" 
+          strokeWidth={6} 
+        />
       </MapView>
+
+      {avatarScreenPos && (
+        <AvatarOverlay
+          screenPos={avatarScreenPos}
+          isRunning={isActive}
+          speed={displaySpeed}
+          onAvatarReady={handleAvatarReady}
+        />
+      )}
+
+      <TouchableOpacity
+      style={{
+        position: 'absolute',
+        bottom: 260,
+        right: 15,
+        backgroundColor: 'rgba(246, 246, 246, 0.5)',
+        padding: 10,
+        borderRadius: 80,
+        zIndex: 1100,
+      }}
+      onPress={() => {
+        if (path.length === 0) return;
+        const lastCoord = path[path.length - 1];
+        mapRef.current?.animateCamera({
+          center: lastCoord,
+          zoom: 16,
+        }, { duration: 500 });
+        updateAvatarPosition(lastCoord, true);
+      }}
+    >
+      <Image
+        source={require('../../assets/images/MyLocation.png')}
+        style={{ width: 20, height: 20, tintColor: 'black' }}
+        resizeMode="contain"
+      />
+    </TouchableOpacity>
+
+      {/* 🔍 디버깅용: 마커와 아바타 위치 비교 */}
+      {__DEV__ && avatarScreenPos && (
+        <View>
+          {/* GPS 위치 마커 (빨간 점) */}
+          <View
+            style={{
+              position: 'absolute',
+              left: avatarScreenPos.x - 5,
+              top: avatarScreenPos.y - 5,
+              width: 10,
+              height: 10,
+              backgroundColor: 'red',
+              borderRadius: 5,
+              zIndex: 1000,
+            }}
+          />
+          {/* 아바타 발 위치 (초록 점) */}
+          <View
+            style={{
+              position: 'absolute',
+              left: avatarScreenPos.x - 35 + 35 - 3, // 아바타 발 위치
+              top: avatarScreenPos.y - 70 + 70 - 3,  // 아바타 발 위치
+              width: 6,
+              height: 6,
+              backgroundColor: 'green',
+              borderRadius: 3,
+              zIndex: 1001,
+            }}
+          />
+        </View>
+      )}
 
       <View style={styles.overlay}>
         <Text style={styles.distance}>{totalDistance.toFixed(2)} km</Text>
@@ -294,7 +813,7 @@ const styles = StyleSheet.create({
   headerBar: { position: 'absolute', top: 50, left: 20, zIndex: 10, backgroundColor: 'rgba(255,255,255,0.8)', borderRadius: 20 },
   backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
   backButtonText: { fontSize: 24, color: '#333' },
-  overlay: { width: '100%', backgroundColor: 'rgba(255,255,255,0.9)', padding: 20, paddingBottom: 40, borderTopLeftRadius: 20, borderTopRightRadius: 20, alignItems: 'center' },
+  overlay: { width: '100%', backgroundColor: 'rgba(255,255,255,0.9)', padding: 20, paddingBottom: 40, borderTopLeftRadius: 20, borderTopRightRadius: 20, alignItems: 'center', zIndex: 1000 },
   distance: { fontSize: 60, fontWeight: '800', color: '#1c1c1e' },
   statsContainer: { flexDirection: 'row', justifyContent: 'space-around', width: '100%', marginTop: 15, marginBottom: 20 },
   stat: { fontSize: 24, fontWeight: '600', color: '#333', textAlign: 'center', flex: 1 },

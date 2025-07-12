@@ -385,7 +385,7 @@ export default function HomeScreen() {
                   style={[styles.modeButton, styles.trackButton]}
                   onPress={() => {
                     setIsModalVisible(false);
-                    router.push('/(drawer)/selectTrack');
+                    router.push('/(drawer)/SelectTrack');
                   }}
                 >
                   <Text style={styles.modeButtonText}>트랙</Text>
