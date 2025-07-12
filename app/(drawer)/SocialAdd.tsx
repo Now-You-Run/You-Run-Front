@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
   shareButton: {
     position: 'absolute',
     top: -43,
-    right: -70,
+    right: -40,
     backgroundColor: '#fff',
     padding: 8,
     borderRadius: 20,
@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
   refreshButton: {
     position: 'absolute',
     top: -43,
-    right: -20,
+    right: 10,
     backgroundColor: '#fff',
     padding: 8,
     borderRadius: 20,
