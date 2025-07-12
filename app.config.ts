@@ -28,14 +28,18 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 
     ios: {
       supportsTablet: true,
-      bundleIdentifier: 'com.yourun',
+      bundleIdentifier: 'com.zepelown.yourun',
       config: {
         googleMapsApiKey: EXPO_PUBLIC_IOS_GOOGLE_MAP_API_KEY,
       },
       infoPlist: {
         UIBackgroundModes: ["location"],
+        // ✅ 모든 필수 위치 권한 키 추가
         NSLocationAlwaysAndWhenInUseUsageDescription: "이 앱은 러닝 중 위치를 추적하기 위해 백그라운드에서 위치 정보를 사용합니다.",
-        NSLocationWhenInUseUsageDescription: "이 앱은 러닝 중 위치를 추적하기 위해 위치 정보를 사용합니다."
+        NSLocationWhenInUseUsageDescription: "이 앱은 러닝 중 위치를 추적하기 위해 위치 정보를 사용합니다.",
+        NSLocationAlwaysUsageDescription: "이 앱은 러닝 기록을 위해 백그라운드에서도 위치 정보를 사용합니다.",
+        // ✅ 추가 권한 (필요시)
+        NSLocationUsageDescription: "이 앱은 러닝 추적을 위해 위치 정보를 사용합니다."
       }
     },
     android: {
@@ -56,7 +60,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         "FOREGROUND_SERVICE_LOCATION"
       ],
       edgeToEdgeEnabled: true,
-      package: 'com.zepelown.YouRun',
+      package: 'com.zepelown.yourun',
     },
     web: {
       bundler: 'metro',
@@ -88,26 +92,14 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           }
         }
       ], [
-        "expo-sqlite",
-        {
-          enableFTS: true,
-          useSQLCipher: true,
-          android: {
-            // Override the shared configuration for Android
-            enableFTS: false,
-            useSQLCipher: false
-          },
-          ios: {
-            // You can also override the shared configurations for iOS
-            customBuildFlags: ["-DSQLITE_ENABLE_DBSTAT_VTAB=1 -DSQLITE_ENABLE_SNAPSHOT=1"]
-          }
-        }
-      ], [
         "expo-location",
         {
           isIosBackgroundLocationEnabled: true,
           isAndroidBackgroundLocationEnabled: true,
-          isAndroidForegroundServiceEnabled: true
+          isAndroidForegroundServiceEnabled: true,
+          locationAlwaysAndWhenInUsePermission: "이 앱은 러닝 추적을 위해 위치 정보를 사용합니다.",
+          locationAlwaysPermission: "이 앱은 백그라운드 러닝 추적을 위해 위치 정보를 사용합니다.",
+          locationWhenInUsePermission: "이 앱은 러닝 중 위치를 추적하기 위해 위치 정보를 사용합니다."
         }
       ]
     ],

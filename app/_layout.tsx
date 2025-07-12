@@ -12,6 +12,7 @@ import { SplashScreen, Stack } from "expo-router"; // Expo Router의 Stack Navig
 import { StatusBar } from 'expo-status-bar'; // Expo의 상태바 관리 컴포넌트
 import React, { useEffect, useState } from 'react'; // React 컴포넌트 생성을 위해 필수
 import { ActivityIndicator, useColorScheme, View } from 'react-native'; // 시스템 테마 (light/dark) 감지 훅
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -19,18 +20,18 @@ function RootLayoutNav() {
   const { isMenuVisible, closeMenu } = useDrawer();
   const [isLoading, setIsLoading] = useState(true);
   const setProfile = useUserStore((state) => state.setProfile);
-    useEffect(() => {
-      console.log('화면이 처음 나타났습니다!');
-      AuthAsyncStorage.saveUserId(1);
-  
-    }, []);
-  
+  useEffect(() => {
+    console.log('화면이 처음 나타났습니다!');
+    AuthAsyncStorage.saveUserId(1);
+
+  }, []);
+
   useEffect(() => {
     async function loadDataAndSetup() {
       try {
         // --- This is where you call the new method ---
         const userProfile = await fetchUserProfile();
-        
+
         // If successful, store the data in the global state
         if (userProfile) {
           setProfile(userProfile);
@@ -50,7 +51,7 @@ function RootLayoutNav() {
     loadDataAndSetup();
   }, []);
 
-    if (isLoading) {
+  if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" />
@@ -80,18 +81,19 @@ export default function RootLayout() {
   }
 
   return (
-    <RepositoryProvider>
-      <RunningProvider>
-        <DrawerProvider>
-          <PaceProvider>
-            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-              <RootLayoutNav />
-              <StatusBar style="auto" />
-            </ThemeProvider>
-          </PaceProvider>
-        </DrawerProvider>
-      </RunningProvider>
-    </RepositoryProvider>
-
+    <SafeAreaProvider>
+      <RepositoryProvider>
+        <RunningProvider>
+          <DrawerProvider>
+            <PaceProvider>
+              <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+                <RootLayoutNav />
+                <StatusBar style="auto" />
+              </ThemeProvider>
+            </PaceProvider>
+          </DrawerProvider>
+        </RunningProvider>
+      </RepositoryProvider>
+    </SafeAreaProvider>
   );
 }
