@@ -32,6 +32,11 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       config: {
         googleMapsApiKey: EXPO_PUBLIC_IOS_GOOGLE_MAP_API_KEY,
       },
+      infoPlist: {
+        UIBackgroundModes: ["location"],
+        NSLocationAlwaysAndWhenInUseUsageDescription: "이 앱은 러닝 중 위치를 추적하기 위해 백그라운드에서 위치 정보를 사용합니다.",
+        NSLocationWhenInUseUsageDescription: "이 앱은 러닝 중 위치를 추적하기 위해 위치 정보를 사용합니다."
+      }
     },
     android: {
       adaptiveIcon: {
@@ -43,6 +48,13 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           apiKey: EXPO_PUBLIC_ANDROID_GOOGLE_MAP_API_KEY,
         },
       },
+      permissions: [
+        "ACCESS_BACKGROUND_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
+      ],
       edgeToEdgeEnabled: true,
       package: 'com.zepelown.YouRun',
     },
@@ -89,6 +101,13 @@ export default ({ config }: ConfigContext): ExpoConfig => {
             // You can also override the shared configurations for iOS
             customBuildFlags: ["-DSQLITE_ENABLE_DBSTAT_VTAB=1 -DSQLITE_ENABLE_SNAPSHOT=1"]
           }
+        }
+      ], [
+        "expo-location",
+        {
+          isIosBackgroundLocationEnabled: true,
+          isAndroidBackgroundLocationEnabled: true,
+          isAndroidForegroundServiceEnabled: true
         }
       ]
     ],

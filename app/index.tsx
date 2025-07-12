@@ -30,7 +30,6 @@ import {
 // ReadyPlayerMe 관련 imports
 import AvatarCreator from '@/components/ReadyPlayerMe/AvatarCreator';
 import OutfitChanger from '@/components/ReadyPlayerMe/OutfitChanger';
-import { AuthAsyncStorage } from '@/repositories/AuthAsyncStorage';
 import { AvatarService } from '@/services/AvatarService';
 
 // Splash screen for font loading
