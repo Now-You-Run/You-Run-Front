@@ -4,7 +4,7 @@ import { loadTrackInfo, TrackInfo } from '@/repositories/appStorage';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert, Image, Pressable,
   StyleSheet,
@@ -13,9 +13,331 @@ import {
   View
 } from 'react-native';
 import MapView, { Circle, Marker, Polyline, Region } from 'react-native-maps';
-import type { Coordinate } from '../../types/TrackDto';
+import WebView from 'react-native-webview';
+import type { Coordinate } from '../../types/LocalTrackDto';
 import { createPathTools } from '../../utils/PathTools';
 import { SourceType } from './TrackDetailScreen';
+
+const avatarId = "686ece0ae610780c6c939703";
+
+// ==================================================================
+// 아바타 오버레이 컴포넌트
+// ==================================================================
+const AvatarOverlay = React.memo(({ 
+  screenPos, 
+  isRunning, 
+  speed, 
+  onAvatarReady 
+}: {
+  screenPos: { x: number; y: number } | null;
+  isRunning: boolean;
+  speed: number;
+  onAvatarReady: () => void;
+}) => {
+  const [avatarLoaded, setAvatarLoaded] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const webViewRef = useRef<WebView>(null);
+
+  // ==================================================================
+  // 3D 아바타 HTML/JavaScript 코드
+  // ==================================================================
+  const avatarHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <style>
+    body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+    canvas { display: block; background: transparent; }
+  </style>
+</head>
+<body>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script>
+    const avatarUrl = "https://models.readyplayer.me/${avatarId}.glb";
+    const animUrls = {
+      idle: "https://euns0o.github.io/mixamo-animations/idle.glb",
+      run: "https://euns0o.github.io/mixamo-animations/running.glb",
+    };
+
+    let scene, camera, renderer, avatar, mixer;
+    let actions = {};
+    let currentAction = null;
+    let clock = new THREE.Clock();
+
+    async function loadGLTF(url) {
+      const loader = new THREE.GLTFLoader();
+      return new Promise((resolve, reject) => {
+        loader.load(url, resolve, undefined, reject);
+      });
+    }
+
+    // ==================================================================
+    // 3D 장면 초기화 및 아바타 로딩
+    // ==================================================================
+    async function loadAvatar() {
+      try {
+        const gltf = await loadGLTF(avatarUrl);
+        avatar = gltf.scene;
+        avatar.scale.setScalar(1.2);
+        // ✅ 초기 위치만 설정하고, 이후에는 고정하지 않음
+        avatar.position.set(0, -0.9, 0);
+        avatar.rotation.y = 0;
+        scene.add(avatar);
+
+        avatar.traverse((child) => {
+          if (child.isMesh) {
+            child.visible = true;
+            child.frustumCulled = false;
+
+            if (child.material && child.material.map) {
+              child.material.map.minFilter = THREE.LinearFilter;
+              child.material.map.magFilter = THREE.LinearFilter;
+              child.material.map.generateMipmaps = false;
+            }
+          }
+        });
+
+        camera.position.set(0.5, -1.5, -1.5);
+        camera.lookAt(0, 0, 0);
+  
+        mixer = new THREE.AnimationMixer(avatar);
+        await loadAnimations();
+        playAction("idle");
+        animate();
+        
+        window.ReactNativeWebView?.postMessage(JSON.stringify({ type: "avatarReady" }));
+      } catch (e) {
+        console.error("아바타 로딩 실패:", e);
+      }
+    }
+
+    // ==================================================================
+    // 애니메이션 로딩 및 본 리매핑
+    // ==================================================================
+    async function loadAnimations() {
+      for (const [name, url] of Object.entries(animUrls)) {
+        try {
+          const gltf = await loadGLTF(url);
+          if (gltf.animations && gltf.animations.length > 0) {
+            const originalClip = gltf.animations[0];
+            const remappedClip = RemapBones(originalClip, name);
+            
+            if (remappedClip) {
+              const action = mixer.clipAction(remappedClip);
+              action.setLoop(THREE.LoopRepeat);
+              actions[name] = action;
+            }
+          }
+        } catch (e) {
+          console.error(\`\${name} 애니메이션 로딩 실패:\`, e);
+        }
+      }
+    }
+
+    function RemapBones(clip, animationName) {
+      const coreBoneMapping = {
+        'mixamorigHips': 'Hips',
+        'mixamorigSpine': 'Spine',
+        'mixamorigSpine1': 'Spine1',
+        'mixamorigSpine2': 'Spine2',
+        'mixamorigNeck': 'Neck',
+        'mixamorigHead': 'Head',
+        'mixamorigLeftShoulder': 'LeftShoulder',
+        'mixamorigRightShoulder': 'RightShoulder',
+        'mixamorigLeftArm': 'LeftArm',
+        'mixamorigRightArm': 'RightArm',
+        'mixamorigLeftForeArm': 'LeftForeArm',
+        'mixamorigRightForeArm': 'RightForeArm',
+        'mixamorigLeftHand': 'LeftHand',
+        'mixamorigRightHand': 'RightHand',
+        'mixamorigLeftUpLeg': 'LeftUpLeg',
+        'mixamorigRightUpLeg': 'RightUpLeg',
+        'mixamorigLeftLeg': 'LeftLeg',
+        'mixamorigRightLeg': 'RightLeg',
+        'mixamorigLeftFoot': 'LeftFoot',
+        'mixamorigRightFoot': 'RightFoot'
+      };
+      
+      const newTracks = [];
+      
+      clip.tracks.forEach(track => {
+        const parts = track.name.split('.');
+        const boneName = parts[0];
+        const property = parts.slice(1).join('.');
+        
+        const mappedBoneName = coreBoneMapping[boneName];
+        
+        if (mappedBoneName) {
+          if (boneName === 'mixamorigHips' && property === 'position') {         
+            const limitedValues = track.values.slice();
+            for (let i = 0; i < limitedValues.length; i += 3) {
+              limitedValues[i] = 0;     // X축 고정
+              limitedValues[i + 1] = 0; // Y축 고정  
+              limitedValues[i + 2] = 0; // Z축 고정
+            }
+            const newTrack = new THREE.VectorKeyframeTrack(
+              mappedBoneName + '.' + property, 
+              track.times, 
+              limitedValues
+            );
+            newTracks.push(newTrack);
+          } else if (property === 'quaternion') {
+            const newTrack = new THREE.QuaternionKeyframeTrack(
+              mappedBoneName + '.' + property, 
+              track.times, 
+              track.values
+            );
+            newTracks.push(newTrack);
+          } 
+        }
+      });
+
+      return new THREE.AnimationClip(animationName + '_remapped', clip.duration, newTracks);
+    }
+
+    function playAction(animationName) {
+      if (!actions[animationName]) return;
+      
+      if (currentAction) {
+        currentAction.fadeOut(0.3);
+      }
+      
+      const action = actions[animationName];
+      action.reset().fadeIn(0.3).play();
+      currentAction = action;
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = clock.getDelta();
+      if (mixer) mixer.update(delta);
+      // ✅ 아바타 위치 고정 코드를 완전히 제거
+      // 아바타가 WebView 내에서 자유롭게 움직일 수 있도록 함
+      renderer.render(scene, camera);
+    }
+
+    function init() {
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.01, 1000);
+      
+      renderer = new THREE.WebGLRenderer({
+       alpha: true, 
+       antialias: true,
+       powerPreference: "default",
+       precision: "mediump" 
+      });
+      
+      const pixelRatio = Math.min(window.devicePixelRatio, 2);
+      renderer.setPixelRatio(pixelRatio); 
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setClearColor(0x000000, 0);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+      document.body.appendChild(renderer.domElement);
+      
+      scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+      const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+      dirLight.position.set(5, 10, 5);
+      dirLight.castShadow = false;
+      scene.add(dirLight);
+
+      loadAvatar();
+    }
+   
+    window.addEventListener("message", (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "setAnimation") {
+          const animName = data.isRunning ? "run" : "idle";
+          playAction(animName);
+        }
+      } catch (e) {
+        console.error("메시지 파싱 실패:", e);
+      }
+    });
+
+    init();
+  </script>
+</body>
+</html>
+`;
+
+  const handleMessage = useCallback((event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+
+      if (data.type === 'avatarReady') {
+        setAvatarLoaded(true);
+        onAvatarReady();
+      }
+    } catch (e) {
+      console.error('Message parsing error:', e);
+    }
+  }, [onAvatarReady]);
+
+  useEffect(() => {
+    if (avatarLoaded && webViewRef.current) {
+      webViewRef.current.postMessage(JSON.stringify({
+        type: 'setAnimation',
+        isRunning: isRunning,
+      }));
+    }
+  }, [isRunning, avatarLoaded]);
+
+  if (!screenPos) return null;
+  if (hasError) return null; // 에러 발생 시 아바타 숨김
+
+  // ==================================================================
+  // 아바타 오버레이 렌더링
+  // ==================================================================
+  return (
+    <View
+      pointerEvents="none"
+      style={{
+        position: "absolute",
+        left: screenPos.x - 35, // 아바타를 빨간 점 바로 위에 정확히 위치
+        top: screenPos.y - 70,  // 아바타 발이 빨간 점에 오도록 조정
+        width: 70,              // WebView 크기 축소로 성능 향상
+        height: 80,
+        zIndex: 999,
+        // ✅ 떨림 방지를 위한 스타일 추가
+        transform: [{ translateX: 0 }, { translateY: 0 }],
+      }}
+    >
+      <WebView
+        ref={webViewRef}
+        originWhitelist={["*"]}
+        source={{ html: avatarHtml }}
+        style={{ 
+          flex: 1, 
+          backgroundColor: "transparent",
+        }}
+        javaScriptEnabled
+        domStorageEnabled
+        onMessage={handleMessage}
+        allowsInlineMediaPlayback
+        mediaPlaybackRequiresUserAction={false}
+        cacheEnabled={true}
+        scalesPageToFit={false}
+        scrollEnabled={false}
+        bounces={false}
+        onError={(syntheticEvent) => {
+          const { nativeEvent } = syntheticEvent;
+          console.warn('WebView error: ', nativeEvent);
+          setHasError(true);
+        }}
+        onHttpError={(syntheticEvent) => {
+          const { nativeEvent } = syntheticEvent;
+          console.warn('WebView HTTP error: ', nativeEvent);
+          setHasError(true);
+        }}
+      />
+    </View>
+  );
+});
 
 // km/h = 60 / (pace_minutes + pace_seconds / 60)
 function paceToKmh(minutes: number, seconds: number): number {
@@ -106,8 +428,19 @@ function smoothPath(
 }
 
 export default function RunningScreen() {
-
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mapRef = useRef<MapView>(null);
   const router = useRouter();
+
+  // 아바타 관련 상태
+  const [avatarScreenPos, setAvatarScreenPos] = useState<{ x: number; y: number } | null>(null);
+  const [avatarReady, setAvatarReady] = useState(false);
+  const enableAvatar = true;
+  
+  // 회전 관련 상태
+  const [lastMapHeading, setLastMapHeading] = useState(0);
+  const [isRotationEnabled, setIsRotationEnabled] = useState(false);
+
   const handleBackPress = () => {
     if (!isActive) {
       router.back();
@@ -136,8 +469,6 @@ export default function RunningScreen() {
     botSec?: string;
     source: SourceType;
   }>();
-
-  const mapRef = useRef<MapView>(null);
 
   // 경로이탈을 위한 컴포넌트
   const OFFCOURSE_THRESHOLD_M = 20;   // 코스 이탈 기준 거리 (10m)
@@ -195,6 +526,48 @@ export default function RunningScreen() {
     resetRunning,
     userLocation,
   } = useRunning();
+
+  // 방향 계산 함수
+  const calculateDirection = useCallback((from: Coordinate, to: Coordinate): number | null => {
+    const deltaLng = to.longitude - from.longitude;
+    const deltaLat = to.latitude - from.latitude;
+
+    const distance = Math.sqrt(deltaLng * deltaLng + deltaLat * deltaLat);
+    if (distance < 0.00001) {
+      return null;
+    }
+
+    let angle = Math.atan2(deltaLng, deltaLat) * (180 / Math.PI);
+    return angle;
+  }, []);
+
+  // ✅ 아바타 위치 업데이트 함수 - 단순화
+  const updateAvatarPosition = useCallback((coord: Coordinate, force = false) => {
+    if (!mapRef.current || !enableAvatar) return;
+    
+    try {
+      mapRef.current
+        .pointForCoordinate(coord)
+        .then(({ x, y }) => {
+          setAvatarScreenPos({ x, y });
+        })
+        .catch((error) => {
+          console.log('아바타 위치 업데이트 실패:', error);
+          setAvatarScreenPos(null);
+        });
+    } catch (error) {
+      console.log('아바타 위치 계산 오류:', error);
+      setAvatarScreenPos(null);
+    }
+  }, [enableAvatar]);
+
+  const handleAvatarReady = useCallback(() => {
+    setAvatarReady(true);
+    if (path.length > 0) {
+      const coord = path[path.length - 1];
+      updateAvatarPosition(coord, true); // 강제 업데이트
+    }
+  }, [path, updateAvatarPosition]);
 
   // 실시간 통계(거리, 페이스)
   const liveDistanceKm = useMemo(() => calculateTotalDistance(path), [path]);
@@ -356,37 +729,55 @@ export default function RunningScreen() {
   const FINISH_RADIUS_METERS = 10;
   // 시작 버튼 누르면 botRunning 시작 (기존 startRunning 대체)
   const handleStart = async () => {
+    try {
+      hasFinishedRef.current = false;
 
-    hasFinishedRef.current = false;
+      if (!externalPath || externalPath.length === 0) {
+        Alert.alert('오류', '트랙 경로 정보가 없습니다.');
+        return;
+      }
 
-    if (!externalPath || externalPath.length === 0) {
-      Alert.alert('오류', '트랙 경로 정보가 없습니다.');
-      return;
-    }
-    const startPoint = externalPath[0];
-    const { coords } = await Location.getCurrentPositionAsync({});
-    const { latitude: curLat, longitude: curLon } = coords;
+      const startPoint = externalPath[0];
+      
+      // 위치 권한 확인
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('위치 권한 필요', '러닝을 시작하려면 위치 권한이 필요합니다.');
+        return;
+      }
 
-    const startDistKm = haversineDistance(
-      startPoint.latitude,
-      startPoint.longitude,
-      curLat,
-      curLon
-    );
-    const startDistM = startDistKm * 1000;
+      const { coords } = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+        timeInterval: 1000,
+        distanceInterval: 10,
+      });
+      
+      const { latitude: curLat, longitude: curLon } = coords;
 
-    if (startDistM > START_RADIUS_METERS) {
-      Alert.alert(
-        '시작 위치 오류',
-        `지정된 시작점에서 ${Math.round(startDistM)}m 떨어져 있습니다.\n` +
-        `시작점에서 ${START_RADIUS_METERS}m 이내로 이동한 뒤 다시 시도해 주세요.`
+      const startDistKm = haversineDistance(
+        startPoint.latitude,
+        startPoint.longitude,
+        curLat,
+        curLon
       );
-      return;
-    }
+      const startDistM = startDistKm * 1000;
 
-    Speech.speak('러닝을 시작합니다. 웜업구간입니다. 속도를 천천히 올려주세요');
-    startRunning();
-    setIsSimulating(true);
+      if (startDistM > START_RADIUS_METERS) {
+        Alert.alert(
+          '시작 위치 오류',
+          `지정된 시작점에서 ${Math.round(startDistM)}m 떨어져 있습니다.\n` +
+          `시작점에서 ${START_RADIUS_METERS}m 이내로 이동한 뒤 다시 시도해 주세요.`
+        );
+        return;
+      }
+
+      Speech.speak('러닝을 시작합니다. 웜업구간입니다. 속도를 천천히 올려주세요');
+      startRunning();
+      setIsSimulating(true);
+    } catch (error) {
+      console.error('러닝 시작 중 오류:', error);
+      Alert.alert('오류', '러닝을 시작하는 중 오류가 발생했습니다. 다시 시도해 주세요.');
+    }
   };
 
   // 러닝 종료 처리
@@ -420,7 +811,7 @@ export default function RunningScreen() {
     };
 
     router.replace({
-      pathname: '/summary',
+      pathname: '/Summary',
       params: { data: JSON.stringify(summaryData) },
     });
 
@@ -464,30 +855,85 @@ export default function RunningScreen() {
         return;
       }
 
-
       const location = await Location.getCurrentPositionAsync({});
       const { latitude, longitude } = location.coords;
-      setOrigin({ latitude, longitude });
+      const initialCoord = { latitude, longitude };
+      
+      setOrigin(initialCoord);
       setMapRegion({
         latitude,
         longitude,
         latitudeDelta: 0.005,
         longitudeDelta: 0.005,
       });
+      
+      // 초기 아바타 위치 설정
+      updateAvatarPosition(initialCoord, true);
     })();
-  }, []);
+  }, [updateAvatarPosition]);
 
+  // ✅ 성능 기반 동적 조절 - 러닝 최적화
+  // 성능 모니터링 제거 - 단순화
+
+  // ✅ 실시간 위치 업데이트 - 아바타와 마커 동기화
   useEffect(() => {
     if (path.length > 0) {
       const latest = path[path.length - 1];
-      setMapRegion({
-        latitude: latest.latitude,
-        longitude: latest.longitude,
-        latitudeDelta: 0.005,
-        longitudeDelta: 0.005,
-      });
+      
+      // 지도 영역과 아바타 위치를 동시에 업데이트
+      const updateMapAndAvatar = async () => {
+        try {
+          if (path.length >= 2 && isRotationEnabled) {
+            // 회전이 활성화된 경우: 방향 계산하여 지도 회전
+            const previous = path[path.length - 2];
+            const current = latest;
+            const direction = calculateDirection(previous, current);
+            
+            if (direction !== null) {
+              const headingDiff = Math.abs(direction - lastMapHeading);
+              const shouldRotate = headingDiff > 15 || headingDiff > 345;
+              
+              if (shouldRotate) {
+                try {
+                  mapRef.current?.animateCamera({
+                    center: current,
+                    heading: direction,
+                  }, { duration: 500 });
+                  
+                  setLastMapHeading(direction);
+                } catch (error) {
+                  console.log('지도 회전 애니메이션 오류:', error);
+                }
+              } else {
+                try {
+                  mapRef.current?.animateCamera({
+                    center: current,
+                  }, { duration: 300 });
+                } catch (error) {
+                  console.log('지도 중심 이동 오류:', error);
+                }
+              }
+            }
+          } else {
+            // 회전이 비활성화된 경우: 일반적인 지도 업데이트
+            setMapRegion({
+              latitude: latest.latitude,
+              longitude: latest.longitude,
+              latitudeDelta: 0.005,
+              longitudeDelta: 0.005,
+            });
+          }
+          
+          // 아바타 위치 즉시 업데이트 (동기화)
+          await updateAvatarPosition(latest, true);
+        } catch (error) {
+          console.log('위치 업데이트 오류:', error);
+        }
+      };
+      
+      updateMapAndAvatar();
     }
-  }, [path]);
+  }, [path, updateAvatarPosition, isRotationEnabled, lastMapHeading, calculateDirection]);
 
    // ① 자동 포커스 토글 상태
   const [isFollowing, setIsFollowing] = useState(true);
@@ -506,6 +952,15 @@ export default function RunningScreen() {
     }
   };
 
+  // 지도 줌 변경 감지 제거 - 단순화
+  const handleMapRegionChange = useCallback((region: Region) => {
+    // 줌 변경 시 아바타 위치 재계산
+    if (path.length > 0) {
+      const latestCoord = path[path.length - 1];
+      updateAvatarPosition(latestCoord, true);
+    }
+  }, [path, updateAvatarPosition]);
+
 
   useEffect(() => {
     // 이 Effect는 화면이 처음 나타날 때 한 번만 실행됩니다.
@@ -515,6 +970,10 @@ export default function RunningScreen() {
       // 이 화면을 벗어나는 모든 경우(뒤로가기, 포기, 완주 후 이동 등)에 실행됩니다.
       stopRunning();  // 진행 중이던 타이머나 위치 추적을 확실히 중지
       resetRunning(); // 컨텍스트의 모든 데이터(경로, 시간 등)를 초기화
+      
+      // 아바타 관련 cleanup
+      setAvatarScreenPos(null);
+      setAvatarReady(false);
     };
   }, []); // 의존성 배열을 비워두어야 컴포넌트가 사라질 때 딱 한 번만 실행됩니다.
 
@@ -536,7 +995,7 @@ export default function RunningScreen() {
           position: 'absolute',
           top: 50,
           left: 20,
-          zIndex: 10,
+          zIndex: 1100,
           backgroundColor: 'rgba(255,255,255,0.8)',
           borderRadius: 20,
         }}
@@ -556,12 +1015,13 @@ export default function RunningScreen() {
         }}
         followsUserLocation={isFollowing}  
         onPress={handleMapPress}
+        onRegionChangeComplete={handleMapRegionChange}
         //region={mapRegion}
         zoomEnabled
         scrollEnabled
         rotateEnabled
         pitchEnabled
-        showsUserLocation
+        showsUserLocation={false}
       >
         {startCoursePosition && (
           <Marker coordinate={startCoursePosition} title="Start">
@@ -617,11 +1077,75 @@ export default function RunningScreen() {
           strokeColor="#007aff"
           strokeWidth={5}
         />
+        {/* 봇 마커 추가 */}
         {currentPosition && (
           <Marker coordinate={currentPosition} title="Bot" pinColor="red" />
         )}
 
       </MapView>
+
+
+      
+      {avatarScreenPos && (
+        <AvatarOverlay
+          screenPos={avatarScreenPos}
+          isRunning={isActive}
+          speed={currentSpeed}
+          onAvatarReady={handleAvatarReady}
+        />
+      )}
+
+      {/* 회전 토글 버튼 */}
+      <TouchableOpacity
+        style={{
+          position: 'absolute',
+          top: 120,
+          right: 20,
+          backgroundColor: isRotationEnabled ? 'rgba(0, 122, 255, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+          padding: 12,
+          borderRadius: 25,
+          zIndex: 1100,
+          borderWidth: 1,
+          borderColor: isRotationEnabled ? '#007aff' : '#ccc',
+        }}
+        onPress={() => setIsRotationEnabled(!isRotationEnabled)}
+      >
+        <Text style={{
+          fontSize: 16,
+          fontWeight: 'bold',
+          color: isRotationEnabled ? 'white' : '#333',
+        }}>
+          {isRotationEnabled ? '회전 ON' : '회전 OFF'}
+        </Text>
+      </TouchableOpacity>
+
+      {/* 사용자 위치로 이동 버튼 */}
+      <TouchableOpacity
+        style={{
+          position: 'absolute',
+          bottom: 260,
+          right: 15,
+          backgroundColor: 'rgba(246, 246, 246, 0.5)',
+          padding: 10,
+          borderRadius: 80,
+          zIndex: 1100,
+        }}
+        onPress={() => {
+          if (path.length === 0) return;
+          const lastCoord = path[path.length - 1];
+          mapRef.current?.animateCamera({
+            center: lastCoord,
+            zoom: 16,
+          }, { duration: 500 });
+          updateAvatarPosition(lastCoord, true);
+        }}
+      >
+        <Image
+          source={require('@/assets/images/MyLocation.png')}
+          style={{ width: 20, height: 20, tintColor: 'black' }}
+          resizeMode="contain"
+        />
+      </TouchableOpacity>
 
       <View style={styles.overlay}>
         {/* ——— 봇과의 거리 표시 추가 ——— */}
@@ -703,6 +1227,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     alignItems: 'center',
+    zIndex: 1000
   },
   distance: {
     fontSize: 48,
