@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { Client, IMessage, StompSubscription } from '@stomp/stompjs';
+import * as Location from 'expo-location';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -14,6 +15,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
+import Svg, { Line, Polygon, Text as SvgText } from 'react-native-svg';
 import SockJS from 'sockjs-client';
 
 interface FriendRequest {
@@ -34,12 +36,16 @@ interface Friend {
   y: number;
   level?: number;
   grade?: string;
+  status?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 const FRIEND_SIZE = 80;
 const SERVER_API_URL = process.env.EXPO_PUBLIC_SERVER_API_URL;
 const MY_USER_ID = 1; // 로그인 유저 ID로 교체 필요
 
+// 토글 버튼 함수
 function CustomToggle({
   value,
   onValueChange,
@@ -79,6 +85,27 @@ function CustomToggle({
   );
 }
 
+// 유저별 거리 게산 함수
+function calculateDistance(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const toRad = (value: number) => (value * Math.PI) / 180;
+  const R = 6371; // Earth radius in km
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // km 단위 거리 반환
+}
+
 export default function Social() {
   const navigation = useNavigation();
   const pendingRef = useRef<number>(0);
@@ -88,19 +115,43 @@ export default function Social() {
     x: (width - FRIEND_SIZE) / 2,
     y: (height - HEADER_HEIGHT - FRIEND_SIZE) / 2,
   }));
-
+  const existingPositions: { x: number; y: number }[] = [myPosition];
   const [friends, setFriends] = useState<Friend[]>([]);
   const [loading, setLoading] = useState(true);
   const [pendingRequests, setPendingRequests] = useState<number>(0);
   const [showOnlyRealFriends, setShowOnlyRealFriends] = useState(false);
   const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
   const [showRequests, setShowRequests] = useState(false);
+  const [myCoords, setMyCoords] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
 
   // stomp 클라이언트와 구독 객체 상태 관리
   const [stompClient, setStompClient] = useState<Client | null>(null);
   const [subscription, setSubscription] = useState<StompSubscription | null>(
     null
   );
+
+  // 나와 다른 유저의 거리
+  useEffect(() => {
+    const getLocation = async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          '위치 권한 필요',
+          '정확한 거리를 위해 위치 권한이 필요합니다.'
+        );
+        return;
+      }
+      let location = await Location.getCurrentPositionAsync({});
+      setMyCoords({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+    };
+    getLocation();
+  }, []);
 
   useEffect(() => {
     // 친구 요청 초기 상태 동기화
@@ -124,8 +175,9 @@ export default function Social() {
         async (message: IMessage) => {
           if (message.body) {
             const notification = JSON.parse(message.body);
-            console.log('📢 새 친구 요청 알림 수신:', notification);
+            console.log('📢 새 친구 요청/수락 알림 수신:', notification);
 
+            // 기존 친구 요청 관련 처리
             if (notification.pendingCount !== undefined) {
               if (notification.pendingCount > pendingRef.current) {
                 // 새로운 요청이 추가되었을 때만 fetch 및 Alert
@@ -213,6 +265,38 @@ export default function Social() {
     }
   };
 
+  //  친구 프로필 생성 시, 위치 조절. (현재 랜덤으로 생성이 되지만, 페이지의 최하단을 뚫고 생성되지는 않음.)
+  function generateNonOverlappingPosition(
+    existingPositions: { x: number; y: number }[],
+    maxAttempts = 50
+  ): { x: number; y: number } {
+    const safeMargin = 10;
+    const minX = safeMargin;
+    const maxX = width - FRIEND_SIZE - safeMargin;
+    const minY = 80 + safeMargin;
+    const maxY = height - FRIEND_SIZE - safeMargin - 200; // 하단 여유
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const x = minX + Math.random() * (maxX - minX);
+      const y = minY + Math.random() * (maxY - minY);
+
+      const isOverlapping = existingPositions.some((pos) => {
+        return (
+          Math.abs(pos.x - x) < FRIEND_SIZE && Math.abs(pos.y - y) < FRIEND_SIZE
+        );
+      });
+
+      if (!isOverlapping) {
+        return { x, y };
+      }
+    }
+    // 실패 시 마지막 좌표라도 안전 영역 내에서 반환
+    return {
+      x: minX + Math.random() * (maxX - minX),
+      y: minY + Math.random() * (maxY - minY),
+    };
+  }
+
   const fetchFriends = async () => {
     try {
       setLoading(true);
@@ -229,17 +313,25 @@ export default function Social() {
       }
 
       const processedFriends: Friend[] = data.map(
-        (item: any, index: number) => ({
-          id: item.friendId.toString(),
-          friend_id: item.friendId.toString(),
-          name: item.name ?? `친구 ${index + 1}`,
-          emoji: '💛',
-          image: require('../../assets/avatar/avatar2.jpeg'),
-          x: Math.random() * (width - FRIEND_SIZE),
-          y: 80 + Math.random() * (height - 200),
-          level: item.level ?? 1,
-          grade: item.grade ?? '아이언',
-        })
+        (item: any, index: number) => {
+          const position = generateNonOverlappingPosition(existingPositions);
+          existingPositions.push(position);
+
+          return {
+            id: item.friendId.toString(),
+            friend_id: item.friendId.toString(),
+            name: item.name ?? `친구 ${index + 1}`,
+            emoji: '💛',
+            image: require('../../assets/avatar/avatar2.jpeg'),
+            x: position.x,
+            y: position.y,
+            level: item.level ?? 1,
+            grade: item.grade ?? '아이언',
+            status: item.status ?? 'UNKNOWN',
+            latitude: item.latitude ?? null,
+            longitude: item.longitude ?? null,
+          };
+        }
       );
 
       const me: Friend = {
@@ -294,8 +386,8 @@ export default function Social() {
       if (response.ok) {
         Alert.alert('친구 요청 수락', '친구 요청을 수락했습니다.');
 
-        fetchFriends();
-        fetchFriendRequests();
+        await fetchFriends();
+        await fetchFriendRequests();
       } else {
         const text = await response.text();
         Alert.alert('오류', `수락 중 오류 발생: ${text}`);
@@ -343,7 +435,9 @@ export default function Social() {
             <Text style={{ fontSize: 12, marginBottom: 4 }}>실친만 보기</Text>
             <CustomToggle
               value={showOnlyRealFriends}
-              onValueChange={setShowOnlyRealFriends}
+              onValueChange={(val) => {
+                setShowOnlyRealFriends(val);
+              }}
             />
           </View>
 
@@ -413,66 +507,168 @@ export default function Social() {
         </View>
       ) : (
         // 친구 목록 (요청 목록 숨겨져 있을 때)
-        <ScrollView
-          style={styles.mapContainer}
-          contentContainerStyle={{ minHeight: 600 }}
-        >
+        <View style={styles.mapContainer}>
           {loading ? (
             <ActivityIndicator size="large" color="#32CD32" />
           ) : friends.length === 0 ? (
             <Text style={styles.noFriendsText}>등록된 친구가 없습니다.</Text>
           ) : (
             <View style={styles.mapInner}>
-              {friends.map((friend) => (
-                <View
-                  key={friend.id}
-                  style={[
-                    styles.friendItem,
-                    { top: friend.y, left: friend.x },
-                    showOnlyRealFriends &&
-                    friend.friend_id !== MY_USER_ID.toString()
-                      ? { opacity: 0.3 }
-                      : { opacity: 1 },
-                  ]}
-                >
-                  <Image source={friend.image} style={styles.friendImage} />
-                  <View style={styles.friendNameContainer}>
-                    <View style={{ alignItems: 'center' }}>
-                      <Text style={styles.friendName}>{friend.name}</Text>
-                      <Text style={styles.friendEmoji}>{friend.emoji}</Text>
-                      {friend.level && friend.grade && (
-                        <Text style={styles.friendLevelGrade}>
-                          Lv.{friend.level} | {friend.grade}
-                        </Text>
-                      )}
-                    </View>
-                  </View>
-                  {friend.friend_id !== MY_USER_ID.toString() && (
-                    <TouchableOpacity
-                      onPress={() =>
-                        Alert.alert(
-                          '친구 삭제',
-                          `${friend.name}님과 친구를 끊으시겠습니까?`,
-                          [
-                            { text: '취소', style: 'cancel' },
-                            {
-                              text: '확인',
-                              style: 'destructive',
-                              onPress: () => handleDeleteFriend(friend),
-                            },
-                          ]
-                        )
+              <Svg
+                height={height}
+                width={width}
+                style={{ position: 'absolute', top: 0, left: 0 }}
+                pointerEvents="none"
+              >
+                {friends
+                  .filter(
+                    (friend) => friend.friend_id !== MY_USER_ID.toString()
+                  )
+                  .map((friend) => {
+                    const myX = myPosition.x + FRIEND_SIZE / 2;
+                    const myY = myPosition.y + FRIEND_SIZE / 2;
+                    const friendX = friend.x + FRIEND_SIZE / 2;
+                    const friendY = friend.y + FRIEND_SIZE / 2;
+
+                    const arrowLength = 10;
+                    const angle = Math.atan2(friendY - myY, friendX - myX);
+                    const arrowX = friendX - arrowLength * Math.cos(angle);
+                    const arrowY = friendY - arrowLength * Math.sin(angle);
+
+                    // 중간점 좌표
+                    const midX = (myX + arrowX) / 2;
+                    const midY = (myY + arrowY) / 2;
+
+                    // 거리 계산 (km 단위, 없으면 빈 문자열)
+                    function getDistanceText(
+                      myCoords: { latitude: number; longitude: number } | null,
+                      friend: Friend
+                    ): string {
+                      if (
+                        myCoords == null ||
+                        friend.latitude == null ||
+                        friend.longitude == null
+                      ) {
+                        return '거리 정보 없음';
                       }
-                      style={styles.deleteButton}
-                    >
-                      <Ionicons name="trash-outline" size={20} color="red" />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              ))}
+                      return `${calculateDistance(
+                        myCoords.latitude,
+                        myCoords.longitude,
+                        friend.latitude,
+                        friend.longitude
+                      ).toFixed(2)} km`;
+                    }
+
+                    return (
+                      <React.Fragment key={friend.id}>
+                        {/* 점선 */}
+                        <Line
+                          x1={myX}
+                          y1={myY}
+                          x2={arrowX}
+                          y2={arrowY}
+                          stroke="#888"
+                          strokeWidth="2"
+                          strokeDasharray="4,4"
+                        />
+                        {/* 화살표 머리 */}
+                        <Polygon
+                          points={`
+              ${friendX},${friendY}
+              ${friendX - 8 * Math.cos(angle - Math.PI / 6)},${
+                            friendY - 8 * Math.sin(angle - Math.PI / 6)
+                          }
+              ${friendX - 8 * Math.cos(angle + Math.PI / 6)},${
+                            friendY - 8 * Math.sin(angle + Math.PI / 6)
+                          }
+            `}
+                          fill="#888"
+                        />
+                        {/* 거리 텍스트 */}
+                        <SvgText
+                          x={midX}
+                          y={midY - 5}
+                          fill="#444"
+                          fontSize="12"
+                          fontWeight="bold"
+                          textAnchor="middle"
+                        >
+                          {getDistanceText(myCoords, friend)}
+                        </SvgText>
+                      </React.Fragment>
+                    );
+                  })}
+              </Svg>
+
+              {friends
+                .filter((friend) => {
+                  if (friend.friend_id === MY_USER_ID.toString()) return true; // 나 자신은 항상 표시
+                  if (showOnlyRealFriends) {
+                    return friend.status === 'FRIEND'; // 실친만 보기 ON 시 FRIEND만 표시
+                  }
+                  return true; // 실친만 보기 OFF 시 모두 표시
+                })
+                .map((friend) => (
+                  <View
+                    key={friend.id}
+                    style={[
+                      styles.friendItem,
+                      { top: friend.y, left: friend.x },
+                      { opacity: 1 }, // 반투명 처리 불필요해 제거
+                    ]}
+                  >
+                    <Image source={friend.image} style={styles.friendImage} />
+                    <View style={styles.friendNameContainer}>
+                      <View style={{ alignItems: 'center' }}>
+                        <Text style={styles.friendName}>{friend.name}</Text>
+                        <Text style={styles.friendEmoji}>{friend.emoji}</Text>
+                        {friend.level && friend.grade && (
+                          <Text style={styles.friendLevelGrade}>
+                            Lv.{friend.level} | {friend.grade}
+                          </Text>
+                        )}
+
+                        {/* 거리 표시 */}
+                        {myCoords && friend.latitude && friend.longitude && (
+                          <Text style={styles.distanceText}>
+                            거리:{' '}
+                            {calculateDistance(
+                              myCoords.latitude,
+                              myCoords.longitude,
+                              friend.latitude,
+                              friend.longitude
+                            ).toFixed(2)}{' '}
+                            km
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                    {friend.friend_id !== MY_USER_ID.toString() && (
+                      <TouchableOpacity
+                        onPress={() =>
+                          Alert.alert(
+                            '친구 삭제',
+                            `${friend.name}님과 친구를 끊으시겠습니까?`,
+                            [
+                              { text: '취소', style: 'cancel' },
+                              {
+                                text: '확인',
+                                style: 'destructive',
+                                onPress: () => handleDeleteFriend(friend),
+                              },
+                            ]
+                          )
+                        }
+                        style={styles.deleteButton}
+                      >
+                        <Ionicons name="trash-outline" size={20} color="red" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ))}
             </View>
           )}
-        </ScrollView>
+        </View>
       )}
     </View>
   );
@@ -654,6 +850,11 @@ const styles = StyleSheet.create({
   friendLevelGrade: {
     fontSize: 10,
     color: '#555',
+    marginTop: 2,
+  },
+  distanceText: {
+    fontSize: 10,
+    color: '#888',
     marginTop: 2,
   },
 });
