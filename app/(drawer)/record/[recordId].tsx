@@ -1,4 +1,3 @@
-import { useRepositories } from '@/context/RepositoryContext';
 import { AuthAsyncStorage } from '@/repositories/AuthAsyncStorage';
 import { formatTime } from '@/utils/RunningUtils';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -17,7 +16,7 @@ import MapView, { LatLng, Marker, Polyline } from 'react-native-maps';
 
 interface RecordDetail {
   id: number;
-  mode: 'BOT' | 'MATCH' | 'LOCAL';
+  mode: 'BOT' | 'MATCH' | 'FREE';
   trackId: number;
   trackName?: string;
   trackPath: LatLng[];
@@ -33,10 +32,6 @@ interface RecordDetail {
 export default function RecordDetailScreen() {
   const { recordId } = useLocalSearchParams<{ recordId: string }>();
   const router = useRouter();
-  const { 
-    localRunningRecordRepository, 
-    localTrackRepository 
-  } = useRepositories();
 
   const [detail, setDetail] = useState<RecordDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,37 +40,12 @@ export default function RecordDetailScreen() {
   const [simStep, setSimStep] = useState(0);
   const [running, setRunning] = useState(false);
 
+  const [markerPos, setMarkerPos] = useState<LatLng | null>(null);
+
   useEffect(() => {
     (async () => {
       try {
         const id = Number(recordId);
-
-        // 1) 로컬 DB에서 먼저 찾기
-        const allLocal = await localRunningRecordRepository!.readAll();
-        const local = allLocal?.find(r => r.id === id);
-        if (local) {
-          // 로컬 레코드가 trackId가 있으면 트랙 모드
-          const track = local.trackId
-            ? await localTrackRepository!.readById(local.trackId)
-            : null;
-
-          setDetail({
-            id,
-            mode: 'LOCAL',
-            trackId: local.trackId ?? 0,
-            trackName: track?.name,
-            trackPath: track ? JSON.parse(track.path) : [],
-            userPath: JSON.parse(local.path),
-            distance: local.distance,
-            duration: local.duration,
-            avgPace: local.avgPace,
-            calories: local.calories,
-            startedAt: local.startedAt,
-            finishedAt: local.endedAt,
-          });
-          return;
-        }
-
         // 2) 서버 기록이라면 /api/record?userId=… 호출 후 필터
         const userId = await AuthAsyncStorage.getUserId();
         const res = await fetch(`https://yourun.shop/api/record?userId=${userId}`);
@@ -83,8 +53,8 @@ export default function RecordDetailScreen() {
         const hit = data
           .map((item: any) => ({
             ...item.record,
-            trackName: item.trackInfoDto.name,
-            trackPath: item.trackInfoDto.path,
+            trackName: item.trackInfoDto ? item.trackInfoDto.name : null,
+            trackPath: item.trackInfoDto ? item.trackInfoDto.path : [],
             userPath: item.userPath,
           }))
           .find((r: any) => r.id === id);
@@ -114,6 +84,12 @@ export default function RecordDetailScreen() {
     })();
   }, [recordId]);
 
+  useEffect(()=>{
+    if(!detail) return;
+    setMarkerPos(detail.userPath[0]);
+    setSimStep(0);
+  },[detail]);
+
   // 시뮬레이션 useEffect
   useEffect(() => {
     if (!detail || !running) return;
@@ -124,12 +100,25 @@ export default function RecordDetailScreen() {
     }
     const cur = userPath[simStep];
     const next = userPath[simStep + 1];
-    // 실제 시간차 (초) → ms, 최소 100ms 이상
-    const delay = Math.max(100, (next.timestamp - cur.timestamp) * 1000);
-    const id = setTimeout(() => setSimStep(s => s + 1), delay);
-    return () => clearTimeout(id);
-  }, [simStep, running, detail]);
+    const duration = Math.max(200, next.timestamp - cur.timestamp);
+    const steps = 20;
+    let frame = 0;
 
+    function animateStep() {
+      frame++;
+      const t = frame / steps;
+      if (t >= 1) {
+        setMarkerPos(next);
+        setSimStep(s => s + 1);
+        return;
+      }
+      setMarkerPos(interpolatePosition(cur, next, t));
+      setTimeout(animateStep, duration / steps);
+    }
+
+    animateStep();
+    // eslint-disable-next-line
+  }, [simStep, running, detail]);
 
   if (loading) {
     return (
@@ -148,9 +137,9 @@ export default function RecordDetailScreen() {
     distance, duration, avgPace, calories
   } = detail;
 
-  // 시뮬 중이 아니면 전체 경로, 진행중이면 simStep만큼만
-  const showPath = running || simStep > 0
-    ? userPath.slice(0, simStep + 1)
+  // 경로 보이게 하는 state
+  const polyPath = running && markerPos
+    ? [...userPath.slice(0, simStep + 1), markerPos]
     : userPath;
 
   return (
@@ -166,9 +155,9 @@ export default function RecordDetailScreen() {
         }}
       >
         <Polyline coordinates={trackPath} strokeColor="#999" strokeWidth={4} />
-        <Polyline coordinates={showPath} strokeColor="#007aff" strokeWidth={4} />
-        {simStep > 0 && (
-          <Marker coordinate={userPath[simStep]} />
+        <Polyline coordinates={polyPath} strokeColor="#007aff" strokeWidth={4} />
+        {markerPos && (
+          <Marker coordinate={markerPos} />
         )}
       </MapView>
 
@@ -243,6 +232,18 @@ export default function RecordDetailScreen() {
     </ScrollView>
   );
 }
+
+// 보간 함수 추가!
+function lerp(a: number, b: number, t: number) {
+  return a + (b - a) * t;
+}
+function interpolatePosition(start: LatLng, end: LatLng, t: number): LatLng {
+  return {
+    latitude: lerp(start.latitude, end.latitude, t),
+    longitude: lerp(start.longitude, end.longitude, t),
+  };
+}
+
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
