@@ -1,13 +1,12 @@
 import GradeBadge from '@/components/GradeBadge';
 import { useRepositories } from '@/context/RepositoryContext';
 import { saveTrackInfo, TrackInfo } from '@/repositories/appStorage';
-import { RunningRecord } from '@/types/LocalRunningRecordDto'; // [1. 추가] 로컬 기록 타입을 가져옵니다.
+import { MyTrackRecordDto } from '@/types/response/RunningTrackResponse';
 import { ServerRankingRecord } from '@/types/ServerRecordDto';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Polyline } from 'react-native-maps';
-
 export type SourceType = 'my' | 'server';
 
 // 화면 표시에 사용할 통일된 데이터 구조 정의
@@ -17,7 +16,7 @@ interface DisplayableTrackDetail {
   path: { latitude: number; longitude: number }[];
   distance: number;
   rate?: number;
-  ranking?: (ServerRankingRecord | RunningRecord)[];
+  ranking?: (ServerRankingRecord | MyTrackRecordDto)[];
 }
 
 export default function TrackDetailScreen() {
@@ -45,32 +44,49 @@ export default function TrackDetailScreen() {
       setIsLoading(true);
       try {
         let fetchedData: DisplayableTrackDetail | null = null;
+        
+        // ✅ [핵심 수정] 'source' 값에 따라 분기 처리
         if (trackRecordRepository) {
-          const serverData = await trackRecordRepository.fetchTrackRecord(trackId);
-          if (serverData) {
-            fetchedData = {
-              id: trackId,
-              name: serverData.trackInfoDto.name,
-              path: serverData.trackInfoDto.path,
-              distance: serverData.trackInfoDto.totalDistance,
-              rate: serverData.trackInfoDto.rate,
-              ranking: serverData.trackRecordDto,
-              
-            };
-              console.log(`track data ${fetchedData.path}`)      
+          if (source === 'my') {
+            // 'my'일 경우: 나의 트랙 기록을 가져오는 새로운 API 호출
+            const myData = await trackRecordRepository.fetchMyTrackRecord(trackId);
+            if (myData) {
+              fetchedData = {
+                id: trackId,
+                name: myData.trackInfoDto.name,
+                path: myData.trackInfoDto.path,
+                distance: myData.trackInfoDto.totalDistance,
+                rate: myData.trackInfoDto.rate,
+                // 'my' 기록 DTO를 랭킹으로 설정합니다. (DTO 프로퍼티 이름은 실제 응답에 맞게 조정)
+                ranking: myData.trackRecordDto,
+              };
+            }
+          } else { // 'server'일 경우 (기존 로직)
+            const serverData = await trackRecordRepository.fetchTrackRecord(trackId);
+            if (serverData) {
+              fetchedData = {
+                id: trackId,
+                name: serverData.trackInfoDto.name,
+                path: serverData.trackInfoDto.path,
+                distance: serverData.trackInfoDto.totalDistance,
+                rate: serverData.trackInfoDto.rate,
+                ranking: serverData.trackRecordDto,
+              };
+            }
           }
         }
         setTrack(fetchedData);
       } catch (error) {
-        console.error(`Failed to load track detail for id ${trackId}:`, error);
+        console.error(`Failed to load track detail for id ${trackId} (source: ${source}):`, error);
       } finally {
         setIsLoading(false);
       }
     };
 
     loadData();
-  }, [trackId, source, localTrackRepository, trackRecordRepository, localRunningRecordRepository]);
+  }, [trackId, source, trackRecordRepository]);
 
+  
   if (isLoading) {
     return <View style={styles.centerContainer}><ActivityIndicator size="large" /></View>;
   }
@@ -146,10 +162,11 @@ export default function TrackDetailScreen() {
 
             {/* 로컬 기록 UI (기존과 동일) */}
             {source === 'my' &&
-              (track.ranking as RunningRecord[]).map((record, idx) => (
-                <View key={idx} style={styles.rankItem}>
-                  <Text style={styles.rankUsername}>{record.name || `나의 ${idx + 1}번째 기록`}</Text>
-                  <Text style={styles.rankDuration}>{formatDuration(record.duration)}</Text>
+              (track.ranking as MyTrackRecordDto[]).map((record, idx) => (
+                <View key={record.recordId|| idx} style={styles.rankItem}>
+                  {/* ✅ 3. '나의 기록'에서는 유저 이름 대신 날짜를 보여주도록 수정 (예시) */}
+                  <Text style={styles.rankUsername}>{new Date(record.finishedAt).toLocaleString()}</Text>
+                  <Text style={styles.rankDuration}>{formatDuration(record.resultTime)}</Text>
                 </View>
               ))}
           </>

@@ -1,7 +1,7 @@
 // repositories/TrackRecordRepository.ts
 
 import { SaveRecordDto } from '@/types/ServerRecordDto';
-import type { Track, TrackRecordApiResponse, TrackRecordData } from '../types/response/RunningTrackResponse';
+import type { MyTrackRecordApiResponse, MyTrackRecordData, Track, TrackRecordApiResponse, TrackRecordData } from '../types/response/RunningTrackResponse';
 import { AuthAsyncStorage } from './AuthAsyncStorage';
 
 
@@ -30,6 +30,43 @@ export class TrackRecordRepository {
       }
 
       const json: TrackRecordApiResponse = await response.json();
+
+      // 응답 구조 검증 (필요시)
+      if (
+        json &&
+        json.statuscode === '200' &&
+        json.data &&
+        json.data.trackInfoDto &&
+        Array.isArray(json.data.trackInfoDto.path) &&
+        typeof json.data.trackInfoDto.totalDistance === 'number'
+      ) {
+        console.log(json.data)
+        return json.data;
+      } else {
+        console.error('Invalid response structure:', json);
+        return null;
+      }
+    } catch (error) {
+      console.error('Error fetching track record:', error);
+      return null;
+    }
+  }
+
+    public async fetchMyTrackRecord(trackId: number | string): Promise<MyTrackRecordData | null> {
+    try {
+      const response = await fetch(`${SERVER_API_URL}/api/track/my?trackId=${trackId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        console.error('Track record fetch failed:', response.status, await response.text());
+        return null;
+      }
+      
+      const json: MyTrackRecordApiResponse = await response.json();
 
       // 응답 구조 검증 (필요시)
       if (
@@ -206,4 +243,7 @@ export class TrackRecordRepository {
       return false;
     }
   }
+
+
+
 }

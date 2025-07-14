@@ -195,6 +195,8 @@ export const RunningProvider: React.FC<{ children: React.ReactNode }> = ({
   const latFilter = useRef<KalmanFilter1D>(new KalmanFilter1D(0.01, 0.1));
   const lngFilter = useRef<KalmanFilter1D>(new KalmanFilter1D(0.01, 0.1));
 
+  const backgroundTaskStarted = useRef<boolean>(false);
+
   // 앱 상태 변경 감지 및 백그라운드 데이터 동기화
   useEffect(() => {
     const handleAppStateChange = async (nextAppState: AppStateStatus): Promise<void> => {
@@ -370,6 +372,7 @@ locationSubscription.current = await Location.watchPositionAsync(
             notificationBody: '백그라운드에서 위치를 추적하고 있습니다.',
           },
         });
+        backgroundTaskStarted.current = true;
         console.log('Background location tracking started');
       } else {
         console.warn('Background permission not granted, continuing foreground only.');
@@ -381,21 +384,32 @@ locationSubscription.current = await Location.watchPositionAsync(
 
   // 위치 구독 정지 (타입 안전성 강화)
   const stopLocationTracking = async (): Promise<void> => {
-    try {
-      if (locationSubscription.current) {
-        locationSubscription.current.remove();
-        locationSubscription.current = null;
-      }
+    // 포어그라운드 구독 해제 (항상 안전)
+    if (locationSubscription.current) {
+      locationSubscription.current.remove();
+      locationSubscription.current = null;
+    }
 
-      const hasStarted = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
-      if (hasStarted) {
+    // 백그라운드 작업 중지 시도 (오류를 예상하고 처리)
+    try {
+      const isTaskRunning = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
+      if (isTaskRunning) {
         await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
-        console.log('Background location tracking stopped');
+        console.log('✅ 백그라운드 작업이 실행 중이었으며, 성공적으로 중지했습니다.');
       }
-    } catch (error) {
-      console.error('Error stopping location tracking:', error);
+    } catch (error: any) {
+      // 'TaskNotFoundException' 오류가 발생하면, 이는 이미 작업이 없다는 의미이므로 성공으로 간주합니다.
+      // 오류 메시지에 특정 문자열이 포함되어 있는지 확인하여 더 확실하게 처리합니다.
+      const errorMessage = error.message || '';
+      if (errorMessage.includes("Task 'background-location-task' not found")) {
+        console.log("🟡 'Task Not Found' 오류를 감지했습니다. 이미 중지된 상태이므로 안전하게 무시합니다.");
+      } else {
+        // 그 외의 다른 예상치 못한 오류는 여전히 콘솔에 기록합니다.
+        console.error("위치 추적 중지 중 예상치 못한 오류 발생:", error);
+      }
     }
   };
+
 
   // 스톱워치 로직 (타입 안전성 강화)
   useEffect(() => {
