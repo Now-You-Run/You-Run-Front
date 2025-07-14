@@ -951,7 +951,7 @@ const cancelFinishPress = () => {
               onPress={() => {
                 if (summaryData) {
                   router.replace({
-                    pathname: '/summary',
+                    pathname: '/Summary',
                     params: { data: JSON.stringify(summaryData) },
                   });
                 }
