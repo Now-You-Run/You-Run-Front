@@ -142,6 +142,12 @@ export default function RecordDetailScreen() {
     ? [...userPath.slice(0, simStep + 1), markerPos]
     : userPath;
 
+
+  // 버튼 조건
+  const isAtStart = simStep === 0;
+  const isAtEnd = simStep >= userPath.length - 1;
+  const isMid = simStep > 0 && simStep < userPath.length - 1;
+
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.header}>기록 상세</Text>
@@ -162,77 +168,90 @@ export default function RecordDetailScreen() {
       </MapView>
 
       {/* 시뮬레이션 컨트롤 UI */}
-      <View style={{ flexDirection: 'row', justifyContent: 'center', margin: 12 }}>
-        {!running && (
+      <View style={styles.buttonRow}>
+        {/* 진행중일 때: 정지 */}
+        {running && (
+          <Pressable
+            onPress={() => setRunning(false)}
+            style={styles.btnStop}
+          >
+            <Text style={styles.btnText}>정지</Text>
+          </Pressable>
+        )}
+
+        {/* 아직 아무것도 안함(최초) */}
+        {!running && isAtStart && (
           <Pressable
             onPress={() => {
               setSimStep(1);
               setRunning(true);
             }}
-            style={{
-              padding: 8,
-              backgroundColor: '#007aff',
-              borderRadius: 8,
-              marginRight: 8,
-            }}
+            style={styles.btnMain}
           >
-            <Text style={{ color: 'white', fontWeight: 'bold' }}>시뮬레이션 시작</Text>
+            <Text style={styles.btnTextBold}>시뮬레이션 시작</Text>
           </Pressable>
         )}
-        {running && (
-          <Pressable
-            onPress={() => setRunning(false)}
-            style={{
-              padding: 8,
-              backgroundColor: '#aaa',
-              borderRadius: 8,
-              marginRight: 8,
-            }}
-          >
-            <Text style={{ color: 'white' }}>정지</Text>
-          </Pressable>
+
+        {/* 정지+중간: 이어재생/초기화 */}
+        {!running && isMid && (
+          <>
+            <Pressable
+              onPress={() => setRunning(true)}
+              style={styles.btnMain}
+            >
+              <Text style={styles.btnTextBold}>이어 재생</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => { setSimStep(0); setMarkerPos(userPath[0]); setRunning(false); }}
+              style={styles.btnReset}
+            >
+              <Text style={styles.btnTextReset}>초기화</Text>
+            </Pressable>
+          </>
         )}
-        {!running && simStep > 0 && simStep < userPath.length - 1 && (
+
+        {/* 정지+끝: 초기화만 */}
+        {!running && isAtEnd && (
           <Pressable
-            onPress={() => setRunning(true)}
-            style={{
-              padding: 8,
-              backgroundColor: '#007aff',
-              borderRadius: 8,
-              marginRight: 8,
-            }}
+            onPress={() => { setSimStep(0); setMarkerPos(userPath[0]); setRunning(false); }}
+            style={styles.btnReset}
           >
-            <Text style={{ color: 'white', fontWeight: 'bold' }}>이어 재생</Text>
-          </Pressable>
-        )}
-        {simStep > 0 && (
-          <Pressable
-            onPress={() => { setSimStep(0); setRunning(false); }}
-            style={{
-              padding: 8,
-              backgroundColor: '#eee',
-              borderRadius: 8,
-            }}
-          >
-            <Text style={{ color: '#444' }}>초기화</Text>
+            <Text style={styles.btnTextReset}>초기화</Text>
           </Pressable>
         )}
       </View>
 
-      <View style={styles.info}>
-        <Text>모드: {mode}</Text>
-        {trackName && <Text>트랙명: {trackName}</Text>}
-        <Text>거리: {(distance / 1000).toFixed(2)} km</Text>
-        <Text>시간: {formatTime(duration)}</Text>
-        <Text>
-          페이스: {Math.floor(avgPace / 60)}′{String(Math.round(avgPace % 60)).padStart(2, '0')}″
+      {/* 기록 상세 카드 */}
+      <View style={styles.infoCard}>
+        <Text style={styles.infoTitle}>
+          {trackName ? `🏁 ${trackName}` : `🏃 러닝 기록`}
         </Text>
-        <Text>칼로리: {calories} kcal</Text>
+        <View style={styles.infoRow}>
+          <Text style={styles.label}>모드</Text>
+          <Text style={styles.value}>{mode}</Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.label}>거리</Text>
+          <Text style={styles.value}>{(distance / 1000).toFixed(2)} km</Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.label}>시간</Text>
+          <Text style={styles.value}>{formatTime(duration)}</Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.label}>평균 페이스</Text>
+          <Text style={styles.value}>
+            {Math.floor(avgPace / 60)}′{String(Math.round(avgPace % 60)).padStart(2, '0')}″/km
+          </Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.label}>칼로리</Text>
+          <Text style={styles.value}>{calories} kcal</Text>
+        </View>
       </View>
     </ScrollView>
   );
 }
-
 // 보간 함수 추가!
 function lerp(a: number, b: number, t: number) {
   return a + (b - a) * t;
@@ -248,6 +267,48 @@ function interpolatePosition(start: LatLng, end: LatLng, t: number): LatLng {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { fontSize: 24, fontWeight: 'bold', margin: 16 },
-  info: { padding: 16, lineHeight: 28 },
+  header: { fontSize: 24, fontWeight: 'bold', margin: 18, textAlign: 'center', color: '#222' },
+  buttonRow: { flexDirection: 'row', justifyContent: 'center', margin: 16 },
+  btnMain: {
+    padding: 10,
+    backgroundColor: '#007aff',
+    borderRadius: 8,
+    marginHorizontal: 8,
+    minWidth: 96,
+    alignItems: 'center',
+  },
+  btnStop: {
+    padding: 10,
+    backgroundColor: '#ff4f4f',
+    borderRadius: 8,
+    marginHorizontal: 8,
+    minWidth: 96,
+    alignItems: 'center',
+  },
+  btnReset: {
+    padding: 10,
+    backgroundColor: '#f1f1f1',
+    borderRadius: 8,
+    marginHorizontal: 8,
+    minWidth: 96,
+    alignItems: 'center',
+  },
+  btnText: { color: 'white', fontWeight: '500', fontSize: 15 },
+  btnTextBold: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+  btnTextReset: { color: '#007aff', fontWeight: 'bold', fontSize: 16 },
+  infoCard: {
+    margin: 18,
+    borderRadius: 16,
+    backgroundColor: '#f9f9fb',
+    shadowColor: '#333',
+    shadowOpacity: 0.06,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 12,
+    elevation: 2,
+    padding: 22,
+  },
+  infoTitle: { fontSize: 19, fontWeight: 'bold', marginBottom: 10, color: '#222' },
+  infoRow: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 4 },
+  label: { color: '#888', fontSize: 15 },
+  value: { color: '#222', fontWeight: 'bold', fontSize: 15 },
 });
