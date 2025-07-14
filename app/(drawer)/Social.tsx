@@ -1,22 +1,23 @@
+import { getUserById } from '@/api/user';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { Client, IMessage, StompSubscription } from '@stomp/stompjs';
-import * as Location from 'expo-location';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Dimensions,
   Image,
+  NativeModules,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import Svg, { Line, Polygon, Text as SvgText } from 'react-native-svg';
 import SockJS from 'sockjs-client';
+
+const { PlatformConstants } = NativeModules;
 
 interface FriendRequest {
   id: number | string;
@@ -24,148 +25,46 @@ interface FriendRequest {
   name?: string;
 }
 
-const { width, height } = Dimensions.get('window');
-
 interface Friend {
   id: string;
   friend_id: string;
   name: string;
-  emoji: string;
   image: any;
-  x: number;
-  y: number;
-  level?: number;
-  grade?: string;
-  status?: string;
-  latitude?: number;
-  longitude?: number;
+  level?: number | null;
+  grade?: string | null;
+  status?: string | null;
 }
 
-const FRIEND_SIZE = 80;
 const SERVER_API_URL = process.env.EXPO_PUBLIC_SERVER_API_URL;
-const MY_USER_ID = 1; // 로그인 유저 ID로 교체 필요
-
-// 토글 버튼 함수
-function CustomToggle({
-  value,
-  onValueChange,
-}: {
-  value: boolean;
-  onValueChange: (val: boolean) => void;
-}) {
-  return (
-    <TouchableWithoutFeedback onPress={() => onValueChange(!value)}>
-      <View style={styles.toggleContainer}>
-        <View
-          style={[
-            styles.toggleCircleWrapper,
-            value
-              ? { justifyContent: 'flex-end', paddingRight: 2 }
-              : { justifyContent: 'flex-start', paddingLeft: 2 },
-          ]}
-        >
-          <View
-            style={[
-              styles.toggleCircle,
-              value ? styles.circleOn : styles.circleOff,
-            ]}
-          />
-        </View>
-        <Text
-          style={[
-            styles.toggleText,
-            value ? styles.textOnLeft : styles.textOffRight,
-            styles.textBlack,
-          ]}
-        >
-          {value ? 'on' : 'off'}
-        </Text>
-      </View>
-    </TouchableWithoutFeedback>
-  );
-}
-
-// 유저별 거리 게산 함수
-function calculateDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number {
-  const toRad = (value: number) => (value * Math.PI) / 180;
-  const R = 6371; // Earth radius in km
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) *
-      Math.cos(toRad(lat2)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c; // km 단위 거리 반환
-}
+const MY_USER_ID = 1; // 기본값: iPhone(또는 모름)
+const DEFAULT_AVATAR = require('../../assets/avatar/avatar2.jpeg'); // ✅ 기본 아바타
 
 export default function Social() {
+  const [myUserName, setMyUserName] = useState<string>(''); // ✅ 내 이름 저장
   const navigation = useNavigation();
   const pendingRef = useRef<number>(0);
-
-  const HEADER_HEIGHT = 60 + 20 + 20; // paddingTop + headerContainer marginBottom + 여유
-  const [myPosition] = useState<{ x: number; y: number }>(() => ({
-    x: (width - FRIEND_SIZE) / 2,
-    y: (height - HEADER_HEIGHT - FRIEND_SIZE) / 2,
-  }));
-  const existingPositions: { x: number; y: number }[] = [myPosition];
+  const [isEditing, setIsEditing] = useState(false);
+  const router = useRouter();
   const [friends, setFriends] = useState<Friend[]>([]);
   const [loading, setLoading] = useState(true);
   const [pendingRequests, setPendingRequests] = useState<number>(0);
-  const [showOnlyRealFriends, setShowOnlyRealFriends] = useState(false);
   const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
   const [showRequests, setShowRequests] = useState(false);
-  const [myCoords, setMyCoords] = useState<{
-    latitude: number;
-    longitude: number;
-  } | null>(null);
 
-  // stomp 클라이언트와 구독 객체 상태 관리
   const [stompClient, setStompClient] = useState<Client | null>(null);
   const [subscription, setSubscription] = useState<StompSubscription | null>(
     null
   );
 
-  // 나와 다른 유저의 거리
   useEffect(() => {
-    const getLocation = async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert(
-          '위치 권한 필요',
-          '정확한 거리를 위해 위치 권한이 필요합니다.'
-        );
-        return;
-      }
-      let location = await Location.getCurrentPositionAsync({});
-      setMyCoords({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-      });
-    };
-    getLocation();
-  }, []);
-
-  useEffect(() => {
-    // 친구 요청 초기 상태 동기화
     fetchPendingRequestCount();
     fetchFriendRequests();
     fetchFriends();
 
-    // 웹소켓 연결
     const socket = new SockJS(`${SERVER_API_URL}/ws`);
     const client = new Client({
       webSocketFactory: () => socket,
-      debug: (str) => {
-        // console.log('STOMP:', str);
-      },
+      debug: () => {},
       reconnectDelay: 5000,
     });
 
@@ -177,10 +76,8 @@ export default function Social() {
             const notification = JSON.parse(message.body);
             console.log('📢 새 친구 요청/수락 알림 수신:', notification);
 
-            // 기존 친구 요청 관련 처리
             if (notification.pendingCount !== undefined) {
               if (notification.pendingCount > pendingRef.current) {
-                // 새로운 요청이 추가되었을 때만 fetch 및 Alert
                 const response = await fetch(
                   `${SERVER_API_URL}/api/friend/list/receive?senderId=${MY_USER_ID}`
                 );
@@ -201,7 +98,6 @@ export default function Social() {
                 pendingRef.current = notification.pendingCount;
                 setFriendRequests(newRequests);
               } else {
-                // 수락/거절 등으로 개수가 감소한 경우
                 setPendingRequests(notification.pendingCount);
                 pendingRef.current = notification.pendingCount;
                 fetchFriendRequests();
@@ -230,7 +126,6 @@ export default function Social() {
     };
   }, []);
 
-  // 초기 팬딩 요청 개수 fetch
   const fetchPendingRequestCount = async () => {
     try {
       const response = await fetch(
@@ -251,6 +146,18 @@ export default function Social() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    const fetchMyInfo = async () => {
+      try {
+        const user = await getUserById(MY_USER_ID);
+        setMyUserName(user.name);
+      } catch (e) {
+        console.error('내 정보 가져오기 실패', e);
+      }
+    };
+    fetchMyInfo();
+  }, []);
+
   const fetchFriendRequests = async () => {
     try {
       const response = await fetch(
@@ -264,38 +171,6 @@ export default function Social() {
       console.error(e);
     }
   };
-
-  //  친구 프로필 생성 시, 위치 조절. (현재 랜덤으로 생성이 되지만, 페이지의 최하단을 뚫고 생성되지는 않음.)
-  function generateNonOverlappingPosition(
-    existingPositions: { x: number; y: number }[],
-    maxAttempts = 50
-  ): { x: number; y: number } {
-    const safeMargin = 10;
-    const minX = safeMargin;
-    const maxX = width - FRIEND_SIZE - safeMargin;
-    const minY = 80 + safeMargin;
-    const maxY = height - FRIEND_SIZE - safeMargin - 200; // 하단 여유
-
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const x = minX + Math.random() * (maxX - minX);
-      const y = minY + Math.random() * (maxY - minY);
-
-      const isOverlapping = existingPositions.some((pos) => {
-        return (
-          Math.abs(pos.x - x) < FRIEND_SIZE && Math.abs(pos.y - y) < FRIEND_SIZE
-        );
-      });
-
-      if (!isOverlapping) {
-        return { x, y };
-      }
-    }
-    // 실패 시 마지막 좌표라도 안전 영역 내에서 반환
-    return {
-      x: minX + Math.random() * (maxX - minX),
-      y: minY + Math.random() * (maxY - minY),
-    };
-  }
 
   const fetchFriends = async () => {
     try {
@@ -312,39 +187,19 @@ export default function Social() {
         throw new Error('API returned non-array data');
       }
 
-      const processedFriends: Friend[] = data.map(
-        (item: any, index: number) => {
-          const position = generateNonOverlappingPosition(existingPositions);
-          existingPositions.push(position);
+      const processedFriends: Friend[] = data.map((item: any) => ({
+        id: item.friendId?.toString() ?? '',
+        friend_id: item.friendId?.toString() ?? '',
+        name: item.name ?? '이름없음',
+        image: item.profileImageUrl
+          ? { uri: item.profileImageUrl }
+          : DEFAULT_AVATAR,
+        level: item.level ?? null,
+        grade: item.grade ?? null,
+        status: item.status ?? null,
+      }));
 
-          return {
-            id: item.friendId.toString(),
-            friend_id: item.friendId.toString(),
-            name: item.name ?? `친구 ${index + 1}`,
-            emoji: '💛',
-            image: require('../../assets/avatar/avatar2.jpeg'),
-            x: position.x,
-            y: position.y,
-            level: item.level ?? 1,
-            grade: item.grade ?? '아이언',
-            status: item.status ?? 'UNKNOWN',
-            latitude: item.latitude ?? null,
-            longitude: item.longitude ?? null,
-          };
-        }
-      );
-
-      const me: Friend = {
-        id: MY_USER_ID.toString(),
-        friend_id: MY_USER_ID.toString(),
-        name: '나',
-        emoji: '🏃',
-        image: require('../../assets/avatar/avatar1.jpeg'),
-        x: myPosition.x,
-        y: myPosition.y,
-      };
-
-      setFriends([me, ...processedFriends]);
+      setFriends(processedFriends);
     } catch (error) {
       console.error('fetchFriends error:', error);
       Alert.alert('오류', '친구 목록을 불러오는 중 오류가 발생했습니다.');
@@ -357,11 +212,14 @@ export default function Social() {
     try {
       const response = await fetch(
         `${SERVER_API_URL}/api/friend/delete?senderId=${MY_USER_ID}&otherId=${friend.friend_id}`,
-        { method: 'DELETE' }
+        {
+          method: 'DELETE',
+        }
       );
 
       if (response.ok) {
         Alert.alert('완료', `${friend.name}님이 삭제되었습니다.`);
+        setIsEditing(false);
         fetchFriends();
       } else {
         const text = await response.text();
@@ -376,16 +234,13 @@ export default function Social() {
     }
   };
 
-  // 친구 요청 수락
   const acceptRequest = async (senderId: string) => {
     try {
       const response = await fetch(
         `${SERVER_API_URL}/api/friend/accept?senderId=${MY_USER_ID}&otherId=${senderId}`
-        // GET 요청이라 method 옵션 제거해도 됩니다
       );
       if (response.ok) {
         Alert.alert('친구 요청 수락', '친구 요청을 수락했습니다.');
-
         await fetchFriends();
         await fetchFriendRequests();
       } else {
@@ -398,12 +253,10 @@ export default function Social() {
     }
   };
 
-  // 친구 요청 거절
   const rejectRequest = async (senderId: string) => {
     try {
       const response = await fetch(
         `${SERVER_API_URL}/api/friend/reject?senderId=${MY_USER_ID}&otherId=${senderId}`
-        // GET 요청이라 method 옵션 제거
       );
       if (response.ok) {
         Alert.alert('친구 요청 거절', '친구 요청을 거절했습니다.');
@@ -420,7 +273,6 @@ export default function Social() {
 
   return (
     <View style={styles.container}>
-      {/* 헤더 */}
       <View style={styles.headerContainer}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.backButton}>←</Text>
@@ -429,36 +281,29 @@ export default function Social() {
           <Text style={styles.title}>용인시 처인구</Text>
           <Text style={styles.subTitle}>러너 그라운드</Text>
         </View>
-
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <View style={{ alignItems: 'center', marginRight: 20 }}>
-            <Text style={{ fontSize: 12, marginBottom: 4 }}>실친만 보기</Text>
-            <CustomToggle
-              value={showOnlyRealFriends}
-              onValueChange={(val) => {
-                setShowOnlyRealFriends(val);
-              }}
-            />
-          </View>
-
-          {/* 종 버튼 */}
-          <TouchableOpacity
-            style={styles.bellButton}
-            onPress={() => setShowRequests(!showRequests)}
-          >
-            <Ionicons name="notifications-outline" size={28} color="#333" />
-            {pendingRequests > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>
-                  {pendingRequests > 99 ? '99+' : pendingRequests}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={styles.bellButton}
+          onPress={() => setShowRequests(!showRequests)}
+        >
+          <Ionicons name="notifications-outline" size={28} color="#333" />
+          {pendingRequests > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {pendingRequests > 99 ? '99+' : pendingRequests}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => setIsEditing(!isEditing)}
+          style={{ marginLeft: 12 }}
+        >
+          <Text style={{ color: '#32CD32', fontWeight: 'bold' }}>
+            {isEditing ? '완료' : '편집'}
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      {/* 친구 요청 리스트 (종 버튼 눌렀을 때만 보이게) */}
       {showRequests ? (
         <View style={styles.friendRequestContainer}>
           <Text style={styles.friendRequestTitle}>
@@ -497,7 +342,6 @@ export default function Social() {
               ))}
             </ScrollView>
           )}
-          {/* 닫기 버튼 */}
           <TouchableOpacity
             style={styles.closeButton}
             onPress={() => setShowRequests(false)}
@@ -506,177 +350,76 @@ export default function Social() {
           </TouchableOpacity>
         </View>
       ) : (
-        // 친구 목록 (요청 목록 숨겨져 있을 때)
         <View style={styles.mapContainer}>
           {loading ? (
             <ActivityIndicator size="large" color="#32CD32" />
           ) : friends.length === 0 ? (
             <Text style={styles.noFriendsText}>등록된 친구가 없습니다.</Text>
           ) : (
-            <View style={styles.mapInner}>
-              <Svg
-                height={height}
-                width={width}
-                style={{ position: 'absolute', top: 0, left: 0 }}
-                pointerEvents="none"
-              >
-                {friends
-                  .filter(
-                    (friend) => friend.friend_id !== MY_USER_ID.toString()
-                  )
-                  .map((friend) => {
-                    const myX = myPosition.x + FRIEND_SIZE / 2;
-                    const myY = myPosition.y + FRIEND_SIZE / 2;
-                    const friendX = friend.x + FRIEND_SIZE / 2;
-                    const friendY = friend.y + FRIEND_SIZE / 2;
-
-                    const arrowLength = 10;
-                    const angle = Math.atan2(friendY - myY, friendX - myX);
-                    const arrowX = friendX - arrowLength * Math.cos(angle);
-                    const arrowY = friendY - arrowLength * Math.sin(angle);
-
-                    // 중간점 좌표
-                    const midX = (myX + arrowX) / 2;
-                    const midY = (myY + arrowY) / 2;
-
-                    // 거리 계산 (km 단위, 없으면 빈 문자열)
-                    function getDistanceText(
-                      myCoords: { latitude: number; longitude: number } | null,
-                      friend: Friend
-                    ): string {
-                      if (
-                        myCoords == null ||
-                        friend.latitude == null ||
-                        friend.longitude == null
-                      ) {
-                        return '거리 정보 없음';
-                      }
-                      return `${calculateDistance(
-                        myCoords.latitude,
-                        myCoords.longitude,
-                        friend.latitude,
-                        friend.longitude
-                      ).toFixed(2)} km`;
-                    }
-
-                    return (
-                      <React.Fragment key={friend.id}>
-                        {/* 점선 */}
-                        <Line
-                          x1={myX}
-                          y1={myY}
-                          x2={arrowX}
-                          y2={arrowY}
-                          stroke="#888"
-                          strokeWidth="2"
-                          strokeDasharray="4,4"
-                        />
-                        {/* 화살표 머리 */}
-                        <Polygon
-                          points={`
-              ${friendX},${friendY}
-              ${friendX - 8 * Math.cos(angle - Math.PI / 6)},${
-                            friendY - 8 * Math.sin(angle - Math.PI / 6)
-                          }
-              ${friendX - 8 * Math.cos(angle + Math.PI / 6)},${
-                            friendY - 8 * Math.sin(angle + Math.PI / 6)
-                          }
-            `}
-                          fill="#888"
-                        />
-                        {/* 거리 텍스트 */}
-                        <SvgText
-                          x={midX}
-                          y={midY - 5}
-                          fill="#444"
-                          fontSize="12"
-                          fontWeight="bold"
-                          textAnchor="middle"
-                        >
-                          {getDistanceText(myCoords, friend)}
-                        </SvgText>
-                      </React.Fragment>
-                    );
-                  })}
-              </Svg>
-
-              {friends
-                .filter((friend) => {
-                  if (friend.friend_id === MY_USER_ID.toString()) return true; // 나 자신은 항상 표시
-                  if (showOnlyRealFriends) {
-                    return friend.status === 'FRIEND'; // 실친만 보기 ON 시 FRIEND만 표시
-                  }
-                  return true; // 실친만 보기 OFF 시 모두 표시
-                })
-                .map((friend) => (
-                  <View
-                    key={friend.id}
-                    style={[
-                      styles.friendItem,
-                      { top: friend.y, left: friend.x },
-                      { opacity: 1 }, // 반투명 처리 불필요해 제거
-                    ]}
-                  >
-                    <Image source={friend.image} style={styles.friendImage} />
-                    <View style={styles.friendNameContainer}>
-                      <View style={{ alignItems: 'center' }}>
-                        <Text style={styles.friendName}>{friend.name}</Text>
-                        <Text style={styles.friendEmoji}>{friend.emoji}</Text>
-                        {friend.level && friend.grade && (
-                          <Text style={styles.friendLevelGrade}>
-                            Lv.{friend.level} | {friend.grade}
-                          </Text>
-                        )}
-
-                        {/* 거리 표시 */}
-                        {myCoords && friend.latitude && friend.longitude && (
-                          <Text style={styles.distanceText}>
-                            거리:{' '}
-                            {calculateDistance(
-                              myCoords.latitude,
-                              myCoords.longitude,
-                              friend.latitude,
-                              friend.longitude
-                            ).toFixed(2)}{' '}
-                            km
-                          </Text>
-                        )}
-                      </View>
-                    </View>
-                    {friend.friend_id !== MY_USER_ID.toString() && (
-                      <TouchableOpacity
-                        onPress={() =>
-                          Alert.alert(
-                            '친구 삭제',
-                            `${friend.name}님과 친구를 끊으시겠습니까?`,
-                            [
-                              { text: '취소', style: 'cancel' },
-                              {
-                                text: '확인',
-                                style: 'destructive',
-                                onPress: () => handleDeleteFriend(friend),
-                              },
-                            ]
-                          )
-                        }
-                        style={styles.deleteButton}
-                      >
-                        <Ionicons name="trash-outline" size={20} color="red" />
-                      </TouchableOpacity>
+            <ScrollView contentContainerStyle={{ paddingVertical: 16 }}>
+              {friends.map((friend) => (
+                <View key={friend.id} style={styles.friendItem}>
+                  <Image source={friend.image} style={styles.friendImage} />
+                  <View style={styles.friendNameContainer}>
+                    <Text style={styles.friendName}>{friend.name}</Text>
+                    {friend.level && friend.grade && (
+                      <Text style={styles.friendLevelGrade}>
+                        Lv.{friend.level} | {friend.grade}
+                      </Text>
                     )}
                   </View>
-                ))}
-            </View>
+                  {!isEditing && (
+                    <TouchableOpacity
+                      style={styles.chatButton}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/(drawer)/ChatUser',
+                          params: {
+                            userId: friend.friend_id,
+                            username: friend.name,
+                            myUserId: MY_USER_ID.toString(),
+                            myUsername: myUserName, // ✅ 여기에 현재 내 이름 넘기기
+                          },
+                        })
+                      }
+                    >
+                      <Ionicons
+                        name="chatbubble-ellipses-outline"
+                        size={24}
+                        color="#32CD32"
+                      />
+                    </TouchableOpacity>
+                  )}
+                  {isEditing && (
+                    <TouchableOpacity
+                      onPress={() =>
+                        Alert.alert(
+                          '친구 삭제',
+                          `${friend.name}님과 친구를 끊으시겠습니까?`,
+                          [
+                            { text: '취소', style: 'cancel' },
+                            {
+                              text: '확인',
+                              style: 'destructive',
+                              onPress: () => handleDeleteFriend(friend),
+                            },
+                          ]
+                        )
+                      }
+                      style={styles.deleteButton}
+                    >
+                      <Ionicons name="trash-outline" size={20} color="red" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))}
+            </ScrollView>
           )}
         </View>
       )}
     </View>
   );
 }
-
-const TOGGLE_WIDTH = 50;
-const TOGGLE_HEIGHT = 24;
-const CIRCLE_SIZE = 20;
 
 const styles = StyleSheet.create({
   container: {
@@ -693,74 +436,22 @@ const styles = StyleSheet.create({
   },
   subTitle: { fontSize: 12 },
   title: { fontSize: 20, fontWeight: 'bold', color: '#222' },
-  toggleContainer: {
-    width: TOGGLE_WIDTH,
-    height: TOGGLE_HEIGHT,
-    borderRadius: TOGGLE_HEIGHT / 2,
-    backgroundColor: '#ddd',
-    paddingHorizontal: 2,
-  },
-  toggleCircleWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: TOGGLE_HEIGHT,
-    width: TOGGLE_WIDTH - 4,
-  },
-  toggleCircle: {
-    width: CIRCLE_SIZE,
-    height: CIRCLE_SIZE,
-    borderRadius: CIRCLE_SIZE / 2,
-  },
-  circleOn: { backgroundColor: '#32CD32' },
-  circleOff: { backgroundColor: '#FF4C4C' },
-  toggleText: {
-    position: 'absolute',
-    top: TOGGLE_HEIGHT / 2 - 8,
-    fontWeight: 'bold',
-    fontSize: 10,
-  },
-  textOnLeft: { left: 6 },
-  textOffRight: { right: 6 },
-  textBlack: { color: '#000000' },
-  mapContainer: { flex: 1 },
-  mapInner: { flex: 1, minHeight: 600, position: 'relative' },
-  noFriendsText: { textAlign: 'center', marginTop: 50, color: '#555' },
-  friendItem: {
-    position: 'absolute',
-    width: FRIEND_SIZE,
-    height: FRIEND_SIZE + 30,
-    alignItems: 'center',
-  },
-  friendImage: {
-    width: FRIEND_SIZE,
-    height: FRIEND_SIZE,
-    borderRadius: FRIEND_SIZE / 2,
-    borderWidth: 2,
-    borderColor: '#4caf50',
-  },
-  friendNameContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  friendName: { fontSize: 12, fontWeight: '600', color: '#333' },
-  friendEmoji: { marginLeft: 4, fontSize: 14 },
-  deleteButton: {
-    position: 'absolute',
-    top: 5,
-    right: 5,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 2,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.41,
-  },
   backButton: { fontSize: 24, color: '#333', marginRight: 12 },
-
-  // 아래부터 친구 요청 관련 스타일 추가
+  bellButton: { position: 'relative', padding: 5 },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#FF4C4C',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    zIndex: 10,
+  },
+  badgeText: { color: 'white', fontSize: 11, fontWeight: 'bold' },
   friendRequestContainer: {
     backgroundColor: '#f9f9f9',
     borderRadius: 8,
@@ -776,13 +467,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     color: '#333',
   },
-  noRequestsText: {
-    textAlign: 'center',
-    color: '#777',
-  },
-  friendRequestList: {
-    // ScrollView 스타일, 필요시 조정
-  },
+  noRequestsText: { textAlign: 'center', color: '#777' },
+  friendRequestList: {},
   friendRequestItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -791,51 +477,17 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: '#ddd',
   },
-  requestName: {
-    fontSize: 14,
-    color: '#222',
-  },
-  requestButtons: {
-    flexDirection: 'row',
-  },
+  requestName: { fontSize: 14, color: '#222' },
+  requestButtons: { flexDirection: 'row' },
   requestButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 4,
     marginLeft: 8,
   },
-  acceptButton: {
-    backgroundColor: '#32CD32',
-  },
-  rejectButton: {
-    backgroundColor: '#FF4C4C',
-  },
-  requestButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  bellButton: {
-    position: 'relative',
-    padding: 5,
-  },
-  badge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#FF4C4C',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-    zIndex: 10,
-  },
-  badgeText: {
-    color: 'white',
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
+  acceptButton: { backgroundColor: '#32CD32' },
+  rejectButton: { backgroundColor: '#FF4C4C' },
+  requestButtonText: { color: '#fff', fontWeight: 'bold' },
   closeButton: {
     marginTop: 10,
     backgroundColor: '#32CD32',
@@ -843,18 +495,45 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     alignItems: 'center',
   },
-  closeButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
+  closeButtonText: { color: '#fff', fontWeight: 'bold' },
+  mapContainer: { flex: 1 },
+  noFriendsText: { textAlign: 'center', marginTop: 50, color: '#555' },
+  friendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#333',
+    borderRadius: 8,
+    padding: 8,
+    backgroundColor: '#fff',
   },
-  friendLevelGrade: {
-    fontSize: 10,
-    color: '#555',
-    marginTop: 2,
+  friendImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    marginRight: 12,
+    borderWidth: 2,
+    borderColor: '#4caf50',
   },
-  distanceText: {
-    fontSize: 10,
-    color: '#888',
-    marginTop: 2,
+  friendNameContainer: { flexDirection: 'column', justifyContent: 'center' },
+  friendName: { fontSize: 16, fontWeight: '600', color: '#333' },
+  friendLevelGrade: { fontSize: 12, color: '#555', marginTop: 2 },
+  deleteButton: {
+    marginLeft: 'auto',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 4,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+  },
+  chatButton: {
+    marginLeft: 8,
+    padding: 6,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 20,
   },
 });

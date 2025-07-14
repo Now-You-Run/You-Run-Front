@@ -73,7 +73,9 @@
     "sockjs-client": "^1.6.1",
     "three": "^0.166.1",
     "zustand": "^5.0.6",
-    "expo-image-manipulator": "~13.1.7"
+    "expo-image-manipulator": "~13.1.7",
+    "react-native-svg": "15.11.2",
+    "expo-notifications": "~0.31.4"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
