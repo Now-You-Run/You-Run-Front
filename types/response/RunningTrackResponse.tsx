@@ -8,6 +8,7 @@ export interface TrackInfoDto {
 }
 
 export interface TrackRecordDto {
+  recordId: number;
   userId: number;
   username: string;
   duration: number;

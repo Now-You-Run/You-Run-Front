@@ -129,6 +129,34 @@ export default function TrackDetailScreen() {
                     <GradeBadge grade={record.grade} level={record.level} />
                   </View>
                   <Text style={styles.rankDuration}>{formatDuration(record.duration)}</Text>
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: '#007aff',
+                      borderRadius: 8,
+                      paddingVertical: 6,
+                      paddingHorizontal: 14,
+                      marginLeft: 10,
+                    }}
+                    onPress={() => {
+                      // 트랙 정보, 상대 기록을 모두 넘김
+                      router.push({
+                        pathname: './MatchRunningScreen', // "대결"용 새로운 화면(파일)
+                        params: {
+                          recordId: record.recordId,
+                          trackId: track.id,
+                          trackInfo: JSON.stringify({
+                            id: track.id,
+                            path: track.path,
+                            origin: track.path[0],
+                            distance: track.distance,
+                          }),
+
+                        },
+                      });
+                    }}
+                  >
+                    <Text style={{ color: 'white', fontWeight: 'bold' }}>도전하기</Text>
+                  </TouchableOpacity>
                 </View>
               ))}
 
