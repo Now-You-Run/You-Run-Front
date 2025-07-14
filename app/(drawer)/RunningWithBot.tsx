@@ -23,11 +23,11 @@ const avatarId = "686ece0ae610780c6c939703";
 // ==================================================================
 // 아바타 오버레이 컴포넌트
 // ==================================================================
-const AvatarOverlay = React.memo(({ 
-  screenPos, 
-  isRunning, 
-  speed, 
-  onAvatarReady 
+const AvatarOverlay = React.memo(({
+  screenPos,
+  isRunning,
+  speed,
+  onAvatarReady
 }: {
   screenPos: { x: number; y: number } | null;
   isRunning: boolean;
@@ -311,8 +311,8 @@ const AvatarOverlay = React.memo(({
         ref={webViewRef}
         originWhitelist={["*"]}
         source={{ html: avatarHtml }}
-        style={{ 
-          flex: 1, 
+        style={{
+          flex: 1,
           backgroundColor: "transparent",
         }}
         javaScriptEnabled
@@ -343,6 +343,53 @@ const AvatarOverlay = React.memo(({
 function paceToKmh(minutes: number, seconds: number): number {
   const totalMinutes = minutes + seconds / 60;
   return totalMinutes === 0 ? 0 : 60 / totalMinutes;
+}
+
+function findPositionOnTrack(
+  targetCoord: Coordinate,
+  trackPath: Coordinate[]
+): { distance: number; closestIndex: number; progress: number } {
+  if (!trackPath.length) return { distance: 0, closestIndex: 0, progress: 0 };
+
+  let minDistance = Infinity;
+  let closestIndex = 0;
+  let totalTrackDistance = 0;
+  let progressDistance = 0;
+
+  // 전체 트랙 거리 계산
+  for (let i = 1; i < trackPath.length; i++) {
+    totalTrackDistance += haversineDistance(
+      trackPath[i - 1].latitude, trackPath[i - 1].longitude,
+      trackPath[i].latitude, trackPath[i].longitude
+    ) * 1000; // 미터 단위
+  }
+
+  // 가장 가까운 트랙 지점 찾기
+  for (let i = 0; i < trackPath.length; i++) {
+    const distance = haversineDistance(
+      targetCoord.latitude, targetCoord.longitude,
+      trackPath[i].latitude, trackPath[i].longitude
+    ) * 1000;
+
+    if (distance < minDistance) {
+      minDistance = distance;
+      closestIndex = i;
+    }
+  }
+
+  // 해당 지점까지의 진행 거리 계산
+  for (let i = 1; i <= closestIndex; i++) {
+    progressDistance += haversineDistance(
+      trackPath[i - 1].latitude, trackPath[i - 1].longitude,
+      trackPath[i].latitude, trackPath[i].longitude
+    ) * 1000;
+  }
+
+  return {
+    distance: minDistance,
+    closestIndex,
+    progress: progressDistance
+  };
 }
 
 // 두 GPS 좌표 간 거리 (km) 계산
@@ -436,7 +483,7 @@ export default function RunningScreen() {
   const [avatarScreenPos, setAvatarScreenPos] = useState<{ x: number; y: number } | null>(null);
   const [avatarReady, setAvatarReady] = useState(false);
   const enableAvatar = true;
-  
+
   // 회전 관련 상태
   const [lastMapHeading, setLastMapHeading] = useState(0);
   const [isRotationEnabled, setIsRotationEnabled] = useState(false);
@@ -544,7 +591,7 @@ export default function RunningScreen() {
   // ✅ 아바타 위치 업데이트 함수 - 단순화
   const updateAvatarPosition = useCallback((coord: Coordinate, force = false) => {
     if (!mapRef.current || !enableAvatar) return;
-    
+
     try {
       mapRef.current
         .pointForCoordinate(coord)
@@ -600,13 +647,38 @@ export default function RunningScreen() {
     );
   }, [currentPosition, path]);
 
+  const botTrackDistance = useMemo(() => {
+    if (!currentPosition || !externalPath || path.length === 0) {
+      return { distanceMeters: 0, isAhead: false, botProgress: 0, userProgress: 0 };
+    }
+
+    const userPos = path[path.length - 1];
+
+    // 봇의 트랙 상 위치 및 진행 거리
+    const botOnTrack = findPositionOnTrack(currentPosition, externalPath);
+
+    // 사용자의 트랙 상 위치 및 진행 거리  
+    const userOnTrack = findPositionOnTrack(userPos, externalPath);
+
+    // 트랙 상에서의 진행 거리 차이 계산
+    const progressDifference = botOnTrack.progress - userOnTrack.progress;
+
+    return {
+      distanceMeters: Math.abs(progressDifference),
+      isAhead: progressDifference > 0, // 봇이 앞서고 있는지
+      botProgress: botOnTrack.progress,
+      userProgress: userOnTrack.progress
+    };
+  }, [currentPosition, externalPath, path]);
+
+
   useSectionAnnouncements(
-     isActive ? liveDistanceKm * 1000 : 0,  // km → m
+    isActive ? liveDistanceKm * 1000 : 0,  // km → m
     isActive ? sections : [],
     100,                    // 100m 간격 안내
     botPace,                // 목표 페이스 { minutes, seconds }
     currentPaceSec,         // 현재 페이스 (초/km)
-    botDistanceKm * 1000    // 봇과의 거리(m)
+    botTrackDistance.distanceMeters     // 봇과의 거리(m)
   );
 
 
@@ -738,7 +810,7 @@ export default function RunningScreen() {
       }
 
       const startPoint = externalPath[0];
-      
+
       // 위치 권한 확인
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
@@ -751,7 +823,7 @@ export default function RunningScreen() {
         timeInterval: 1000,
         distanceInterval: 10,
       });
-      
+
       const { latitude: curLat, longitude: curLon } = coords;
 
       const startDistKm = haversineDistance(
@@ -858,7 +930,7 @@ export default function RunningScreen() {
       const location = await Location.getCurrentPositionAsync({});
       const { latitude, longitude } = location.coords;
       const initialCoord = { latitude, longitude };
-      
+
       setOrigin(initialCoord);
       setMapRegion({
         latitude,
@@ -866,7 +938,7 @@ export default function RunningScreen() {
         latitudeDelta: 0.005,
         longitudeDelta: 0.005,
       });
-      
+
       // 초기 아바타 위치 설정
       updateAvatarPosition(initialCoord, true);
     })();
@@ -879,7 +951,7 @@ export default function RunningScreen() {
   useEffect(() => {
     if (path.length > 0) {
       const latest = path[path.length - 1];
-      
+
       // 지도 영역과 아바타 위치를 동시에 업데이트
       const updateMapAndAvatar = async () => {
         try {
@@ -888,18 +960,18 @@ export default function RunningScreen() {
             const previous = path[path.length - 2];
             const current = latest;
             const direction = calculateDirection(previous, current);
-            
+
             if (direction !== null) {
               const headingDiff = Math.abs(direction - lastMapHeading);
               const shouldRotate = headingDiff > 15 || headingDiff > 345;
-              
+
               if (shouldRotate) {
                 try {
                   mapRef.current?.animateCamera({
                     center: current,
                     heading: direction,
                   }, { duration: 500 });
-                  
+
                   setLastMapHeading(direction);
                 } catch (error) {
                   console.log('지도 회전 애니메이션 오류:', error);
@@ -923,19 +995,19 @@ export default function RunningScreen() {
               longitudeDelta: 0.005,
             });
           }
-          
+
           // 아바타 위치 즉시 업데이트 (동기화)
           await updateAvatarPosition(latest, true);
         } catch (error) {
           console.log('위치 업데이트 오류:', error);
         }
       };
-      
+
       updateMapAndAvatar();
     }
   }, [path, updateAvatarPosition, isRotationEnabled, lastMapHeading, calculateDirection]);
 
-   // ① 자동 포커스 토글 상태
+  // ① 자동 포커스 토글 상태
   const [isFollowing, setIsFollowing] = useState(true);
 
   // ② 지도 터치 시 포커스 토글
@@ -970,7 +1042,7 @@ export default function RunningScreen() {
       // 이 화면을 벗어나는 모든 경우(뒤로가기, 포기, 완주 후 이동 등)에 실행됩니다.
       stopRunning();  // 진행 중이던 타이머나 위치 추적을 확실히 중지
       resetRunning(); // 컨텍스트의 모든 데이터(경로, 시간 등)를 초기화
-      
+
       // 아바타 관련 cleanup
       setAvatarScreenPos(null);
       setAvatarReady(false);
@@ -1013,7 +1085,7 @@ export default function RunningScreen() {
           latitudeDelta: 0.01,
           longitudeDelta: 0.01,
         }}
-        followsUserLocation={isFollowing}  
+        followsUserLocation={isFollowing}
         onPress={handleMapPress}
         onRegionChangeComplete={handleMapRegionChange}
         //region={mapRegion}
@@ -1085,7 +1157,7 @@ export default function RunningScreen() {
       </MapView>
 
 
-      
+
       {avatarScreenPos && (
         <AvatarOverlay
           screenPos={avatarScreenPos}
@@ -1150,9 +1222,21 @@ export default function RunningScreen() {
       <View style={styles.overlay}>
         {/* ——— 봇과의 거리 표시 추가 ——— */}
         <View style={styles.botDistanceRow}>
-          <Text style={styles.botDistanceLabel}>봇과의 거리</Text>
-          <Text style={styles.botDistanceValue}>
-            {(botDistanceKm * 1000).toFixed(0)} m
+          <Text style={styles.botDistanceLabel}>
+            {botTrackDistance.isAhead ? '봇이 앞서고 있음' : '사용자가 앞서고 있음'}
+          </Text>
+          <Text style={[
+            styles.botDistanceValue,
+            { color: botTrackDistance.isAhead ? '#ff4444' : '#00C851' }
+          ]}>
+            {botTrackDistance.distanceMeters.toFixed(0)} m
+          </Text>
+        </View>
+
+        {/* 추가: 진행률 표시 */}
+        <View style={styles.progressRow}>
+          <Text style={styles.progressLabel}>
+            진행률: {((botTrackDistance.userProgress / (trackInfo?.distanceMeters || 1)) * 100).toFixed(1)}%
           </Text>
         </View>
         <Text style={styles.distance}>{liveDistanceKm.toFixed(2)} km</Text>
@@ -1315,5 +1399,29 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     fontWeight: '600',
+  },
+  progressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    paddingHorizontal: 10,
+  },
+  progressLabel: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  progressBar: {
+    flex: 1,
+    height: 6,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 3,
+    marginLeft: 10,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#007aff',
+    borderRadius: 3,
   },
 });
