@@ -4,6 +4,7 @@ import { Client } from '@stomp/stompjs';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Image,
   LayoutAnimation,
@@ -26,6 +27,11 @@ interface ChatMessage {
   readBy?: number[];
 }
 
+interface ReadReceiptDto {
+  roomId: string;
+  userId: number;
+}
+
 const SERVER_API_URL = process.env.EXPO_PUBLIC_SERVER_API_URL;
 const DEFAULT_AVATAR = require('../../assets/avatar/avatar2.jpeg');
 
@@ -43,7 +49,6 @@ const ChatUser = () => {
       'params'
     >
   >();
-
   const router = useRouter();
   const { userId, username, myUserId, myUsername } = route.params;
   const opponentUserId = Number(userId);
@@ -51,6 +56,8 @@ const ChatUser = () => {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isTyping, setIsTyping] = useState(false);
+  const [loading, setLoading] = useState(true);
+
   const client = useRef<Client | null>(null);
   const flatListRef = useRef<FlatList<ChatMessage>>(null);
   const typingTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -70,28 +77,80 @@ const ChatUser = () => {
   }, []);
 
   useEffect(() => {
+    const fetchMessages = async () => {
+      try {
+        const response = await fetch(
+          `${SERVER_API_URL}/api/chat/rooms/${roomId}/messages`
+        );
+        const data = await response.json();
+        if (Array.isArray(data)) {
+          setMessages(data);
+        } else {
+          console.warn('🚨 Server returned invalid message format');
+          setMessages([]);
+        }
+      } catch (error) {
+        console.error('🚨 Failed to fetch messages:', error);
+        setMessages([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMessages();
+  }, [roomId]);
+
+  const publishSafe = (destination: string, body: string) => {
+    if (client.current && client.current.connected) {
+      client.current.publish({ destination, body });
+    } else {
+      console.warn(
+        `⚠️ Tried to publish to ${destination} but STOMP not connected yet`
+      );
+    }
+  };
+
+  useEffect(() => {
     const socket = new SockJS(`${SERVER_API_URL}/ws`);
     const stompClient = new Client({
       webSocketFactory: () => socket,
-      debug: (str) => console.log(str),
+      debug: (str) => console.log('[STOMP DEBUG]', str),
+      reconnectDelay: 5000,
       onConnect: () => {
         console.log('✅ Connected to WebSocket');
 
-        // 메시지 구독
         stompClient.subscribe(`/topic/room/${roomId}`, (message) => {
-          const received: ChatMessage = {
-            ...JSON.parse(message.body),
-            createdAt: new Date().toISOString(),
-          };
+          const received = JSON.parse(message.body);
           LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-          setMessages((prev) => [...prev, received]);
+
+          if (Array.isArray(received)) {
+            setMessages(received);
+          } else {
+            setMessages((prev) => {
+              const exists = prev.some(
+                (msg) =>
+                  msg.senderId === received.senderId &&
+                  msg.content === received.content &&
+                  msg.createdAt === received.createdAt
+              );
+              if (exists) {
+                return prev.map((msg) =>
+                  msg.senderId === received.senderId &&
+                  msg.content === received.content &&
+                  msg.createdAt === received.createdAt
+                    ? { ...msg, ...received }
+                    : msg
+                );
+              } else {
+                return [...prev, received];
+              }
+            });
+          }
 
           setTimeout(() => {
             flatListRef.current?.scrollToEnd({ animated: true });
           }, 100);
         });
 
-        // 타이핑 상태 구독
         stompClient.subscribe(`/topic/room/${roomId}/typing`, (msg) => {
           const { userId: typingUserId, typing } = JSON.parse(msg.body);
           if (typingUserId !== Number(myUserId)) {
@@ -99,17 +158,26 @@ const ChatUser = () => {
           }
         });
 
-        // 입장 시 읽음 처리
-        stompClient.publish({
-          destination: '/app/chat.read',
-          body: JSON.stringify({
-            roomId,
-            userId: Number(myUserId),
-          }),
+        stompClient.subscribe(`/topic/room/${roomId}/read-receipt`, (msg) => {
+          const receipt: ReadReceiptDto = JSON.parse(msg.body);
+          if (receipt.userId !== Number(myUserId)) {
+            console.log(
+              `👁️‍🗨️ Received read receipt from userId=${receipt.userId}`
+            );
+            publishSafe(
+              '/app/chat.read',
+              JSON.stringify({ roomId, userId: Number(myUserId) })
+            );
+          }
         });
+
+        publishSafe(
+          '/app/chat.read',
+          JSON.stringify({ roomId, userId: Number(myUserId) })
+        );
       },
       onStompError: (frame) => {
-        console.error('❌ Broker error: ', frame);
+        console.error('❌ Broker error:', frame);
       },
     });
 
@@ -123,49 +191,35 @@ const ChatUser = () => {
   }, [roomId]);
 
   const notifyTyping = () => {
-    if (!client.current || !client.current.connected) return;
-
-    client.current.publish({
-      destination: '/app/chat.typing',
-      body: JSON.stringify({ userId: Number(myUserId), typing: true, roomId }),
-    });
-
+    publishSafe(
+      '/app/chat.typing',
+      JSON.stringify({ userId: Number(myUserId), typing: true, roomId })
+    );
     if (typingTimeout.current) clearTimeout(typingTimeout.current);
-
     typingTimeout.current = setTimeout(() => {
-      client.current?.publish({
-        destination: '/app/chat.typing',
-        body: JSON.stringify({
-          userId: Number(myUserId),
-          typing: false,
-          roomId,
-        }),
-      });
+      publishSafe(
+        '/app/chat.typing',
+        JSON.stringify({ userId: Number(myUserId), typing: false, roomId })
+      );
     }, 2000);
   };
 
   const sendMessage = () => {
-    if (client.current && client.current.connected && message.trim() !== '') {
-      const chatMessage: ChatMessage = {
-        sender: myUsername,
-        senderId: Number(myUserId),
-        content: message.trim(),
-        type: 'TALK',
-        roomId,
-        createdAt: new Date().toISOString(),
-        readBy: [Number(myUserId)],
-      };
-
-      client.current.publish({
-        destination: '/app/chat.sendMessage',
-        body: JSON.stringify(chatMessage),
-      });
-
-      setMessage('');
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
-    }
+    if (message.trim() === '') return;
+    const chatMessage: ChatMessage = {
+      sender: myUsername,
+      senderId: Number(myUserId),
+      content: message.trim(),
+      type: 'TALK',
+      roomId,
+      createdAt: new Date().toISOString(),
+      readBy: [Number(myUserId)],
+    };
+    publishSafe('/app/chat.sendMessage', JSON.stringify(chatMessage));
+    setMessage('');
+    setTimeout(() => {
+      flatListRef.current?.scrollToEnd({ animated: true });
+    }, 100);
   };
 
   const renderItem = ({ item }: { item: ChatMessage }) => {
@@ -184,12 +238,7 @@ const ChatUser = () => {
         {!isMe && (
           <Image
             source={DEFAULT_AVATAR}
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 18,
-              marginRight: 6,
-            }}
+            style={{ width: 36, height: 36, borderRadius: 18, marginRight: 6 }}
           />
         )}
         <View
@@ -223,7 +272,7 @@ const ChatUser = () => {
                 textAlign: 'right',
               }}
             >
-              {hasOpponentRead ? '✓ 상대 읽음' : '✓ 미확인'}
+              {hasOpponentRead ? '✓ 읽음' : '✓ 미확인'}
             </Text>
           )}
         </View>
@@ -233,7 +282,6 @@ const ChatUser = () => {
 
   return (
     <View style={{ flex: 1, padding: 16, backgroundColor: '#fff' }}>
-      {/* 상단 헤더 */}
       <View
         style={{
           flexDirection: 'row',
@@ -252,57 +300,71 @@ const ChatUser = () => {
         </Text>
       </View>
 
-      {/* 타이핑 표시 */}
-      {isTyping && (
-        <Text style={{ fontStyle: 'italic', color: '#666', marginVertical: 4 }}>
-          {username} 님이 입력 중입니다...
-        </Text>
-      )}
-
-      {/* 메시지 리스트 */}
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        keyExtractor={(_, index) => index.toString()}
-        renderItem={renderItem}
-        contentContainerStyle={{
-          flexGrow: 1,
-          justifyContent: 'flex-end',
-          paddingBottom: 12,
-        }}
-      />
-
-      {/* 입력창 및 전송 버튼 */}
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <TextInput
-          placeholder="메시지를 입력하세요"
-          value={message}
-          onChangeText={(text) => {
-            setMessage(text);
-            notifyTyping();
-          }}
-          style={{
-            flex: 1,
-            borderWidth: 1,
-            borderColor: '#ccc',
-            borderRadius: 20,
-            paddingHorizontal: 16,
-            paddingVertical: 8,
-            marginRight: 8,
-          }}
+      {loading ? (
+        <ActivityIndicator
+          size="large"
+          color="#32CD32"
+          style={{ marginTop: 20 }}
         />
-        <TouchableOpacity
-          onPress={sendMessage}
-          style={{
-            backgroundColor: '#32CD32',
-            paddingVertical: 10,
-            paddingHorizontal: 16,
-            borderRadius: 20,
-          }}
-        >
-          <Text style={{ color: '#fff', fontWeight: 'bold' }}>보내기</Text>
-        </TouchableOpacity>
-      </View>
+      ) : (
+        <>
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            keyExtractor={(item) => `${item.createdAt}-${item.senderId}`}
+            renderItem={renderItem}
+            contentContainerStyle={{
+              flexGrow: 1,
+              justifyContent: 'flex-end',
+              paddingBottom: 12,
+            }}
+          />
+
+          {isTyping && (
+            <Text
+              style={{
+                fontStyle: 'italic',
+                color: '#666',
+                marginBottom: 6,
+                textAlign: 'center',
+              }}
+            >
+              {username} 님이 입력 중입니다...
+            </Text>
+          )}
+
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TextInput
+              placeholder="메시지를 입력하세요"
+              value={message}
+              onChangeText={(text) => {
+                setMessage(text);
+                notifyTyping();
+              }}
+              style={{
+                flex: 1,
+                borderWidth: 1,
+                borderColor: '#ccc',
+                borderRadius: 20,
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                marginRight: 8,
+              }}
+            />
+            <TouchableOpacity
+              onPress={sendMessage}
+              style={{
+                backgroundColor: '#32CD32',
+                paddingVertical: 10,
+                paddingHorizontal: 16,
+                borderRadius: 20,
+              }}
+            >
+              <Text style={{ color: '#fff', fontWeight: 'bold' }}>보내기</Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
     </View>
   );
 };
