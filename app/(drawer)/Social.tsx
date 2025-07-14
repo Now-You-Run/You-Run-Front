@@ -36,7 +36,7 @@ interface Friend {
 }
 
 const SERVER_API_URL = process.env.EXPO_PUBLIC_SERVER_API_URL;
-const MY_USER_ID = 1; // 기본값: iPhone(또는 모름)
+const MY_USER_ID = 1;
 const DEFAULT_AVATAR = require('../../assets/avatar/avatar2.jpeg'); // ✅ 기본 아바타
 
 export default function Social() {

@@ -5,9 +5,13 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   FlatList,
+  Image,
+  LayoutAnimation,
+  Platform,
   Text,
   TextInput,
   TouchableOpacity,
+  UIManager,
   View,
 } from 'react-native';
 import SockJS from 'sockjs-client';
@@ -18,9 +22,12 @@ interface ChatMessage {
   content: string;
   type: string;
   roomId?: string;
+  createdAt?: string;
+  readBy?: number[];
 }
 
 const SERVER_API_URL = process.env.EXPO_PUBLIC_SERVER_API_URL;
+const DEFAULT_AVATAR = require('../../assets/avatar/avatar2.jpeg');
 
 const ChatUser = () => {
   const route = useRoute<
@@ -29,8 +36,8 @@ const ChatUser = () => {
         params: {
           userId: string;
           username: string;
-          myUserId: string; // ✅ 추가
-          myUsername: string; // ✅ 추가
+          myUserId: string;
+          myUsername: string;
         };
       },
       'params'
@@ -39,17 +46,29 @@ const ChatUser = () => {
 
   const router = useRouter();
   const { userId, username, myUserId, myUsername } = route.params;
+  const opponentUserId = Number(userId);
 
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isTyping, setIsTyping] = useState(false);
   const client = useRef<Client | null>(null);
+  const flatListRef = useRef<FlatList<ChatMessage>>(null);
+  const typingTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const roomId =
     Number(myUserId) < Number(userId)
       ? `room-${myUserId}-${userId}`
       : `room-${userId}-${myUserId}`;
 
-  // ✅ WebSocket 연결
+  useEffect(() => {
+    if (
+      Platform.OS === 'android' &&
+      UIManager.setLayoutAnimationEnabledExperimental
+    ) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+  }, []);
+
   useEffect(() => {
     const socket = new SockJS(`${SERVER_API_URL}/ws`);
     const stompClient = new Client({
@@ -57,10 +76,36 @@ const ChatUser = () => {
       debug: (str) => console.log(str),
       onConnect: () => {
         console.log('✅ Connected to WebSocket');
+
+        // 메시지 구독
         stompClient.subscribe(`/topic/room/${roomId}`, (message) => {
-          const received: ChatMessage = JSON.parse(message.body);
-          console.log('📩 Received:', received);
+          const received: ChatMessage = {
+            ...JSON.parse(message.body),
+            createdAt: new Date().toISOString(),
+          };
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
           setMessages((prev) => [...prev, received]);
+
+          setTimeout(() => {
+            flatListRef.current?.scrollToEnd({ animated: true });
+          }, 100);
+        });
+
+        // 타이핑 상태 구독
+        stompClient.subscribe(`/topic/room/${roomId}/typing`, (msg) => {
+          const { userId: typingUserId, typing } = JSON.parse(msg.body);
+          if (typingUserId !== Number(myUserId)) {
+            setIsTyping(typing);
+          }
+        });
+
+        // 입장 시 읽음 처리
+        stompClient.publish({
+          destination: '/app/chat.read',
+          body: JSON.stringify({
+            roomId,
+            userId: Number(myUserId),
+          }),
         });
       },
       onStompError: (frame) => {
@@ -77,6 +122,28 @@ const ChatUser = () => {
     };
   }, [roomId]);
 
+  const notifyTyping = () => {
+    if (!client.current || !client.current.connected) return;
+
+    client.current.publish({
+      destination: '/app/chat.typing',
+      body: JSON.stringify({ userId: Number(myUserId), typing: true, roomId }),
+    });
+
+    if (typingTimeout.current) clearTimeout(typingTimeout.current);
+
+    typingTimeout.current = setTimeout(() => {
+      client.current?.publish({
+        destination: '/app/chat.typing',
+        body: JSON.stringify({
+          userId: Number(myUserId),
+          typing: false,
+          roomId,
+        }),
+      });
+    }, 2000);
+  };
+
   const sendMessage = () => {
     if (client.current && client.current.connected && message.trim() !== '') {
       const chatMessage: ChatMessage = {
@@ -84,7 +151,9 @@ const ChatUser = () => {
         senderId: Number(myUserId),
         content: message.trim(),
         type: 'TALK',
-        roomId: roomId,
+        roomId,
+        createdAt: new Date().toISOString(),
+        readBy: [Number(myUserId)],
       };
 
       client.current.publish({
@@ -93,7 +162,73 @@ const ChatUser = () => {
       });
 
       setMessage('');
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
     }
+  };
+
+  const renderItem = ({ item }: { item: ChatMessage }) => {
+    const isMe = item.senderId === Number(myUserId);
+    const hasOpponentRead = item.readBy?.includes(opponentUserId);
+
+    return (
+      <View
+        style={{
+          flexDirection: isMe ? 'row-reverse' : 'row',
+          alignItems: 'flex-end',
+          marginVertical: 4,
+          paddingHorizontal: 8,
+        }}
+      >
+        {!isMe && (
+          <Image
+            source={DEFAULT_AVATAR}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              marginRight: 6,
+            }}
+          />
+        )}
+        <View
+          style={{
+            backgroundColor: isMe ? '#DCF8C6' : '#E5E5EA',
+            paddingVertical: 8,
+            paddingHorizontal: 12,
+            borderRadius: 16,
+            maxWidth: '75%',
+          }}
+        >
+          {!isMe && (
+            <Text
+              style={{
+                fontSize: 12,
+                color: '#555',
+                marginBottom: 4,
+                fontWeight: '500',
+              }}
+            >
+              {item.sender}
+            </Text>
+          )}
+          <Text style={{ fontSize: 16, color: '#333' }}>{item.content}</Text>
+          {isMe && (
+            <Text
+              style={{
+                fontSize: 10,
+                color: hasOpponentRead ? 'green' : 'gray',
+                marginTop: 4,
+                textAlign: 'right',
+              }}
+            >
+              {hasOpponentRead ? '✓ 상대 읽음' : '✓ 미확인'}
+            </Text>
+          )}
+        </View>
+      </View>
+    );
   };
 
   return (
@@ -117,43 +252,24 @@ const ChatUser = () => {
         </Text>
       </View>
 
+      {/* 타이핑 표시 */}
+      {isTyping && (
+        <Text style={{ fontStyle: 'italic', color: '#666', marginVertical: 4 }}>
+          {username} 님이 입력 중입니다...
+        </Text>
+      )}
+
       {/* 메시지 리스트 */}
       <FlatList
+        ref={flatListRef}
         data={messages}
         keyExtractor={(_, index) => index.toString()}
-        renderItem={({ item }) => {
-          const isMe = item.senderId === Number(myUserId);
-
-          return (
-            <View
-              style={{
-                flexDirection: 'row',
-                justifyContent: isMe ? 'flex-end' : 'flex-start',
-                marginVertical: 4,
-                paddingHorizontal: 4,
-              }}
-            >
-              <View
-                style={{
-                  backgroundColor: isMe ? '#E5E5EA' : '#DCF8C6', // ✅ 색상 반전
-                  padding: 10,
-                  borderRadius: 12,
-                  maxWidth: '80%',
-                }}
-              >
-                {!isMe && (
-                  <Text
-                    style={{ fontSize: 12, color: '#555', marginBottom: 2 }}
-                  >
-                    {item.sender}
-                  </Text>
-                )}
-                <Text style={{ fontSize: 16 }}>{item.content}</Text>
-              </View>
-            </View>
-          );
+        renderItem={renderItem}
+        contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: 'flex-end',
+          paddingBottom: 12,
         }}
-        contentContainerStyle={{ flexGrow: 1, paddingBottom: 8 }}
       />
 
       {/* 입력창 및 전송 버튼 */}
@@ -161,7 +277,10 @@ const ChatUser = () => {
         <TextInput
           placeholder="메시지를 입력하세요"
           value={message}
-          onChangeText={setMessage}
+          onChangeText={(text) => {
+            setMessage(text);
+            notifyTyping();
+          }}
           style={{
             flex: 1,
             borderWidth: 1,
