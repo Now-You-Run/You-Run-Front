@@ -66,6 +66,13 @@ export default function CustomDrawer({ closeMenu }: CustomDrawerProps) {
         </Pressable>
 
         <Pressable
+          style={styles.menuItem}
+          onPress={() => navigateTo('/(drawer)/AvatarShop')}
+        >
+          <Text style={styles.menuText}>상점</Text>
+        </Pressable>
+
+        <Pressable
           style={[styles.menuItem, styles.closeButton]}
           onPress={closeMenu}
         >
