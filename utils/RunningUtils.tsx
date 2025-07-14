@@ -1,5 +1,7 @@
 // /utils/runningUtils.ts
 
+import { Coordinate } from "@/types/TrackDto";
+
 /** 순간 페이스(1km당 시간)를 계산합니다. */
 export const calculateInstantPace = (speedKmh: number): string => {
   if (speedKmh <= 0) return `0'00"`;
@@ -33,4 +35,17 @@ export const formatDateTime = (date : Date) => {
   const minutes = String(date.getMinutes()).padStart(2, '0');
 
   return `${year}-${month}-${day} ${hours}:${minutes}`;
+};
+
+export const calculateDirection = (from: Coordinate, to: Coordinate): number | null => {
+  const deltaLng = to.longitude - from.longitude;
+  const deltaLat = to.latitude - from.latitude;
+
+  const distance = Math.sqrt(deltaLng * deltaLng + deltaLat * deltaLat);
+  if (distance < 0.00001) {
+    return null;
+  }
+
+  let angle = Math.atan2(deltaLng, deltaLat) * (180 / Math.PI);
+  return angle;
 };
