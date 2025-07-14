@@ -26,46 +26,33 @@ export function useSectionAnnouncements(
   currentPaceSec?: number,
   botDistanceMeters?: number,
 ) {
-  // 마지막 안내된 구간/거리 기억
-  const lastSectionIndexRef = useRef<number>(-1);
-  const lastBasicCountRef = useRef<number>(0);
+    const announcedSectionsRef = useRef(new Set()); // 구간 안내 기록
+  const announcedKmRef = useRef(new Set());      // 킬로미터 안내 기록
 
-   useEffect(() => {
-    sections.forEach((sec, idx) => {
-      if (idx > lastSectionIndexRef.current && liveMeters >= sec.endMeters) {
-        if (targetPace && currentPaceSec != null) {
-          const targetSec = targetPace.minutes * 60 + targetPace.seconds;
-          const advise =
-            currentPaceSec > targetSec
-              ? '속도를 올려주세요.'
-              : '속도를 낮춰주세요.';
-          Speech.speak(
-            `${sec.name}입니다. 목표 페이스는 ` +
-            `${targetPace.minutes}분 ${targetPace.seconds}초입니다. ` +
-            advise
-          );
-        } else {
-          Speech.speak(`${sec.name}입니다. 페이스를 확인하세요.`);
-        }
-        lastSectionIndexRef.current = idx;
+  useEffect(() => {
+    // 러닝 중이 아닐 때는 아무것도 하지 않음
+    if (liveMeters === 0) {
+      // 러닝이 종료/초기화되면 기록도 초기화
+      announcedSectionsRef.current.clear();
+      announcedKmRef.current.clear();
+      return;
+    }
+
+    // 2. 구간(Section) 안내 로직
+    sections.forEach(section => {
+      // 현재 거리가 구간 목표를 넘었고, 아직 이 구간을 안내한 적이 없다면
+      if (liveMeters >= section.endMeters && !announcedSectionsRef.current.has(section.name)) {
+        Speech.speak(section.name);
+        announcedSectionsRef.current.add(section.name); // 안내했다고 기록
       }
     });
 
-    // 기본 100m 안내
-    const count = Math.floor(liveMeters / announceInterval);
-    if (count > lastBasicCountRef.current) {
-      const meterPoint = count * announceInterval;
-      if (botDistanceMeters != null) {
-        // 봇과의 거리 안내 포함
-        Speech.speak(
-          `${meterPoint}미터 지점입니다. 봇과의 거리는 ${
-            Math.round(botDistanceMeters)
-          }미터입니다.`
-        );
-      } else {
-        Speech.speak(`${meterPoint}미터 지점입니다.`);
-      }
-      lastBasicCountRef.current = count;
+    // 3. 1km 마다 안내하는 로직
+    const currentKm = Math.floor(liveMeters / 1000);
+    if (currentKm > 0 && !announcedKmRef.current.has(currentKm)) {
+      Speech.speak(`${currentKm} 킬로미터를 달렸습니다.`);
+      announcedKmRef.current.add(currentKm); // 안내했다고 기록
     }
-  }, [liveMeters, sections, announceInterval, targetPace, currentPaceSec, botDistanceMeters]);
+
+  }, [liveMeters, sections]); // 의존성 배열은 필요한 데이터로 유지
 }

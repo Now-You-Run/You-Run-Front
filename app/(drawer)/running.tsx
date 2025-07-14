@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
-import { useRouter } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
@@ -32,7 +32,8 @@ interface SummaryData {
 
 export default function RunningScreen(): JSX.Element {
   const router = useRouter();
-  
+  const navigation = useNavigation();
+
   const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
   const [isFinishModalVisible, setIsFinishModalVisible] = useState<boolean>(false);
   const [isFinishPressed, setIsFinishPressed] = useState<boolean>(false);
@@ -63,6 +64,7 @@ export default function RunningScreen(): JSX.Element {
     onMainPress: originalOnMainPress,
     handleFinish,
     resetRunning,
+    userLocation
   } = useRunningLogic();
 
   const {
@@ -74,19 +76,54 @@ export default function RunningScreen(): JSX.Element {
   } = useAvatarPosition();
 
   // 초기화 로직
-  useEffect(() => {
-    setIsFinishPressed(false);
-    setFinishProgress(0);
-    setSummaryData(null);
-    setIsFinishModalVisible(false);
-    console.log('🔄 러닝 화면 진입 - 상태 초기화 완료');
-  }, []);
+  // useEffect(() => {
+  //   setIsFinishPressed(false);
+  //   setFinishProgress(0);
+  //   setSummaryData(null);
+  //   setIsFinishModalVisible(false);
+  //   console.log('🔄 러닝 화면 진입 - 상태 초기화 완료');
+  // }, []);
 
-  // 러닝 상태 초기화
-  useEffect(() => {
-    resetRunning();
-    console.log('🔄 러닝 상태 초기화');
-  }, []);
+  // // 러닝 상태 초기화
+  // useEffect(() => {
+  //   resetRunning();
+  //   console.log('🔄 러닝 상태 초기화');
+  // }, []);
+
+    useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      // 러닝 기록이 없으면(시간이 0초) 아무것도 묻지 않고 바로 나갑니다.
+      if (elapsedTime === 0) {
+        console.log('러닝 기록 없음, 바로 뒤로가기 실행');
+        return;
+      }
+
+      // 기본 뒤로가기 동작을 일단 막습니다.
+      e.preventDefault();
+
+      // 사용자에게 나갈 것인지 확인하는 경고창을 띄웁니다.
+      Alert.alert(
+        '러닝 중단',
+        '진행 중인 러닝 기록이 사라집니다. 정말로 나가시겠습니까?',
+        [
+          { text: '취소', style: 'cancel', onPress: () => {} }, // 취소하면 아무 일도 일어나지 않습니다.
+          {
+            text: '나가기',
+            style: 'destructive',
+            // '나가기'를 누르면 상태를 초기화하고, 원래 하려던 뒤로가기 동작을 실행합니다.
+            onPress: () => {
+              console.log('사용자 확인, 러닝 상태 초기화 및 화면 나가기');
+              resetRunning();
+              navigation.dispatch(e.data.action);
+            },
+          },
+        ]
+      );
+    });
+
+    // 컴포넌트가 화면에서 사라질 때(unmount) 리스너를 정리합니다. (메모리 누수 방지)
+    return unsubscribe;
+  }, [navigation, elapsedTime, resetRunning]); // 의존성 배열: 이 값들이 변경될 때
 
   // ✅ 지도 준비 완료 시 mapRef 연결 및 상태 업데이트
   const handleMapReady = useCallback((mapRef: MapView | null) => {
@@ -227,18 +264,7 @@ export default function RunningScreen(): JSX.Element {
   }, [totalDistance, isActive, mode, trackKm]);
 
   const handleBackPress = (): void => {
-    if (elapsedTime > 0) {
-      Alert.alert(
-        "러닝 중단",
-        "진행 중인 러닝 기록이 사라집니다. 정말로 나가시겠습니까?",
-        [
-          { text: "취소", style: "cancel" },
-          { text: "나가기", style: "destructive", onPress: () => router.back() },
-        ]
-      );
-    } else {
-      router.back();
-    }
+    router.back();
   };
 
   // handleFinish 참조를 안정화
@@ -404,6 +430,7 @@ export default function RunningScreen(): JSX.Element {
           initialRegion={mapRegion}
           onAvatarPositionUpdate={updateAvatarPosition}
           onMapReady={handleMapReady}
+          userLocation={userLocation}
         />
       )}
 

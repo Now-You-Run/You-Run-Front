@@ -24,11 +24,13 @@ export const useRunningLogic = () => {
     resumeRunning,
     resetRunning,
     addStartPointIfNeeded,
+    userLocation
   } = useRunning();
 
   const [sectionIndex, setSectionIndex] = useState(0);
   const [nextAnnounceKm, setNextAnnounceKm] = useState(0.1);
   const [isPaused, setIsPaused] = useState(false);
+
 
   const sections = useMemo(() => {
     if (mode === 'track' && trackKm) {
@@ -131,5 +133,6 @@ export const useRunningLogic = () => {
     setSectionIndex,
     setNextAnnounceKm,
     setIsPaused,
+    userLocation,
   };
 };

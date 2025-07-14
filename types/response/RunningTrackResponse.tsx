@@ -50,3 +50,20 @@ export type Track = {
   duration?: number;
   _sortKey?: number;
 };
+
+export interface MyTrackRecordDto {
+  recordId: number;
+  resultTime: number;
+  finishedAt: string;
+}
+
+export interface MyTrackRecordData {
+  trackInfoDto: TrackInfoDto;
+  trackRecordDto: MyTrackRecordDto[];
+}
+
+export interface MyTrackRecordApiResponse {
+  statuscode: string;
+  message: string;
+  data: MyTrackRecordData;
+}
