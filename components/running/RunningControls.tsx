@@ -13,6 +13,7 @@ interface RunningControlsProps {
   onMainPress: () => void;
   onFinishPressIn: () => void;
   onFinishPressOut: () => void;
+  isReady?: boolean;
 }
 
 export const RunningControls: React.FC<RunningControlsProps> = ({
@@ -25,7 +26,8 @@ export const RunningControls: React.FC<RunningControlsProps> = ({
   scaleAnimation,
   onMainPress,
   onFinishPressIn,
-  onFinishPressOut
+  onFinishPressOut,
+  isReady = true 
 }) => {
   const mainLabel = isActive ? '정지' : isPaused ? '재개' : '시작';
 
@@ -114,9 +116,19 @@ export const RunningControls: React.FC<RunningControlsProps> = ({
       
       <Pressable
         onPress={onMainPress}
-        style={[styles.controlButton, { backgroundColor: isActive ? '#ff4d4d' : '#007aff' }]}
+        style={[
+          styles.controlButton, 
+          { 
+            backgroundColor: isActive ? '#ff4d4d' : '#007aff',
+            // ✅ 준비되지 않았을 때 스타일 변경
+            opacity: (!isActive && !isPaused && !isReady) ? 0.6 : 1
+          }
+        ]}
       >
-        <Text style={styles.controlText}>{mainLabel}</Text>
+        <Text style={styles.controlText}>
+          {/* ✅ 준비되지 않았을 때 텍스트 변경 */}
+          {(!isActive && !isPaused && !isReady) ? '준비 중...' : mainLabel}
+        </Text>
       </Pressable>
     </View>
   );

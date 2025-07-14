@@ -11,7 +11,6 @@ import {
   View
 } from 'react-native';
 import MapView, { Region } from 'react-native-maps';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AvatarOverlay } from '@/components/running/AvatarOverlay';
 import { FinishModal } from '@/components/running/FinishModal';
@@ -21,6 +20,7 @@ import { RunningStats } from '@/components/running/RunningStats';
 import { useAvatarPosition } from '@/hooks/useAvatarPosition';
 import { useRunningLogic } from '@/hooks/useRunningLogic';
 import { JSX } from 'react';
+
 const avatarId: string = "686ece0ae610780c6c939703";
 
 interface SummaryData {
@@ -32,8 +32,7 @@ interface SummaryData {
 
 export default function RunningScreen(): JSX.Element {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
-
+  
   const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
   const [isFinishModalVisible, setIsFinishModalVisible] = useState<boolean>(false);
   const [isFinishPressed, setIsFinishPressed] = useState<boolean>(false);
@@ -48,6 +47,10 @@ export default function RunningScreen(): JSX.Element {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const finishIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // ✅ 지도 및 아바타 준비 상태 관리
+  const [isMapReady, setIsMapReady] = useState<boolean>(false);
+  const [isAvatarConnected, setIsAvatarConnected] = useState<boolean>(false);
+
   const {
     isActive,
     isPaused,
@@ -57,7 +60,7 @@ export default function RunningScreen(): JSX.Element {
     displaySpeed,
     trackKm,
     mode,
-    onMainPress,
+    onMainPress: originalOnMainPress,
     handleFinish,
     resetRunning,
   } = useRunningLogic();
@@ -85,11 +88,87 @@ export default function RunningScreen(): JSX.Element {
     console.log('🔄 러닝 상태 초기화');
   }, []);
 
-  // 지도 준비 완료 시 mapRef 연결
+  // ✅ 지도 준비 완료 시 mapRef 연결 및 상태 업데이트
   const handleMapReady = useCallback((mapRef: MapView | null) => {
     console.log('🗺️ 지도 준비 완료, mapRef 연결');
     setMapRef(mapRef);
-  }, [setMapRef]);
+    setIsMapReady(true);
+
+    // 아바타도 연결되었는지 확인
+    if (avatarReady) {
+      setIsAvatarConnected(true);
+    }
+  }, [setMapRef, avatarReady]);
+
+  // ✅ 아바타 준비 완료 시 연결 상태 업데이트
+  useEffect(() => {
+    if (avatarReady && isMapReady) {
+      setIsAvatarConnected(true);
+      console.log('🎭 아바타와 지도 모두 준비 완료');
+    }
+  }, [avatarReady, isMapReady]);
+
+  // ✅ 러닝 시작 전 준비 상태 체크하는 함수
+  const checkReadinessAndStart = useCallback(() => {
+    console.log('🔍 러닝 시작 준비 상태 체크:', {
+      initialLocationLoaded,
+      isMapReady,
+      isAvatarConnected,
+      mapRegion: !!mapRegion
+    });
+
+    // 위치 정보가 로드되지 않은 경우
+    if (!initialLocationLoaded || !mapRegion) {
+      Alert.alert(
+        "위치 로딩 중",
+        "현재 위치 정보를 가져오는 중입니다. 잠시만 기다려주세요.",
+        [{ text: "확인" }]
+      );
+      return;
+    }
+
+    // 지도가 준비되지 않은 경우
+    if (!isMapReady) {
+      Alert.alert(
+        "지도 로딩 중",
+        "지도를 준비하는 중입니다. 잠시만 기다려주세요.",
+        [{ text: "확인" }]
+      );
+      return;
+    }
+
+    // 아바타가 연결되지 않은 경우
+    if (!isAvatarConnected) {
+      Alert.alert(
+        "아바타 로딩 중",
+        "3D 아바타를 준비하는 중입니다. 잠시만 기다려주세요.",
+        [{ text: "확인" }]
+      );
+      return;
+    }
+
+    // 모든 준비가 완료된 경우 러닝 시작
+    console.log('✅ 모든 준비 완료, 러닝 시작');
+    originalOnMainPress();
+  }, [
+    initialLocationLoaded,
+    isMapReady,
+    isAvatarConnected,
+    mapRegion,
+    originalOnMainPress
+  ]);
+
+  // ✅ 조건부 러닝 시작 함수
+  const onMainPress = useCallback(() => {
+    // 이미 러닝 중이거나 일시정지 상태면 바로 실행
+    if (isActive || isPaused) {
+      originalOnMainPress();
+      return;
+    }
+
+    // 러닝 시작 시에만 준비 상태 체크
+    checkReadinessAndStart();
+  }, [isActive, isPaused, checkReadinessAndStart, originalOnMainPress]);
 
   // 위치 권한 및 초기 설정
   useEffect(() => {
@@ -172,7 +251,10 @@ export default function RunningScreen(): JSX.Element {
     setFinishProgress(0);
     setFinishCompleted(false);
 
-    // ✅ 버튼 스케일 애니메이션
+    // 즉시 진동 피드백
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // 버튼 스케일 애니메이션
     Animated.spring(scaleAnimation, {
       toValue: 0.95,
       useNativeDriver: true,
@@ -180,14 +262,14 @@ export default function RunningScreen(): JSX.Element {
       friction: 3,
     }).start();
 
-    // ✅ 프로그레스 애니메이션
+    // 프로그레스 애니메이션
     Animated.timing(progressAnimation, {
       toValue: 1,
       duration: 3000,
       useNativeDriver: false,
     }).start();
 
-    // ✅ 진행률 업데이트 및 중간 진동
+    // 진행률 업데이트 및 중간 진동
     let progress = 0;
     finishIntervalRef.current = setInterval(() => {
       progress += 1;
@@ -230,10 +312,10 @@ export default function RunningScreen(): JSX.Element {
     }, 3000);
   }, [progressAnimation, scaleAnimation]);
 
- const cancelFinishPress = useCallback((): void => {
+  const cancelFinishPress = useCallback((): void => {
     console.log('🔴 종료 프로세스 취소');
-    
-    // ✅ 이미 완료된 경우 취소하지 않음
+
+    // 이미 완료된 경우 취소하지 않음
     if (finishCompleted) {
       console.log('🔴 이미 완료된 종료 프로세스 - 취소 무시');
       return;
@@ -255,10 +337,10 @@ export default function RunningScreen(): JSX.Element {
 
     progressAnimation.setValue(0);
 
-    // ✅ 타이머 정리
+    // 타이머 정리
     cleanupFinishProcess();
 
-    // ✅ 취소 안내 메시지 (진행률에 따라 다르게)
+    // 취소 안내 메시지 (진행률에 따라 다르게)
     if (finishProgress > 10) {
       Alert.alert('종료 취소', '러닝 종료가 취소되었습니다.', [{ text: '확인' }]);
     }
@@ -273,7 +355,7 @@ export default function RunningScreen(): JSX.Element {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
-    
+
     // 애니메이션 상태 초기화
     setTimeout(() => {
       setIsFinishPressed(false);
@@ -282,7 +364,6 @@ export default function RunningScreen(): JSX.Element {
       scaleAnimation.setValue(1);
     }, 100);
   }, [progressAnimation, scaleAnimation]);
-
 
   // 컴포넌트 언마운트 시 정리
   useEffect(() => {
@@ -305,6 +386,16 @@ export default function RunningScreen(): JSX.Element {
         </TouchableOpacity>
       </View>
 
+      {/* ✅ 위치 로딩 상태 표시 */}
+      {!initialLocationLoaded && (
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingTitle}>위치 정보 가져오는 중...</Text>
+            <Text style={styles.loadingSubtext}>GPS 신호를 수신하고 있습니다</Text>
+          </View>
+        </View>
+      )}
+
       {/* 지도 */}
       {initialLocationLoaded && mapRegion && (
         <RunningMap
@@ -316,6 +407,16 @@ export default function RunningScreen(): JSX.Element {
         />
       )}
 
+      {/* ✅ 지도 로딩 상태 표시 */}
+      {initialLocationLoaded && !isMapReady && (
+        <View style={styles.mapLoadingOverlay}>
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingTitle}>지도 로딩 중...</Text>
+            <Text style={styles.loadingSubtext}>지도를 준비하고 있습니다</Text>
+          </View>
+        </View>
+      )}
+
       {/* 아바타 */}
       {initialLocationLoaded && (
         <AvatarOverlay
@@ -325,6 +426,16 @@ export default function RunningScreen(): JSX.Element {
           avatarId={avatarId}
           onAvatarReady={handleAvatarReady}
         />
+      )}
+
+      {/* ✅ 아바타 로딩 상태 표시 */}
+      {initialLocationLoaded && isMapReady && !isAvatarConnected && (
+        <View style={styles.avatarLoadingOverlay}>
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingTitle}>아바타 로딩 중...</Text>
+            <Text style={styles.loadingSubtext}>3D 아바타를 준비하고 있습니다</Text>
+          </View>
+        </View>
       )}
 
       {/* 디버깅용 마커 */}
@@ -359,7 +470,7 @@ export default function RunningScreen(): JSX.Element {
       )}
 
       {/* 하단 오버레이 */}
-      <View style={[styles.overlay, { paddingBottom: 40 + insets.bottom }]}>
+      <View style={[styles.overlay, { paddingBottom: 40 }]}>
         <RunningStats
           totalDistance={totalDistance}
           displaySpeed={displaySpeed}
@@ -374,9 +485,10 @@ export default function RunningScreen(): JSX.Element {
           finishProgress={finishProgress}
           progressAnimation={progressAnimation}
           scaleAnimation={scaleAnimation}
-          onMainPress={onMainPress}
+          onMainPress={onMainPress} // ✅ 수정된 함수 사용
           onFinishPressIn={startFinishPress}
           onFinishPressOut={cancelFinishPress}
+          isReady={initialLocationLoaded && isMapReady && isAvatarConnected} // ✅ 준비 상태 전달
         />
       </View>
 
@@ -431,5 +543,53 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     alignItems: 'center',
     zIndex: 1000
-  }
+  },
+  // ✅ 로딩 관련 스타일 추가
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2000,
+  },
+  mapLoadingOverlay: {
+    position: 'absolute',
+    top: 100,
+    left: 20,
+    right: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    borderRadius: 10,
+    padding: 15,
+    zIndex: 1500,
+  },
+  avatarLoadingOverlay: {
+    position: 'absolute',
+    top: 150,
+    left: 20,
+    right: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    borderRadius: 10,
+    padding: 15,
+    zIndex: 1500,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  loadingSubtext: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+  },
 });
