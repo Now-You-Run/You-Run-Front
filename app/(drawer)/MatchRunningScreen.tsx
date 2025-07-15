@@ -51,7 +51,36 @@ export default function MatchRunningScreen() {
   const {
     isActive, elapsedTime, path, currentSpeed, startRunning, pauseRunning,
     resumeRunning, stopRunning, resetRunning, userLocation,
+    startLocationTracking, stopLocationTracking, setUserLocation
   } = useRunning();
+
+  // 3. 컴포넌트 마운트시 "무조건" 위치 구독을 시작하도록 추가
+useEffect(() => {
+  // ✅ 러닝 시작 전에도 내 위치를 지도에서 계속 실시간으로 보이게!
+  if (startLocationTracking && stopLocationTracking) {
+    startLocationTracking(); // 위치 추적 시작
+    return () => {
+      stopLocationTracking(); // 언마운트 시 안전하게 정지
+    };
+  }
+}, [startLocationTracking, stopLocationTracking]);
+// 4. userLocation이 없으면 최초에 한 번 받아서 지도에 내 위치 바로 찍히게
+useEffect(() => {
+  // ✅ 최초 진입시 내 위치 즉시 세팅 (지도의 초기 중심점 표시 등)
+  if (!userLocation && setUserLocation) {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        setUserLocation({
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+          timestamp: Date.now(),
+        });
+      }
+    })();
+  }
+}, [userLocation, setUserLocation]);
 
   const isPaused = !isActive && elapsedTime > 0;
 
