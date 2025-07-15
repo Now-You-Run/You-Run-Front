@@ -48,7 +48,7 @@ export function useSectionAnnouncements(
     });
 
     // 3. 1km 마다 안내하는 로직
-    const currentKm = Math.floor(liveMeters / 1000);
+    const currentKm = Math.floor(liveMeters / 100);
     if (currentKm > 0 && !announcedKmRef.current.has(currentKm)) {
       Speech.speak(`${currentKm} 킬로미터를 달렸습니다.`);
       announcedKmRef.current.add(currentKm); // 안내했다고 기록

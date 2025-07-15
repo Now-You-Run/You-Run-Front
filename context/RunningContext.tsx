@@ -87,6 +87,9 @@ interface RunningState {
   addToPath: (coords: Coord) => void;
   addStartPointIfNeeded: () => Promise<void>;
   userLocation: Coord | null;
+  setUserLocation: (coord: Coord | null) => void;
+  startLocationTracking: () => Promise<void>;
+  stopLocationTracking: () => Promise<void>;
 }
 
 
@@ -447,7 +450,6 @@ locationSubscription.current = await Location.watchPositionAsync(
         alert('위치 권한이 필요합니다.');
         return;
       }
-
       try {
         const loc = await Location.getCurrentPositionAsync();
         const startCoord: Coord = {
@@ -455,7 +457,8 @@ locationSubscription.current = await Location.watchPositionAsync(
           longitude: loc.coords.longitude,
           timestamp: Date.now()
         };
-        setPath([startCoord]);
+        // path에는 추가하지 않고 userLocation만 세팅
+        setUserLocation(startCoord);
         lastCoordRef.current = startCoord;
       } catch (error) {
         console.error('Error getting current position:', error);
@@ -469,30 +472,24 @@ locationSubscription.current = await Location.watchPositionAsync(
 
 const startRunning = (): void => {
   console.log('🏃‍♂️ 러닝 시작 - 상태 초기화');
-  
   // 완전한 상태 초기화
-  setPath([]);
+  setPath([]); // path를 반드시 비움
   setElapsedTime(0);
   setCurrentSpeed(0);
   setTotalDistance(0);
-  setUserLocation(null);
+  setUserLocation(null); // (선택) 러닝 시작 시점에만 위치 기록 시작
   setIsPaused(false);
-  
   // 칼만 필터 초기화
   speedFilter.current = new KalmanFilter1D(0.01, 0.1);
   distFilter.current = new KalmanFilter1D(0.01, 0.1);
   latFilter.current = new KalmanFilter1D(0.01, 0.1);
   lngFilter.current = new KalmanFilter1D(0.01, 0.1);
-  
   // 마지막 좌표 초기화
   lastCoordRef.current = null;
-  
   // 활성 상태로 변경 (이 시점부터 위치 기록 시작)
   setIsActive(true);
-  
   // 위치 추적 시작
   startLocationTracking();
-  
   console.log('✅ 러닝 시작 완료 - 위치 추적 활성화');
 };
 
@@ -569,6 +566,9 @@ const startRunning = (): void => {
         resumeRunning,
         resetRunning,
         userLocation,
+        setUserLocation, // 추가
+        startLocationTracking, // 추가
+        stopLocationTracking, // 추가
       }}
     >
       {children}

@@ -101,6 +101,11 @@ export default function RunningScreen(): JSX.Element {
       // 기본 뒤로가기 동작을 일단 막습니다.
       e.preventDefault();
 
+      if (!isActive) {
+        navigation.dispatch(e.data.action);
+        return;
+      }
+
       // 사용자에게 나갈 것인지 확인하는 경고창을 띄웁니다.
       Alert.alert(
         '러닝 중단',
@@ -530,6 +535,7 @@ export default function RunningScreen(): JSX.Element {
               pathname: '/summary',
               params: { data: JSON.stringify(summaryData) },
             });
+            resetRunning()
           }
           setIsFinishModalVisible(false);
         }}

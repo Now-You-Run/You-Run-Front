@@ -24,7 +24,8 @@ export const useRunningLogic = () => {
     resumeRunning,
     resetRunning,
     addStartPointIfNeeded,
-    userLocation
+    userLocation,
+    setUserLocation,
   } = useRunning();
 
   const [sectionIndex, setSectionIndex] = useState(0);
@@ -134,5 +135,8 @@ export const useRunningLogic = () => {
     setNextAnnounceKm,
     setIsPaused,
     userLocation,
+    setUserLocation,
+    pauseRunning: callbacksRef.current.pauseRunning,
+    resumeRunning: callbacksRef.current.resumeRunning,
   };
 };

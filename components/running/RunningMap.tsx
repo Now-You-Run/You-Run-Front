@@ -11,6 +11,7 @@ interface RunningMapProps {
   isActive: boolean;
   userLocation: Coordinate | null;
   initialRegion?: Region;
+  region?: Region;
 
   // 지도 위 오버레이 및 마커 데이터
   externalPath?: Coordinate[];
@@ -31,6 +32,7 @@ export const RunningMap: React.FC<RunningMapProps> = React.memo(({
   path,
   isActive,
   initialRegion,
+  region,
   onAvatarPositionUpdate,
   onMapReady,
   externalPath,
@@ -109,7 +111,7 @@ export const RunningMap: React.FC<RunningMapProps> = React.memo(({
     const lastCoord = path[path.length - 1];
     mapRef.current?.animateCamera({
       center: lastCoord,
-      zoom: 16,
+      zoom: 17,
     }, { duration: 500 });
     
     // 아바타 위치 강제 업데이트
@@ -124,6 +126,7 @@ export const RunningMap: React.FC<RunningMapProps> = React.memo(({
         ref={mapRef}
         style={StyleSheet.absoluteFill}
         initialRegion={initialRegion}
+        region={region || initialRegion}
         showsUserLocation={false}
         followsUserLocation={false}
         showsMyLocationButton={false}
