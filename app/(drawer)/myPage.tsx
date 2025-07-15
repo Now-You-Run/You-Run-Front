@@ -1,5 +1,6 @@
 // app/(drawer)/MyPage.tsx
 
+import BackButton from '@/components/button/BackButton'
 import { AuthAsyncStorage } from '@/repositories/AuthAsyncStorage'
 import { fetchUserProfile } from '@/repositories/UserRepository'
 import { useUserStore } from '@/stores/userStore'
@@ -16,7 +17,7 @@ import {
   StyleSheet,
   Text,
   View,
-} from 'react-native';
+} from 'react-native'
 
 const API_BASE = process.env.EXPO_PUBLIC_SERVER_API_URL
 
