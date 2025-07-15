@@ -65,7 +65,9 @@ export default function BotRunningScreen() {
     currentPosition,
     startCoursePosition,
     endCoursePosition,
-    stopSimulation
+    stopSimulation,
+    pauseSimulation,
+    resumeSimulation
   } = useTrackSimulation({
     externalPath: trackInfo?.path ?? [],
     botPace,
@@ -284,6 +286,15 @@ export default function BotRunningScreen() {
   useEffect(() => {
     if (isActive && isOffCourse) setIsOffCourse(false);
   }, [isActive, isOffCourse]);
+
+  // pause/resume 시 봇 시뮬레이션도 함께 제어
+  useEffect(() => {
+    if (isPaused) {
+      pauseSimulation && pauseSimulation();
+    } else if (isActive) {
+      resumeSimulation && resumeSimulation();
+    }
+  }, [isPaused, isActive, pauseSimulation, resumeSimulation]);
 
   // 뒤로가기 방지
   useEffect(() => {

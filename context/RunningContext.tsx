@@ -300,8 +300,8 @@ export const RunningProvider: React.FC<{ children: React.ReactNode }> = ({
 locationSubscription.current = await Location.watchPositionAsync(
   {
     accuracy: Location.Accuracy.BestForNavigation,
-    timeInterval: 1000,
-    distanceInterval: 1,
+    timeInterval: 2000, // 2초마다 업데이트
+    distanceInterval: 3, // 3m 이상 이동 시만 업데이트
   },
   (location: Location.LocationObject) => {
     const { latitude, longitude, speed, accuracy } = location.coords;
@@ -340,8 +340,15 @@ locationSubscription.current = await Location.watchPositionAsync(
         setTotalDistance(d => d + filtDist);
       }
 
-      // 경로에 추가
-      setPath(p => [...p, coord]);
+      // 경로에 추가 (최적화: 3m 이상 또는 2초 이상 차이날 때만)
+      setPath(p => {
+        if (p.length === 0) return [coord];
+        const last = p[p.length - 1];
+        const dist = haversineDistance(last.latitude, last.longitude, coord.latitude, coord.longitude) * 1000;
+        const timeDiff = coord.timestamp - last.timestamp;
+        if (dist < 3 && timeDiff < 2000) return p;
+        return [...p, coord];
+      });
 
       // 속도 계산
       const rawSp = speed != null ? speed * 3.6 : 0;

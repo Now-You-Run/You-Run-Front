@@ -59,8 +59,14 @@ export const RunningMap: React.FC<RunningMapProps> = React.memo(({
   const lastCameraCoordRef = useRef<Coordinate | null>(null);
   const lastHeadingRef = useRef<number | undefined>(undefined);
 
-  // 경로 메모이제이션
-  const memoizedPath = useMemo(() => path, [path.length]);
+  // 경로 메모이제이션 (좌표 값이 실제로 바뀔 때만)
+  const memoizedPath = useMemo(() => {
+    return path.length > 0 ? [...path] : [];
+  }, [JSON.stringify(path)]);
+
+  const memoizedExternalPath = useMemo(() => {
+    return externalPath && externalPath.length > 0 ? [...externalPath] : [];
+  }, [externalPath ? JSON.stringify(externalPath) : '']);
 
   // ✅ 조건부 카메라 업데이트 함수 (방향 포함, 보간 및 임계값 적용)
   const updateCameraIfNeeded = useCallback((coord: Coordinate) => {
@@ -201,9 +207,9 @@ export const RunningMap: React.FC<RunningMapProps> = React.memo(({
         )}
 
         {/* ✅ 트랙 경로 (점선) */}
-        {externalPath && externalPath.length > 0 && (
+        {memoizedExternalPath.length > 0 && (
           <Polyline
-            coordinates={externalPath}
+            coordinates={memoizedExternalPath}
             strokeColor="rgba(255, 159, 28, 0.7)"
             strokeWidth={4}
             lineDashPattern={[8, 6]}
