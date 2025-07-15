@@ -7,6 +7,8 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
+  Keyboard,
+  KeyboardAvoidingView,
   LayoutAnimation,
   Platform,
   Text,
@@ -33,7 +35,7 @@ interface ReadReceiptDto {
 }
 
 const SERVER_API_URL = process.env.EXPO_PUBLIC_SERVER_API_URL;
-const DEFAULT_AVATAR = require('../../assets/avatar/avatar2.jpeg');
+const DEFAULT_AVATAR = require('../../assets/profile/유저_기본_프로필.jpeg');
 
 const ChatUser = () => {
   const route = useRoute<
@@ -217,6 +219,7 @@ const ChatUser = () => {
     };
     publishSafe('/app/chat.sendMessage', JSON.stringify(chatMessage));
     setMessage('');
+    Keyboard.dismiss();
     setTimeout(() => {
       flatListRef.current?.scrollToEnd({ animated: true });
     }, 100);
@@ -272,7 +275,7 @@ const ChatUser = () => {
                 textAlign: 'right',
               }}
             >
-              {hasOpponentRead ? '✓ 읽음' : '✓ 미확인'}
+              {hasOpponentRead ? '읽음' : '미확인'}
             </Text>
           )}
         </View>
@@ -281,91 +284,102 @@ const ChatUser = () => {
   };
 
   return (
-    <View style={{ flex: 1, padding: 16, backgroundColor: '#fff' }}>
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          paddingVertical: 20,
-          borderBottomWidth: 1,
-          borderColor: '#ccc',
-          marginBottom: 8,
-        }}
-      >
-        <TouchableOpacity onPress={() => router.back()} style={{ padding: 8 }}>
-          <Ionicons name="arrow-back" size={24} color="#333" />
-        </TouchableOpacity>
-        <Text style={{ fontSize: 18, fontWeight: 'bold', marginLeft: 8 }}>
-          {username} 님과의 채팅
-        </Text>
-      </View>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+    >
+      <View style={{ flex: 1, padding: 16, backgroundColor: '#fff' }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingTop: 30,
+            paddingVertical: 20,
+            borderBottomWidth: 1,
+            borderColor: '#ccc',
+            marginBottom: 8,
+          }}
+        >
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={{ padding: 8 }}
+          >
+            <Ionicons name="arrow-back" size={24} color="#333" />
+          </TouchableOpacity>
+          <Text style={{ fontSize: 18, fontWeight: 'bold', marginLeft: 8 }}>
+            {username} 님과의 채팅
+          </Text>
+        </View>
 
-      {loading ? (
-        <ActivityIndicator
-          size="large"
-          color="#32CD32"
-          style={{ marginTop: 20 }}
-        />
-      ) : (
-        <>
-          <FlatList
-            ref={flatListRef}
-            data={messages}
-            keyExtractor={(item) => `${item.createdAt}-${item.senderId}`}
-            renderItem={renderItem}
-            contentContainerStyle={{
-              flexGrow: 1,
-              justifyContent: 'flex-end',
-              paddingBottom: 12,
-            }}
+        {loading ? (
+          <ActivityIndicator
+            size="large"
+            color="#32CD32"
+            style={{ marginTop: 20 }}
           />
-
-          {isTyping && (
-            <Text
-              style={{
-                fontStyle: 'italic',
-                color: '#666',
-                marginBottom: 6,
-                textAlign: 'center',
-              }}
-            >
-              {username} 님이 입력 중입니다...
-            </Text>
-          )}
-
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <TextInput
-              placeholder="메시지를 입력하세요"
-              value={message}
-              onChangeText={(text) => {
-                setMessage(text);
-                notifyTyping();
-              }}
-              style={{
-                flex: 1,
-                borderWidth: 1,
-                borderColor: '#ccc',
-                borderRadius: 20,
-                paddingHorizontal: 16,
-                paddingVertical: 8,
-                marginRight: 8,
+        ) : (
+          <>
+            <FlatList
+              ref={flatListRef}
+              data={messages}
+              keyExtractor={(item) => `${item.createdAt}-${item.senderId}`}
+              renderItem={renderItem}
+              contentContainerStyle={{
+                flexGrow: 1,
+                justifyContent: 'flex-end',
               }}
             />
-            <TouchableOpacity
-              onPress={sendMessage}
-              style={{
-                backgroundColor: '#32CD32',
-                paddingVertical: 10,
-                paddingHorizontal: 16,
-                borderRadius: 20,
-              }}
-            >
-              <Text style={{ color: '#fff', fontWeight: 'bold' }}>보내기</Text>
-            </TouchableOpacity>
-          </View>
-        </>
-      )}
-    </View>
+
+            {isTyping && (
+              <Text
+                style={{
+                  fontStyle: 'italic',
+                  color: '#666',
+                  marginBottom: 6,
+                  textAlign: 'center',
+                }}
+              >
+                {username} 님이 입력 중입니다...
+              </Text>
+            )}
+
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TextInput
+                placeholder="메시지를 입력하세요"
+                value={message}
+                onChangeText={(text) => {
+                  setMessage(text);
+                  notifyTyping();
+                }}
+                style={{
+                  flex: 1,
+                  borderWidth: 1,
+                  borderColor: '#ccc',
+                  borderRadius: 20,
+                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                  marginRight: 8,
+                }}
+              />
+              <TouchableOpacity
+                onPress={sendMessage}
+                style={{
+                  backgroundColor: '#32CD32',
+                  paddingVertical: 10,
+                  paddingHorizontal: 16,
+                  borderRadius: 20,
+                }}
+              >
+                <Text style={{ color: '#fff', fontWeight: 'bold' }}>
+                  보내기
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+      </View>
+    </KeyboardAvoidingView>
   );
 };
 
