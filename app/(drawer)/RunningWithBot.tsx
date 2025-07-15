@@ -81,6 +81,9 @@ export default function BotRunningScreen() {
     return calculateTrackDistance(currentPosition, userPos, trackInfo.path);
   }, [currentPosition, path, trackInfo?.path]);
 
+  // 러닝 로직에 봇 거리 정보 전달
+  useRunningLogic(botTrackDistance.distanceMeters, botTrackDistance.isAhead);
+
   // 종료 버튼 관련 상태/애니메이션
   const [isFinishPressed, setIsFinishPressed] = useState(false);
   const finishProgressAnimation = useRef(new Animated.Value(0)).current;

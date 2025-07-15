@@ -9,13 +9,13 @@ interface BotDistanceDisplayProps {
   isOffCourse?: boolean;
 }
 
-export const BotDistanceDisplay: React.FC<BotDistanceDisplayProps> = ({
+export const BotDistanceDisplay = React.memo(function BotDistanceDisplay({
   distanceMeters,
   isAhead,
   userProgress,
   totalDistance,
   isOffCourse = false,
-}) => {
+}: BotDistanceDisplayProps) {
   const progressPercentage = totalDistance > 0 ? (userProgress / totalDistance) * 100 : 0;
   
   // ✅ 타입 안전한 width 계산
@@ -58,7 +58,7 @@ export const BotDistanceDisplay: React.FC<BotDistanceDisplayProps> = ({
       </View>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

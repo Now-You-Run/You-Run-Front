@@ -1,4 +1,5 @@
 import { Coordinate } from '@/types/TrackDto';
+import { bearing } from '@/utils/PathTools';
 import { haversineDistance } from '@/utils/RunningUtils';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -54,35 +55,58 @@ export const RunningMap: React.FC<RunningMapProps> = React.memo(({
   
   const lastCameraUpdateRef = useRef(Date.now());
   const lastCameraCoordRef = useRef<Coordinate | null>(null);
+  const lastHeadingRef = useRef<number | undefined>(undefined);
 
   // 경로 메모이제이션
   const memoizedPath = useMemo(() => path, [path.length]);
 
-  // ✅ 조건부 카메라 업데이트 함수
+  // ✅ 조건부 카메라 업데이트 함수 (방향 포함, 보간 및 임계값 적용)
   const updateCameraIfNeeded = useCallback((coord: Coordinate) => {
     if (!autoCenter) return;
-    
     const now = Date.now();
     const prev = lastCameraCoordRef.current;
-
-    const moved = !prev ? Infinity : 
+    const moved = !prev ? Infinity :
       haversineDistance(
         prev.latitude, prev.longitude,
         coord.latitude, coord.longitude
       ) * 1000;
 
+    let heading = lastHeadingRef.current;
+    if (path.length >= 2) {
+      const prevCoord = path[path.length - 2];
+      const dist = haversineDistance(
+        prevCoord.latitude, prevCoord.longitude,
+        coord.latitude, coord.longitude
+      ) * 1000;
+      if (dist > 2) { // 2m 이상 이동했을 때만
+        const newHeading = bearing(prevCoord, coord);
+        if (heading === undefined) {
+          heading = newHeading;
+        } else {
+          // 각도 차이가 너무 크면(예: 90도 이상) 급변 방지
+          let diff = Math.abs(newHeading - heading);
+          if (diff > 180) diff = 360 - diff;
+          if (diff < 30) {
+            // 부드럽게 보간
+            heading = heading * 0.7 + newHeading * 0.3;
+          } // else: 급격한 변화는 무시
+        }
+        lastHeadingRef.current = heading;
+      }
+    }
+
     if (
       moved > CAMERA_UPDATE_THRESHOLD_M ||
       now - lastCameraUpdateRef.current > CAMERA_UPDATE_INTERVAL
     ) {
-      mapRef.current?.animateCamera({ 
-        center: coord 
+      mapRef.current?.animateCamera({
+        center: coord,
+        heading: heading,
       }, { duration: 500 });
-      
       lastCameraUpdateRef.current = now;
       lastCameraCoordRef.current = coord;
     }
-  }, [autoCenter]);
+  }, [autoCenter, path]);
 
   // ✅ 실시간 위치 업데이트 (카메라 추적 제한)
   useEffect(() => {
@@ -270,21 +294,6 @@ export const RunningMap: React.FC<RunningMapProps> = React.memo(({
           />
         )}
       </MapView>
-
-      {/* ✅ 자동 추적 토글 버튼 */}
-      <TouchableOpacity
-        style={styles.autoCenterButton}
-        onPress={() => setAutoCenter(!autoCenter)}
-      >
-        <Image
-          source={require('@/assets/images/MyLocation.png')}
-          style={[
-            styles.buttonIcon,
-            { tintColor: autoCenter ? '#007aff' : '#999' }
-          ]}
-          resizeMode="contain"
-        />
-      </TouchableOpacity>
 
       {/* ✅ 내 위치 버튼 */}
       <TouchableOpacity

@@ -16,7 +16,7 @@ interface RunningControlsProps {
   isReady?: boolean;
 }
 
-export const RunningControls: React.FC<RunningControlsProps> = ({
+export const RunningControls = React.memo(function RunningControls({
   isActive,
   isPaused,
   elapsedTime,
@@ -28,9 +28,8 @@ export const RunningControls: React.FC<RunningControlsProps> = ({
   onFinishPressIn,
   onFinishPressOut,
   isReady = true 
-}) => {
+}: RunningControlsProps) {
   const mainLabel = isActive ? '정지' : isPaused ? '재개' : '시작';
-
   return (
     <View style={styles.buttonRow}>
       {(isPaused || (!isActive && elapsedTime > 0)) && (
@@ -50,17 +49,15 @@ export const RunningControls: React.FC<RunningControlsProps> = ({
               }
             ]}
             onPressIn={() => {
-              console.log('🔴 종료 버튼 눌림 시작');
-              // ✅ 즉시 진동 피드백
+              console.log('🔴 종료 버튼 누름 시작');
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               onFinishPressIn();
             }}
             onPressOut={() => {
-              console.log('🔴 종료 버튼 눌림 종료');
+              console.log('🔴 종료 버튼 누름 종료');
               onFinishPressOut();
             }}
           >
-            {/* 배경 프로그레스 바 */}
             <Animated.View
               style={{
                 position: 'absolute',
@@ -75,8 +72,6 @@ export const RunningControls: React.FC<RunningControlsProps> = ({
                 opacity: isFinishPressed ? 0.3 : 0,
               }}
             />
-            
-            {/* 원형 프로그레스 인디케이터 */}
             {isFinishPressed && (
               <View style={styles.progressContainer}>
                 <View style={styles.progressCircle}>
@@ -99,8 +94,6 @@ export const RunningControls: React.FC<RunningControlsProps> = ({
                 </Text>
               </View>
             )}
-            
-            {/* 버튼 텍스트 */}
             <Text style={[
               styles.controlText,
               { 
@@ -113,7 +106,6 @@ export const RunningControls: React.FC<RunningControlsProps> = ({
           </Pressable>
         </Animated.View>
       )}
-      
       <Pressable
         onPress={onMainPress}
         style={[styles.controlButton, { backgroundColor: isActive ? '#ff4d4d' : '#007aff' }]}
@@ -122,7 +114,7 @@ export const RunningControls: React.FC<RunningControlsProps> = ({
       </Pressable>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   buttonRow: {

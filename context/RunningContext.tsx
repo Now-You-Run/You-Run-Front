@@ -227,8 +227,6 @@ export const RunningProvider: React.FC<{ children: React.ReactNode }> = ({
         const backgroundLocations: BackgroundLocation[] = JSON.parse(backgroundLocationsJson);
 
         if (backgroundLocations.length > 0) {
-          console.log(`동기화할 백그라운드 위치: ${backgroundLocations.length}개`);
-
           // ✅ 정확성 기반 필터링 적용
           const filteredLocations = backgroundLocations.filter(loc => {
             const accuracy = loc.accuracy || 50; // 기본값 50m
@@ -330,8 +328,6 @@ locationSubscription.current = await Location.watchPositionAsync(
 
     // ✅ 중요: 러닝이 활성 상태이고 일시정지가 아닐 때만 경로 기록
     if (isActiveRef.current && !isPausedRef.current) {
-      console.log('📍 경로 기록 중:', coord);
-      
       // 거리 계산 및 누적
       if (lastCoordRef.current) {
         const rawDist = haversineDistance(
@@ -351,10 +347,7 @@ locationSubscription.current = await Location.watchPositionAsync(
       const rawSp = speed != null ? speed * 3.6 : 0;
       const filtSp = speedFilter.current.filter(rawSp, gpsAccuracy);
       setCurrentSpeed(filtSp > 0.5 ? filtSp : 0);
-    } else {
-      console.log('⏸️ 러닝 비활성 상태 - 경로 기록 안함');
     }
-
     // 마지막 좌표는 항상 업데이트
     lastCoordRef.current = coord;
   }
@@ -376,7 +369,6 @@ locationSubscription.current = await Location.watchPositionAsync(
           },
         });
         backgroundTaskStarted.current = true;
-        console.log('Background location tracking started');
       } else {
         console.warn('Background permission not granted, continuing foreground only.');
       }
@@ -398,7 +390,7 @@ locationSubscription.current = await Location.watchPositionAsync(
       const isTaskRunning = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
       if (isTaskRunning) {
         await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
-        console.log('✅ 백그라운드 작업이 실행 중이었으며, 성공적으로 중지했습니다.');
+        // console.log('✅ 백그라운드 작업이 실행 중이었으며, 성공적으로 중지했습니다.');
       }
     } catch (error: any) {
       // 'TaskNotFoundException' 오류가 발생하면, 이는 이미 작업이 없다는 의미이므로 성공으로 간주합니다.
@@ -471,7 +463,6 @@ locationSubscription.current = await Location.watchPositionAsync(
   };
 
 const startRunning = (): void => {
-  console.log('🏃‍♂️ 러닝 시작 - 상태 초기화');
   // 완전한 상태 초기화
   setPath([]); // path를 반드시 비움
   setElapsedTime(0);
@@ -490,7 +481,6 @@ const startRunning = (): void => {
   setIsActive(true);
   // 위치 추적 시작
   startLocationTracking();
-  console.log('✅ 러닝 시작 완료 - 위치 추적 활성화');
 };
 
 
