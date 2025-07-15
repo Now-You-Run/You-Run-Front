@@ -1,6 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { useDrawer } from '../context/DrawerContext';
 
 export default function FloatingMenuButton() {
@@ -12,7 +12,7 @@ export default function FloatingMenuButton() {
     <Pressable
       onPress={openMenu}
       // style에 top, left, zIndex를 추가합니다.
-      style={[styles.buttonContainer, { top: insets.top + 10, left: 15 }]}
+      style={[styles.buttonContainer, { top: insets.top - 32, left: 15 }]}
     >
       <Ionicons name="menu" size={32} color="black" />
     </Pressable>
@@ -22,7 +22,7 @@ export default function FloatingMenuButton() {
 const styles = StyleSheet.create({
   buttonContainer: {
     position: 'absolute', // 💥 핵심! 화면의 다른 요소와 상관없이 독립적으로 위치합니다.
-    zIndex: 100,          // 💥 다른 콘텐츠들보다 항상 위에 있도록 z-index를 설정합니다.
+    zIndex: 100, // 💥 다른 콘텐츠들보다 항상 위에 있도록 z-index를 설정합니다.
     width: 50,
     height: 50,
     justifyContent: 'center',

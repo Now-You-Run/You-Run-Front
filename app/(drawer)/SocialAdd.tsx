@@ -16,13 +16,12 @@ import QRCode from 'react-native-qrcode-svg';
 import ViewShot, { captureRef } from 'react-native-view-shot';
 const SERVER_API_URL = process.env.EXPO_PUBLIC_SERVER_API_URL;
 
-const MY_USER_ID = '1'; // ✅ 유저 아이디 고정
+const MY_USER_ID = '1';
 
-// ================= 스타일 =================
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 60,
+    paddingTop: 20,
     paddingHorizontal: 20,
     backgroundColor: '#fff',
   },
