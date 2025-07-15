@@ -1,80 +1,91 @@
 import { EventArg, NavigationAction } from '@react-navigation/native';
+import axios from 'axios';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { AvatarOverlay } from '@/components/running/AvatarOverlay';
-import { BotDistanceDisplay } from '@/components/running/BotDistanceDisplay';
 import { FinishModal } from '@/components/running/FinishModal';
 import { RunningControls } from '@/components/running/RunningControls';
 import { RunningMap } from '@/components/running/RunningMap';
 import { RunningStats } from '@/components/running/RunningStats';
 import { useRunning } from '@/context/RunningContext';
-import { useAvatarPosition } from '@/hooks/useAvatarPosition';
-import { useFinishDetection } from '@/hooks/useFinishDetection';
-import { useTrackSimulation } from '@/hooks/useTrackSimulation';
 import { loadTrackInfo, TrackInfo } from '@/repositories/appStorage';
 import { Coordinate } from '@/types/TrackDto';
-import { AVATAR_CONSTANTS, TRACK_CONSTANTS } from '@/utils/Constants';
-import { calculateTotalDistance, calculateTrackDistance, haversineDistance, smoothPath } from '@/utils/RunningUtils';
+import { calculateTotalDistance, haversineDistance, smoothPath } from '@/utils/RunningUtils';
 import { Region } from 'react-native-maps';
-import { SourceType } from './TrackDetailScreen';
 
 interface SummaryData {
   trackPath: Coordinate[];
   userPath: Coordinate[];
   totalDistance: number;
   elapsedTime: number;
-  source: SourceType;
   trackId?: string;
 }
 
 const START_BUFFER_METERS = 10;
 
-export default function BotRunningScreen() {
+export default function MatchRunningScreen() {
+
+    console.log('🟩 MatchRunningScreen 마운트!');
   const router = useRouter();
   const navigation = useNavigation();
-  const { trackId, botMin, botSec, source } = useLocalSearchParams<{
-    trackId?: string;
-    botMin?: string;
-    botSec?: string;
-    source: SourceType;
-  }>();
+  const { trackId, recordId } = useLocalSearchParams<{ trackId?: string; recordId?: string }>();
 
   // --- State Management ---
   const [trackInfo, setTrackInfo] = useState<TrackInfo | null>(null);
-  const [isSimulating, setIsSimulating] = useState(false);
-  const [pausedPosition, setPausedPosition] = useState<Coordinate | null>(null);
   const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
   const [isFinishModalVisible, setIsFinishModalVisible] = useState(false);
   const [trackError, setTrackError] = useState<string | null>(null);
   const [initialStartPoint, setInitialStartPoint] = useState<Coordinate | null>(null);
   const [mapRegion, setMapRegion] = useState<Region>();
-
-  const [isAvatarComponentReady, setIsAvatarComponentReady] = useState(false);
-
-  // --- RunningControls State & Animation ---
   const [isFinishPressed, setIsFinishPressed] = useState(false);
+
+  // --- 애니메이션 ---
   const finishProgressAnimation = useRef(new Animated.Value(0)).current;
   const scaleAnimation = useRef(new Animated.Value(1)).current;
   const finishTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // --- Contexts and Custom Hooks ---
+  // --- 러닝 컨텍스트 (내 상태/위치/경로 등) ---
   const {
     isActive, elapsedTime, path, currentSpeed, startRunning, pauseRunning,
     resumeRunning, stopRunning, resetRunning, userLocation,
   } = useRunning();
 
   const isPaused = !isActive && elapsedTime > 0;
-  const { avatarScreenPos, handleAvatarReady, updateAvatarPosition, setMapRef } = useAvatarPosition();
-  const botPace = useMemo(() => ({ minutes: botMin ? parseInt(botMin, 10) : 0, seconds: botSec ? parseInt(botSec, 10) : 0 }), [botMin, botSec]);
-  const { currentPosition, startCoursePosition, endCoursePosition, stopSimulation } = useTrackSimulation({ externalPath: trackInfo?.path ?? [], botPace, isSimulating, pausedPosition });
-  const liveDistanceKm = useMemo(() => calculateTotalDistance(path), [path]);
 
-  // --- Data Loading ---
+  const [opponentPath, setOpponentPath] = useState<Coordinate[]>([]);
+  const [opponentDrawPath, setOpponentDrawPath] = useState<Coordinate[]>([]);
+
+  useEffect(() => {
+  console.log('---------------start useEffect-----------------');
+  console.log('🎯 recordId:', recordId);
+  if (!recordId) return;
+  axios.get(`https://yourun.shop/api/record/${recordId}`).then(res => {
+    console.log('상대방 기록(userPath):', res.data.data.userPath);
+    const path = res.data.data.userPath.map((point: any) => ({
+      latitude: point.latitude || point.Latitude,
+      longitude: point.longitude || point.Longitude,
+    }));
+    setOpponentPath(path);
+  })
+  .catch(err => {
+      console.log('🔥🔥 axios 에러:', err); // <<<<<<<<<<<<<< 이거!
+    });
+}, [recordId]);
+
+// 2. 내 경로가 늘어날 때마다, 상대 경로도 똑같이 늘림 (내가 7번째 찍으면 상대도 7번째까지 그림)
+useEffect(() => {
+  if (!isActive || opponentPath.length === 0 || opponentPath.length === 0) {
+    setOpponentDrawPath([]);
+    return;
+  }
+  setOpponentDrawPath(opponentPath.slice(0, path.length));
+}, [isActive, path, opponentPath]);
+
+  // --- 트랙 정보 불러오기 ---
   useEffect(() => {
     if (trackId) {
       loadTrackInfo(trackId)
@@ -88,6 +99,8 @@ export default function BotRunningScreen() {
         });
     }
   }, [trackId]);
+
+  // --- 지도 region 초기화 ---
   useEffect(() => {
     if (!mapRegion) {
       if (userLocation) {
@@ -98,7 +111,6 @@ export default function BotRunningScreen() {
           longitudeDelta: 0.005,
         });
       } else if (trackInfo?.origin) {
-        // Fallback to track origin if GPS not ready yet
         setMapRegion({
           latitude: trackInfo.origin.latitude,
           longitude: trackInfo.origin.longitude,
@@ -109,74 +121,21 @@ export default function BotRunningScreen() {
     }
   }, [userLocation, mapRegion, trackInfo]);
 
-  // --- Logic Hooks & Handlers ---
-  const onAvatarComponentReady = useCallback(() => {
-    handleAvatarReady();
-    setIsAvatarComponentReady(true);
-  }, [handleAvatarReady]);
-
-  const botTrackDistance = useMemo(() => {
-    if (!currentPosition || path.length === 0 || !trackInfo?.path) {
-      return { distanceMeters: 0, isAhead: false, botProgress: 0, userProgress: 0 };
-    }
-    const userPos = path[path.length - 1];
-    const realDistanceData = calculateTrackDistance(currentPosition, userPos, trackInfo.path);
-    if (initialStartPoint) {
-      const distanceFromStart = haversineDistance(initialStartPoint.latitude, initialStartPoint.longitude, userPos.latitude, userPos.longitude) * 1000;
-      if (distanceFromStart < START_BUFFER_METERS) {
-        return { ...realDistanceData, userProgress: 0 };
-      }
-    }
-    return realDistanceData;
-  }, [currentPosition, path, trackInfo?.path, initialStartPoint]);
-
-  const handleFinish = useCallback(() => {
-    Speech.speak('목표 달성! 러닝을 완료했습니다.');
-    const finalSummaryData: SummaryData = {
-      trackPath: trackInfo?.path ?? [], userPath: path, totalDistance: liveDistanceKm,
-      elapsedTime, source: source, trackId: trackId
-    };
-    setSummaryData(finalSummaryData);
-    setIsFinishModalVisible(true);
-    stopSimulation();
-    stopRunning();
-    setIsSimulating(false);
-  }, [trackInfo, path, liveDistanceKm, elapsedTime, source, trackId, stopSimulation, stopRunning]);
-
-  useFinishDetection({
-    userProgressMeters: botTrackDistance.userProgress,
-    trackDistanceMeters: trackInfo?.distanceMeters ?? 0,
-    isActive,
-    onFinish: handleFinish,
-    userLocation: userLocation,
-    externalPath: trackInfo?.path ?? [],
-  });
-
-  const cleanupRunningState = useCallback(() => {
-    stopSimulation();
-    resetRunning();
-    setIsSimulating(false);
-    setPausedPosition(null);
-    setInitialStartPoint(null);
-    Speech.stop();
-  }, [stopSimulation, resetRunning]);
-
+  // --- 완주(트랙 도착) 처리 ---
   useEffect(() => {
-    const handleBeforeRemove = (e: EventArg<'beforeRemove', true, { action: NavigationAction }>) => {
-      if (!isActive && elapsedTime === 0) return;
-      e.preventDefault();
-      Alert.alert(
-        "러닝 중단", "정말로 현재 러닝을 중단하고 나가시겠습니까?",
-        [
-          { text: "계속 달리기", style: "cancel" },
-          { text: "나가기", style: "destructive", onPress: () => { cleanupRunningState(); navigation.dispatch(e.data.action); } },
-        ]
-      );
-    };
-    navigation.addListener('beforeRemove', handleBeforeRemove);
-    return () => navigation.removeListener('beforeRemove', handleBeforeRemove);
-  }, [navigation, isActive, elapsedTime, cleanupRunningState]);
+    if (!trackInfo?.path || path.length === 0 || !userLocation || !isActive) return;
+    const finishPoint = trackInfo.path[trackInfo.path.length - 1];
+    const distToFinish = haversineDistance(
+      finishPoint.latitude, finishPoint.longitude,
+      userLocation.latitude, userLocation.longitude
+    ) * 1000;
+    const totalRunMeters = calculateTotalDistance(path) * 1000;
+    if (distToFinish <= 10 && totalRunMeters >= (trackInfo?.distanceMeters ?? 0) - 10) {
+      handleFinish();
+    }
+  }, [userLocation, path, isActive, trackInfo]);
 
+  // --- 러닝 시작 ---
   const handleStart = async () => {
     try {
       if (!trackInfo?.path || trackInfo.path.length === 0) {
@@ -191,44 +150,60 @@ export default function BotRunningScreen() {
       }
       const { coords } = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const startDistMeters = haversineDistance(startPoint.latitude, startPoint.longitude, coords.latitude, coords.longitude) * 1000;
-      if (startDistMeters > TRACK_CONSTANTS.START_RADIUS_METERS) {
-        Alert.alert('시작 위치 오류', `시작점에서 약 ${Math.round(startDistMeters)}m 떨어져 있습니다. ${TRACK_CONSTANTS.START_RADIUS_METERS}m 이내로 이동해주세요.`);
+      if (startDistMeters > START_BUFFER_METERS) {
+        Alert.alert('시작 위치 오류', `시작점에서 약 ${Math.round(startDistMeters)}m 떨어져 있습니다. ${START_BUFFER_METERS}m 이내로 이동해주세요.`);
         return;
       }
       const firstPoint: Omit<Coordinate, 'timestamp'> = { latitude: coords.latitude, longitude: coords.longitude };
       setInitialStartPoint(firstPoint);
-      Speech.speak('러닝을 시작합니다. 웜업구간입니다. 속도를 천천히 올려주세요');
+      Speech.speak('러닝 대결을 시작합니다. 파이팅!');
       startRunning();
-      setIsSimulating(true);
     } catch (error) {
       console.error('러닝 시작 중 오류:', error);
       Alert.alert('오류', '러닝을 시작하는 중 오류가 발생했습니다.');
     }
   };
 
-  const handleMainPress = () => {
+  // --- 일시정지/재개 ---
+  const handlePauseResume = () => {
     if (isActive) {
       pauseRunning();
-      setIsSimulating(false);
-      setPausedPosition(currentPosition);
     } else if (isPaused) {
       resumeRunning();
-      setIsSimulating(true);
-    } else {
-      handleStart();
     }
   };
 
+  // --- 러닝 강제 종료/완주 ---
+  const handleFinish = useCallback(() => {
+    Speech.speak('러닝을 완료했습니다!');
+    setSummaryData({
+      trackPath: trackInfo?.path ?? [],
+      userPath: path,
+      totalDistance: calculateTotalDistance(path),
+      elapsedTime,
+      trackId,
+    });
+    setIsFinishModalVisible(true);
+    stopRunning();
+  }, [trackInfo, path, elapsedTime, trackId, stopRunning]);
+
+  // --- 강제 나가기 ---
+  const handleForfeit = useCallback(() => {
+    stopRunning();
+    resetRunning();
+    router.replace('/');
+  }, [stopRunning, resetRunning, router]);
+
+  // --- 하단 종료 버튼 (꾹 누르기) ---
   const handleFinishPressIn = useCallback(() => {
     setIsFinishPressed(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Animated.timing(finishProgressAnimation, { toValue: 1, duration: 3000, useNativeDriver: false }).start();
     finishTimeoutRef.current = setTimeout(() => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      cleanupRunningState();
-      router.replace('/');
+      handleForfeit();
     }, 3000);
-  }, [cleanupRunningState, finishProgressAnimation, router]);
+  }, [handleForfeit, finishProgressAnimation]);
 
   const handleFinishPressOut = useCallback(() => {
     setIsFinishPressed(false);
@@ -237,11 +212,27 @@ export default function BotRunningScreen() {
     finishProgressAnimation.setValue(0);
   }, [finishProgressAnimation]);
 
-  // ✅ 2. Determine the final ready state. userLocation coming from context signifies GPS is ready.
+  // --- 네비게이션 이탈 시 경고 ---
+  useEffect(() => {
+    const handleBeforeRemove = (e: EventArg<'beforeRemove', true, { action: NavigationAction }>) => {
+      if (!isActive && elapsedTime === 0) return;
+      e.preventDefault();
+      Alert.alert(
+        "러닝 중단", "정말로 현재 러닝을 중단하고 나가시겠습니까?",
+        [
+          { text: "계속 달리기", style: "cancel" },
+          { text: "나가기", style: "destructive", onPress: () => { handleForfeit(); navigation.dispatch(e.data.action); } },
+        ]
+      );
+    };
+    navigation.addListener('beforeRemove', handleBeforeRemove);
+    return () => navigation.removeListener('beforeRemove', handleBeforeRemove);
+  }, [navigation, isActive, elapsedTime, handleForfeit]);
+
+  // --- 최종 준비 여부 ---
   const isFullyLoaded = !!(trackInfo && mapRegion);
 
-  // --- Render Logic ---
-
+  // --- 렌더 ---
   if (trackError) {
     return (
       <View style={styles.errorContainer}>
@@ -253,72 +244,58 @@ export default function BotRunningScreen() {
 
   return (
     <View style={styles.container}>
+      {/* 상단바 */}
       <View style={styles.headerBar}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}><Text style={styles.backButtonText}>←</Text></TouchableOpacity>
       </View>
 
-      {/* ✅ 3. Always render the map and avatar so they can load in the background */}
+      {/* 지도/러닝 경로 */}
       <RunningMap
         path={smoothPath(path, 5)}
         isActive={isActive}
         initialRegion={mapRegion}
         userLocation={userLocation}
-        onAvatarPositionUpdate={updateAvatarPosition}
-        onMapReady={setMapRef}
         externalPath={trackInfo?.path}
-        botPosition={currentPosition}
-        startPosition={startCoursePosition}
-        endPosition={endCoursePosition}
-        isSimulating={isSimulating}
+        opponentLivePath={opponentDrawPath} // 상대 실시간 경로
+        startPosition={trackInfo?.path?.[0]}
+        endPosition={trackInfo?.path?.[trackInfo?.path.length - 1]}
+        onAvatarPositionUpdate={() => {}}
       />
-      {isSimulating && avatarScreenPos && (
-        <AvatarOverlay
-          screenPos={avatarScreenPos}
-          isRunning={isActive}
-          speed={currentSpeed}
-          avatarId={AVATAR_CONSTANTS.AVATAR_ID}
-          onAvatarReady={handleAvatarReady} // 기존 훅에서 제공하는 함수 사용
-        />
-      )}
+
+      {/* 하단 오버레이 */}
       <View style={styles.overlay}>
-        {trackInfo && (
-          <>
-            <BotDistanceDisplay distanceMeters={botTrackDistance.distanceMeters} isAhead={botTrackDistance.isAhead} userProgress={botTrackDistance.userProgress} totalDistance={trackInfo.distanceMeters} />
-            <RunningStats totalDistance={liveDistanceKm} displaySpeed={currentSpeed} elapsedTime={elapsedTime} />
-          </>
-        )}
+        <RunningStats totalDistance={calculateTotalDistance(path)} displaySpeed={currentSpeed} elapsedTime={elapsedTime} />
         <RunningControls
           isActive={isActive}
           isPaused={isPaused}
           elapsedTime={elapsedTime}
           isFinishPressed={isFinishPressed}
-          finishProgress={0} // finishProgress state is not used in the new RunningControls
+          finishProgress={0}
           progressAnimation={finishProgressAnimation}
           scaleAnimation={scaleAnimation}
-          onMainPress={handleMainPress}
+          onMainPress={isActive || isPaused ? handlePauseResume : handleStart}
           onFinishPressIn={handleFinishPressIn}
           onFinishPressOut={handleFinishPressOut}
-          isReady={isFullyLoaded} // Pass the final ready state
+          isReady={isFullyLoaded}
         />
       </View>
 
-      {/* ✅ 4. Loading overlay sits on top of everything and disappears when ready */}
+      {/* 로딩 오버레이 */}
       {!isFullyLoaded && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#007aff" />
           <Text style={styles.loadingText}>
-            {!trackInfo ? '트랙 정보 로딩 중...' :
-              !mapRegion ? 'GPS 신호 수신 중...' : ''}
+            {!trackInfo ? '트랙 정보 로딩 중...' : !mapRegion ? 'GPS 신호 수신 중...' : ''}
           </Text>
         </View>
       )}
 
-
+      {/* 완주 모달 */}
       <FinishModal
         visible={isFinishModalVisible}
         summaryData={summaryData}
-        onClose={() => { cleanupRunningState(); setIsFinishModalVisible(false); router.replace('/'); }}
-        onConfirm={() => { if (summaryData) { cleanupRunningState(); router.replace({ pathname: '/summary', params: { data: JSON.stringify(summaryData) } }); } setIsFinishModalVisible(false); }}
+        onClose={() => { resetRunning(); setIsFinishModalVisible(false); router.replace('/'); }}
+        onConfirm={() => { if (summaryData) { resetRunning(); router.replace({ pathname: '/summary', params: { data: JSON.stringify(summaryData) } }); } setIsFinishModalVisible(false); }}
       />
     </View>
   );

@@ -1,47 +1,60 @@
-import CustomDrawer from '@/components/CustomDrawer'; // 사용자 정의 Drawer 컴포넌트
-import { DrawerProvider, useDrawer } from '@/context/DrawerContext'; // 사용자 정의 Drawer Context
+import CustomDrawer from '@/components/CustomDrawer';
+import { DrawerProvider, useDrawer } from '@/context/DrawerContext';
 import { PaceProvider } from '@/context/PaceContext';
 import { RepositoryProvider } from '@/context/RepositoryContext';
 import { RunningProvider } from '@/context/RunningContext';
 import { AuthAsyncStorage } from '@/repositories/AuthAsyncStorage';
 import { fetchUserProfile } from '@/repositories/UserRepository';
 import { useUserStore } from '@/stores/userStore';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native'; // React Navigation 테마
-import { useFonts } from 'expo-font'; // 커스텀 폰트 로드를 위한 Expo 훅
-import { SplashScreen, Stack } from "expo-router"; // Expo Router의 Stack Navigator
-import { StatusBar } from 'expo-status-bar'; // Expo의 상태바 관리 컴포넌트
-import React, { useEffect, useState } from 'react'; // React 컴포넌트 생성을 위해 필수
-import { ActivityIndicator, useColorScheme, View } from 'react-native'; // 시스템 테마 (light/dark) 감지 훅
+import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { useFonts } from 'expo-font';
+import { SplashScreen, Stack } from "expo-router";
+import { StatusBar } from 'expo-status-bar';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, StyleSheet, useColorScheme, View } from 'react-native';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 SplashScreen.preventAutoHideAsync();
+
+// ✅ Safe Area가 적용된 컨테이너 컴포넌트
+function SafeAreaContainer({ children }: { children: React.ReactNode }) {
+  const insets = useSafeAreaInsets();
+  
+  return (
+    <View style={[
+      styles.safeContainer,
+      {
+        paddingTop: insets.top,
+        paddingBottom: insets.bottom,
+        paddingLeft: insets.left,
+        paddingRight: insets.right,
+      }
+    ]}>
+      {children}
+    </View>
+  );
+}
 
 function RootLayoutNav() {
   const { isMenuVisible, closeMenu } = useDrawer();
   const [isLoading, setIsLoading] = useState(true);
   const setProfile = useUserStore((state) => state.setProfile);
-    useEffect(() => {
-      console.log('화면이 처음 나타났습니다!');
-      AuthAsyncStorage.saveUserId(1);
-  
-    }, []);
-  
+
+  useEffect(() => {
+    console.log('화면이 처음 나타났습니다!');
+    AuthAsyncStorage.saveUserId(1);
+  }, []);
+
   useEffect(() => {
     async function loadDataAndSetup() {
       try {
-        // --- This is where you call the new method ---
         const userProfile = await fetchUserProfile();
-        
-        // If successful, store the data in the global state
         if (userProfile) {
           setProfile(userProfile);
         }
-
       } catch (e) {
-        // Handle errors, e.g., redirect to a login screen if unauthorized
         console.warn('Failed to load user data:', e);
       } finally {
-        // Data loading is complete (or failed), so we can hide the splash screen
-        // and show the app UI.
         setIsLoading(false);
         SplashScreen.hideAsync();
       }
@@ -50,22 +63,23 @@ function RootLayoutNav() {
     loadDataAndSetup();
   }, []);
 
-    if (isLoading) {
+  if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" />
-      </View>
+      <SafeAreaContainer>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" />
+        </View>
+      </SafeAreaContainer>
     );
   }
 
   return (
-    <>
-      {/* screenOptions를 사용하여 모든 스크린의 헤더를 숨깁니다. */}
+    <SafeAreaContainer>
       <Stack screenOptions={{ headerShown: false }}>
-
+        {/* 모든 스크린이 여기에 렌더링됩니다 */}
       </Stack>
       {isMenuVisible && <CustomDrawer closeMenu={closeMenu} />}
-    </>
+    </SafeAreaContainer>
   );
 }
 
@@ -80,18 +94,31 @@ export default function RootLayout() {
   }
 
   return (
-    <RepositoryProvider>
-      <RunningProvider>
-        <DrawerProvider>
-          <PaceProvider>
-            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-              <RootLayoutNav />
-              <StatusBar style="auto" />
-            </ThemeProvider>
-          </PaceProvider>
-        </DrawerProvider>
-      </RunningProvider>
-    </RepositoryProvider>
-
+    <SafeAreaProvider>
+      <RepositoryProvider>
+        <RunningProvider>
+          <DrawerProvider>
+            <PaceProvider>
+              <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+                <RootLayoutNav />
+                <StatusBar style="auto" />
+              </ThemeProvider>
+            </PaceProvider>
+          </DrawerProvider>
+        </RunningProvider>
+      </RepositoryProvider>
+    </SafeAreaProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  safeContainer: {
+    flex: 1,
+    backgroundColor: '#fff', // 필요에 따라 배경색 조정
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});

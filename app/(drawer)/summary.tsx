@@ -62,6 +62,9 @@ export default function SummaryScreen() {
   const elapsedTime = parsed.elapsedTime;
   const trackId = parsed.trackId;
   const isTrackMode = !!trackId;
+  const mode = parsed.mode;
+  const opponentId = parsed.opponentId ?? 0;
+  const botPace = parsed.botPace;
 
   // --- 화면 로딩 시 낙관적 UI 계산을 수행 ---
   useEffect(() => {
@@ -98,6 +101,7 @@ export default function SummaryScreen() {
   }, [userProfile]);
 
   // --- 기존 저장 관련 핸들러들 (변경 없음) ---
+  // 트랙모드(봇) OR 자유모드에 따라 저장 분기
   const handleSaveRecordOnly = async () => {
     setIsSaving(true);
     try {
@@ -109,18 +113,51 @@ export default function SummaryScreen() {
 
       const now = new Date();
       const startedAt = new Date(now.getTime() - elapsedTime * 1000);
-      const newServerRecord: SaveRecordDto = {
-        mode: 'BOT',
-        trackId: parseInt(trackId, 10),
-        opponentId: 0,
-        isWinner: true,
-        averagePace: parseFloat(calculateAveragePace(totalDistanceKm, elapsedTime).replace("'", ".")),
-        distance: Math.round(totalDistanceKm * 1000),
-        startedAt: startedAt.toISOString(),
-        finishedAt: now.toISOString(),
-        userPath: userPath
-      };
-      const success = await trackRecordRepository.saveRunningRecord(newServerRecord);
+      
+      let isWinner = false;
+      
+      let record: SaveRecordDto;
+      if(mode === 'MATCH'){
+        record = {
+          mode: 'MATCH',
+          trackId: parseInt(trackId, 10),
+          opponentId: parsed.opponentId,
+          isWinner: parsed.isWinner ?? false,
+          averagePace: parseFloat(calculateAveragePace(totalDistanceKm, elapsedTime).replace("'", ".")),
+          distance: Math.round(totalDistanceKm * 1000),
+          startedAt: startedAt.toISOString(),
+          finishedAt: now.toISOString(),
+          userPath: userPath
+        }
+      }
+      else if(isTrackMode){
+        if(botPace){
+          const botExpectedTime = botPace * totalDistanceKm;
+          isWinner = elapsedTime < botExpectedTime;
+        }
+        record = {
+          mode: 'BOT',
+          trackId: parseInt(trackId, 10),
+          opponentId: 0,
+          isWinner: isWinner,
+          averagePace: parseFloat(calculateAveragePace(totalDistanceKm, elapsedTime).replace("'", ".")),
+          distance: Math.round(totalDistanceKm * 1000),
+          startedAt: startedAt.toISOString(),
+          finishedAt: now.toISOString(),
+          userPath: userPath
+        };
+      }else{
+        record = {
+          mode: 'FREE',
+          isWinner: false,
+          averagePace: parseFloat(calculateAveragePace(totalDistanceKm, elapsedTime).replace("'", ".")),
+          distance: Math.round(totalDistanceKm * 1000),
+          startedAt: startedAt.toISOString(),
+          finishedAt: now.toISOString(),
+          userPath: userPath
+        };
+      }
+      const success = await trackRecordRepository.saveRunningRecord(record);
       if (success) {
         setModalType(null);
         Alert.alert('기록 전송 완료', '서버에 러닝 기록이 저장되었습니다.', [
@@ -173,7 +210,7 @@ export default function SummaryScreen() {
       const now = new Date();
       const startedAt = new Date(now.getTime() - elapsedTime * 1000);
       const newServerRecord: SaveRecordDto = {
-        mode: 'BOT',
+        mode: 'FREE',
         trackId: newTrackId, // 새로 생성된 트랙의 ID를 사용
         opponentId: 0,
         isWinner: true,
@@ -327,8 +364,11 @@ export default function SummaryScreen() {
             <Text style={styles.modalText}>방금 달린 경로를 새로운 트랙으로 저장합니다. 트랙의 이름을 입력해주세요.</Text>
             <TextInput style={styles.input} placeholder="예: 우리집 산책로" value={newTrackName} onChangeText={setNewTrackName} />
             <View style={styles.modalButtonContainer}>
-              <Pressable style={[styles.modalButton, { backgroundColor: '#ccc' }]} onPress={() => { setModalType(null); router.replace('/'); }}>
-                <Text style={styles.modalButtonText}>취소</Text>
+              <Pressable style={[styles.modalButton, { backgroundColor: '#ccc' }]}
+                onPress={handleSaveRecordOnly}
+                disabled={isSaving}
+              >
+                {isSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalButtonText}>기록만 저장</Text>}
               </Pressable>
               <Pressable style={[styles.modalButton, { backgroundColor: '#007aff' }]} onPress={handleSaveNewTrackAndRecord} disabled={isSaving}>
                 {isSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalButtonText}>저장</Text>}
