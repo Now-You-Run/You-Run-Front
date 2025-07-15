@@ -87,6 +87,9 @@ interface RunningState {
   addToPath: (coords: Coord) => void;
   addStartPointIfNeeded: () => Promise<void>;
   userLocation: Coord | null;
+  setUserLocation: (coord: Coord | null) => void;
+  startLocationTracking: () => Promise<void>;
+  stopLocationTracking: () => Promise<void>;
 }
 
 
@@ -224,8 +227,6 @@ export const RunningProvider: React.FC<{ children: React.ReactNode }> = ({
         const backgroundLocations: BackgroundLocation[] = JSON.parse(backgroundLocationsJson);
 
         if (backgroundLocations.length > 0) {
-          console.log(`동기화할 백그라운드 위치: ${backgroundLocations.length}개`);
-
           // ✅ 정확성 기반 필터링 적용
           const filteredLocations = backgroundLocations.filter(loc => {
             const accuracy = loc.accuracy || 50; // 기본값 50m
@@ -327,8 +328,6 @@ locationSubscription.current = await Location.watchPositionAsync(
 
     // ✅ 중요: 러닝이 활성 상태이고 일시정지가 아닐 때만 경로 기록
     if (isActiveRef.current && !isPausedRef.current) {
-      console.log('📍 경로 기록 중:', coord);
-      
       // 거리 계산 및 누적
       if (lastCoordRef.current) {
         const rawDist = haversineDistance(
@@ -348,10 +347,7 @@ locationSubscription.current = await Location.watchPositionAsync(
       const rawSp = speed != null ? speed * 3.6 : 0;
       const filtSp = speedFilter.current.filter(rawSp, gpsAccuracy);
       setCurrentSpeed(filtSp > 0.5 ? filtSp : 0);
-    } else {
-      console.log('⏸️ 러닝 비활성 상태 - 경로 기록 안함');
     }
-
     // 마지막 좌표는 항상 업데이트
     lastCoordRef.current = coord;
   }
@@ -373,7 +369,6 @@ locationSubscription.current = await Location.watchPositionAsync(
           },
         });
         backgroundTaskStarted.current = true;
-        console.log('Background location tracking started');
       } else {
         console.warn('Background permission not granted, continuing foreground only.');
       }
@@ -395,7 +390,7 @@ locationSubscription.current = await Location.watchPositionAsync(
       const isTaskRunning = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
       if (isTaskRunning) {
         await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
-        console.log('✅ 백그라운드 작업이 실행 중이었으며, 성공적으로 중지했습니다.');
+        // console.log('✅ 백그라운드 작업이 실행 중이었으며, 성공적으로 중지했습니다.');
       }
     } catch (error: any) {
       // 'TaskNotFoundException' 오류가 발생하면, 이는 이미 작업이 없다는 의미이므로 성공으로 간주합니다.
@@ -447,7 +442,6 @@ locationSubscription.current = await Location.watchPositionAsync(
         alert('위치 권한이 필요합니다.');
         return;
       }
-
       try {
         const loc = await Location.getCurrentPositionAsync();
         const startCoord: Coord = {
@@ -455,7 +449,8 @@ locationSubscription.current = await Location.watchPositionAsync(
           longitude: loc.coords.longitude,
           timestamp: Date.now()
         };
-        setPath([startCoord]);
+        // path에는 추가하지 않고 userLocation만 세팅
+        setUserLocation(startCoord);
         lastCoordRef.current = startCoord;
       } catch (error) {
         console.error('Error getting current position:', error);
@@ -468,32 +463,24 @@ locationSubscription.current = await Location.watchPositionAsync(
   };
 
 const startRunning = (): void => {
-  console.log('🏃‍♂️ 러닝 시작 - 상태 초기화');
-  
   // 완전한 상태 초기화
-  setPath([]);
+  setPath([]); // path를 반드시 비움
   setElapsedTime(0);
   setCurrentSpeed(0);
   setTotalDistance(0);
-  setUserLocation(null);
+  setUserLocation(null); // (선택) 러닝 시작 시점에만 위치 기록 시작
   setIsPaused(false);
-  
   // 칼만 필터 초기화
   speedFilter.current = new KalmanFilter1D(0.01, 0.1);
   distFilter.current = new KalmanFilter1D(0.01, 0.1);
   latFilter.current = new KalmanFilter1D(0.01, 0.1);
   lngFilter.current = new KalmanFilter1D(0.01, 0.1);
-  
   // 마지막 좌표 초기화
   lastCoordRef.current = null;
-  
   // 활성 상태로 변경 (이 시점부터 위치 기록 시작)
   setIsActive(true);
-  
   // 위치 추적 시작
   startLocationTracking();
-  
-  console.log('✅ 러닝 시작 완료 - 위치 추적 활성화');
 };
 
 
@@ -569,6 +556,9 @@ const startRunning = (): void => {
         resumeRunning,
         resetRunning,
         userLocation,
+        setUserLocation, // 추가
+        startLocationTracking, // 추가
+        stopLocationTracking, // 추가
       }}
     >
       {children}
