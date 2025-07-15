@@ -134,7 +134,6 @@ export default function HomeScreen() {
     'Karantina-Bold': require('@/assets/fonts/Karantina-Bold.ttf'),
   });
 
-
   // Weather update logic
   const updateWeather = async () => {
     const { weatherMain, currentHour } = await getWeatherData();
@@ -195,28 +194,24 @@ export default function HomeScreen() {
   };
 
   const deleteAvatar = async (avatarId: string) => {
-    Alert.alert(
-      '아바타 삭제',
-      '정말로 이 아바타를 삭제하시겠습니까?',
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '삭제',
-          style: 'destructive',
-          onPress: async () => {
-            const success = await AvatarService.deleteAvatar(avatarId);
-            if (success) {
-              await loadAvatars();
+    Alert.alert('아바타 삭제', '정말로 이 아바타를 삭제하시겠습니까?', [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '삭제',
+        style: 'destructive',
+        onPress: async () => {
+          const success = await AvatarService.deleteAvatar(avatarId);
+          if (success) {
+            await loadAvatars();
 
-              if (selectedAvatar && selectedAvatar.id === avatarId) {
-                setSelectedAvatar(null);
-                setDefaultAvatar(null);
-              }
+            if (selectedAvatar && selectedAvatar.id === avatarId) {
+              setSelectedAvatar(null);
+              setDefaultAvatar(null);
             }
-          },
+          }
         },
-      ],
-    );
+      },
+    ]);
   };
 
   const renderAvatarItem = ({ item }: { item: Avatar }) => (
@@ -224,8 +219,8 @@ export default function HomeScreen() {
       style={[
         styles.avatarItem,
         selectedAvatar &&
-        selectedAvatar.id === item.id &&
-        styles.selectedAvatarItem,
+          selectedAvatar.id === item.id &&
+          styles.selectedAvatarItem,
       ]}
       onPress={() => selectAvatar(item)}
     >
@@ -367,7 +362,7 @@ export default function HomeScreen() {
             <TouchableOpacity
               style={styles.modalContent}
               activeOpacity={1}
-              onPress={() => { }}
+              onPress={() => {}}
             >
               <Text style={styles.modalText}>{userName}님, 달려볼까요?</Text>
               <View style={styles.modalButtons}>

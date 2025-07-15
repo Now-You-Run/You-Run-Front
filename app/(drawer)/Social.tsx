@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
   badge: {
     position: 'absolute',
     top: -4,
-    right: -4,
+    right: -5,
     minWidth: 18,
     height: 18,
     borderRadius: 9,
@@ -520,7 +520,7 @@ const styles = StyleSheet.create({
   friendName: { fontSize: 16, fontWeight: '600', color: '#333' },
   friendLevelGrade: { fontSize: 12, color: '#555', marginTop: 2 },
   deleteButton: {
-    marginLeft: 190,
+    marginLeft: 170,
     backgroundColor: '#f0f0f0',
     borderRadius: 12,
     padding: 4,
@@ -531,7 +531,7 @@ const styles = StyleSheet.create({
     shadowRadius: 1.41,
   },
   chatButton: {
-    marginLeft: 190,
+    marginLeft: 170,
     padding: 6,
     backgroundColor: '#f0f0f0',
     borderRadius: 20,
