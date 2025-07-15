@@ -1,7 +1,7 @@
 import { Coordinate } from '@/types/TrackDto';
 import { haversineDistance } from '@/utils/RunningUtils';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Circle, Marker, Polyline, Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -14,6 +14,7 @@ interface RunningMapProps {
 
   // 지도 위 오버레이 및 마커 데이터
   externalPath?: Coordinate[];
+  opponentLivePath?: Coordinate[]; // <-- 이거 추가!
   botPosition?: Coordinate | null;
   startPosition?: Coordinate | null;
   endPosition?: Coordinate | null;
@@ -37,7 +38,8 @@ export const RunningMap: React.FC<RunningMapProps> = React.memo(({
   startPosition,
   endPosition,
   isSimulating,
-  userLocation
+  userLocation,
+  opponentLivePath
 }) => {
   const mapRef = useRef<MapView>(null);
   const insets = useSafeAreaInsets();
@@ -152,7 +154,10 @@ export const RunningMap: React.FC<RunningMapProps> = React.memo(({
             anchor={{ x: 0.5, y: 0.5 }}
             zIndex={10}
           >
+            <View style={{ alignItems: 'center' }}>
             <View style={styles.userMarker} />
+              <Text style={{ color: '#007aff', fontWeight: 'bold', fontSize: 12, marginTop: 2 }}>나</Text>
+            </View>
           </Marker>
         )}
 
@@ -175,6 +180,28 @@ export const RunningMap: React.FC<RunningMapProps> = React.memo(({
             lineDashPattern={[8, 6]}
             zIndex={2}
           />
+        )}
+
+        {/* 3. **상대 경로(빨간 실선)** */}
+        {opponentLivePath && opponentLivePath.length > 0 && (
+          <>
+            <Polyline
+              coordinates={opponentLivePath}
+              strokeColor="#ff4444"
+              strokeWidth={4}
+              zIndex={8}
+            />
+            <Marker coordinate={opponentLivePath[opponentLivePath.length - 1]} anchor={{ x: 0.5, y: 1 }} zIndex={11}>
+              <View style={{ alignItems: 'center' }}>
+                <View style={{
+                  width: 16, height: 16,
+                  backgroundColor: '#ff4444',
+                  borderRadius: 8, borderWidth: 2, borderColor: '#fff'
+                }} />
+                <Text style={{ color: '#ff4444', fontWeight: 'bold', fontSize: 12, marginTop: 2 }}>상대</Text>
+              </View>
+            </Marker>
+          </>
         )}
 
         {/* ✅ 시작점 마커 */}
