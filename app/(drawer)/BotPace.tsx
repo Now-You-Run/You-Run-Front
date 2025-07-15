@@ -4,8 +4,10 @@ import { Picker } from '@react-native-picker/picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
+  Dimensions,
   Image,
   SafeAreaView,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -14,377 +16,278 @@ import {
 } from 'react-native';
 import { SourceType } from './TrackDetailScreen';
 
-export type RootStackParamList = {
-  SelectTrack: undefined;
-  BotPace: { trackId: string };
-  RunningWithBot: { trackId: string; botMin: string; botSec: string;};
-};
+const { width, height } = Dimensions.get('window');
+const PICKER_HEIGHT = Math.max(100, Math.min(height * 0.1, 110));
 
-interface FacePaceScreenProps {}
-
-const FacePaceScreen: React.FC<FacePaceScreenProps> = () => {
-  const { trackId, source} = useLocalSearchParams<{
-    trackId?: string;
-    source: SourceType
-  }>();
-    
-  const [minutes, setMinutes] = useState<number>(0);
-  const [seconds, setSeconds] = useState<number>(0);
-  const [showMessage, setShowMessage] = useState<boolean>(true);
-  const [isHelpMode, setIsHelpMode] = useState<boolean>(false);
-
-  // Context 사용
+const FacePaceScreen: React.FC = () => {
+  const { trackId, source } = useLocalSearchParams<{ trackId?: string; source: SourceType }>();
   const { setBotPace } = usePace();
 
-  // 컴포넌트 마운트 시 3초 후 메시지 자동 사라지기
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowMessage(false);
-    }, 3000); // 3초 후 사라짐
+  const [minutes, setMinutes] = useState(0);
+  const [seconds, setSeconds] = useState(0);
+  const [showMessage, setShowMessage] = useState(true);
+  const [isHelpMode, setIsHelpMode] = useState(false);
 
-    return () => clearTimeout(timer);
+  useEffect(() => {
+    const t = setTimeout(() => setShowMessage(false), 2500);
+    return () => clearTimeout(t);
   }, []);
 
-  const formatTime = (time: number): string => {
-    return time.toString().padStart(2, '0');
-  };
-
-  const handleHelpPress = () => {
-    if (isHelpMode) {
-      // 도움말 모드 끄기
-      setIsHelpMode(false);
-    } else {
-      // 도움말 모드 켜기
-      setIsHelpMode(true);
-    }
-  };
-
+  const fmt = (n: number) => n.toString().padStart(2, '0');
   const handleComplete = async () => {
-    if (!trackId ) {
-      console.warn('trackId가 없습니다. 이전 페이지 로직을 확인하세요.');
-      return;
-    }
-
-    // Context에 페이스 설정 저장
+    if (!trackId) return console.warn('Missing trackId');
     setBotPace({ minutes, seconds });
-    // 추가: AsyncStorage에도 저장
     await saveBotPace({ minutes, seconds });
-   
-    console.log(`페이스 설정: ${minutes}분 ${seconds}초`);
-
-    // running-with-bot.tsx로 이동
-    // 트랙 아이디 넘겨주기 + 속도 데이터 -> running-with-bot.tsx
-    router.push({
-      pathname: '/RunningWithBot',
-      params: {
-        trackId,
-        botMin: minutes.toString(),
-        botSec: seconds.toString(),
-        source: source,
-      },
-    });
+    router.push({ pathname: '/RunningWithBot', params: { trackId, botMin: `${minutes}`, botSec: `${seconds}`, source } });
   };
-
-  const handleBackPress = () => {
-    router.back();
-  };
- 
-  const getInitialMessage = (): string => {
-    return '봇의 페이스를\n 설정해주세요.';
-  };
-
-  const getHelpMessage = (): string => {
-    return '설정하신 페이스대로\n 봇이 움직일 예정입니다. \n실력에 맞게 봇의 페이스를 설정하고, 따라가세요! ';
-  };
-
-  // 분과 초를 위한 배열 생성
-  const minutesArray = Array.from({ length: 60 }, (_, i) => i);
-  const secondsArray = Array.from({ length: 60 }, (_, i) => i);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <SafeAreaView style={styles.root}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fafafa" />
 
-      {/* Header */}
+      {/* ScrollView로 감싸기 */}
+      <ScrollView
+       contentContainerStyle={styles.scrollContainer}
+       showsVerticalScrollIndicator={false}
+      >
+      {/* header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
-          <Image
-            source={require('@/assets/images/backButton.png')}
-            style={styles.backButtonIcon}
-            resizeMode="contain"
-          />
+        <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
+          <Image source={require('@/assets/images/backButton.png')} style={styles.icon} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.helpButton} onPress={handleHelpPress}>
-          <Text style={styles.helpButtonText}>?</Text>
+        <TouchableOpacity onPress={() => setIsHelpMode(prev => !prev)} style={styles.iconBtn}>
+          <Text style={styles.helpIcon}>?</Text>
         </TouchableOpacity>
       </View>
-    
-      <Image
-        source={require('@/assets/images/bot.png')}
-        style={styles.botImage}
-        resizeMode="contain"
-      />
-      
-      {/* Character and Message */}
-      <View style={styles.messageContainer}>
-        {/* 3초 후 사라지는 초기 메시지 */}
-        {showMessage && !isHelpMode && (
-          <View style={styles.initialMessageOverlay}>
-            <Text style={styles.initialMessageText}>{getInitialMessage()}</Text>
-          </View>
-        )}
-        
-        {/* 도움말 메시지 */}
-        {isHelpMode && (
-          <View style={styles.helpMessageOverlay}>
-            <Text style={styles.helpMessageText}>{getHelpMessage()}</Text>
+
+      {/* bot & message */}
+      <View style={styles.botCard}>
+        <Image source={require('@/assets/images/bot.png')} style={styles.botImg} resizeMode="contain" />
+        {(showMessage || isHelpMode) && (
+          <View style={[styles.tooltip, isHelpMode ? styles.tooltipHelp : styles.tooltipInit]}>
+            <Text style={[styles.tooltipText, isHelpMode && styles.tooltipTextHelp]}>
+              {isHelpMode
+                ? '설정하신 페이스대로 봇이 움직일 예정입니다.\n실력에 맞게 설정하고, 따라가세요!'
+                : '봇의 페이스를 설정해주세요.'}
+            </Text>
           </View>
         )}
       </View>
 
-      {/* Time Selector with Wheel Picker */}
-      <View style={styles.timeContainer}>
-        <View style={styles.pickerSection}>
-          <Text style={styles.timeLabel}>분</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={minutes}
-              style={styles.picker}
-              onValueChange={(itemValue) => setMinutes(itemValue)}
-              itemStyle={styles.pickerItem}
-            >
-              {minutesArray.map((minute) => (
-                <Picker.Item
-                  key={minute}
-                  label={formatTime(minute)}
-                  value={minute}
-                />
-              ))}
-            </Picker>
+      {/* picker */}
+      <View style={styles.pickerRow}>
+        {['분', '초'].map((lbl, idx) => (
+          <View key={lbl} style={styles.pickerBlock}>
+            <Text style={styles.pickerLabel}>{lbl}</Text>
+            <View style={styles.pickerWrap}>
+              <Picker
+                selectedValue={idx === 0 ? minutes : seconds}
+                style={styles.picker}
+                onValueChange={v => idx === 0 ? setMinutes(v) : setSeconds(v)}
+              >
+                {Array.from({ length: 60 }, (_, i) => (
+                  <Picker.Item key={i} label={fmt(i)} value={i} />
+                ))}
+              </Picker>
+            </View>
           </View>
-        </View>
-
-        <View style={styles.pickerSection}>
-          <Text style={styles.timeLabel}>초</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={seconds}
-              style={styles.picker}
-              onValueChange={(itemValue) => setSeconds(itemValue)}
-              itemStyle={styles.pickerItem}
-            >
-              {secondsArray.map((second) => (
-                <Picker.Item
-                  key={second}
-                  label={formatTime(second)}
-                  value={second}
-                />
-              ))}
-            </Picker>
-          </View>
-        </View>
+        ))}
       </View>
 
-      {/* 난이도 프리셋 버튼 */}
-      <View style={styles.levelPresetContainer}>
-        <TouchableOpacity
-          style={[styles.levelButton, { backgroundColor: '#e0f7fa' }]}
-          onPress={() => { setMinutes(10); setSeconds(0); }}
-        >
-          <Text style={styles.levelButtonText}>초급자 (10분)</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.levelButton, { backgroundColor: '#ffe0b2' }]}
-          onPress={() => { setMinutes(7); setSeconds(0); }}
-        >
-          <Text style={styles.levelButtonText}>중급자 (7분)</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.levelButton, { backgroundColor: '#ffcdd2' }]}
-          onPress={() => { setMinutes(5); setSeconds(0); }}
-        >
-          <Text style={styles.levelButtonText}>고급자 (5분)</Text>
-        </TouchableOpacity>
+      {/* presets */}
+      <View style={styles.presets}>
+        {[{ m:10, s:0, label:'초급자\n(10분)' , bg:'#d0f0fc'},
+          { m:7,  s:0, label:'중급자\n(7분)'  , bg:'#ffe7b3'},
+          { m:5,  s:0, label:'고급자\n(5분)'  , bg:'#ffccd4'}].map(p => (
+          <TouchableOpacity
+            key={p.label}
+            style={[styles.presetBtn, { backgroundColor: p.bg }]}
+            onPress={() => { setMinutes(p.m); setSeconds(p.s); }}
+          >
+            <Text style={styles.presetText}>{p.label}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
-      {/* Selected Time Display */}
-      <View style={styles.selectedTimeContainer}>
-        <Text style={styles.selectedTimeText}>
-          봇의 페이스: {formatTime(minutes)}분 {formatTime(seconds)}초
+      {/* selected */}
+      <View style={styles.selected}>
+        <Text style={styles.selectedText}>
+          봇의 페이스: {fmt(minutes)}분 {fmt(seconds)}초
         </Text>
       </View>
 
-      {/* Complete Button */}
-      <TouchableOpacity style={styles.completeButton} onPress={handleComplete}>
-        <Text style={styles.completeButtonText}>달리기</Text>
+      {/* run */}
+      <TouchableOpacity style={styles.runBtn} onPress={handleComplete}>
+        <Text style={styles.runText}>달리기</Text>
       </TouchableOpacity>
+      </ScrollView>
     </SafeAreaView>
-
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#fafafa',
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    paddingTop: 12,
     paddingHorizontal: 16,
+  },
+  scrollContainer: {
+    alignItems: 'center',
+    paddingTop: 12,
+    paddingHorizontal: 16,
+    // 필요에 따라 paddingBottom 추가
+    paddingBottom: 40,
   },
   header: {
     width: '100%',
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 10,
-    marginTop: 10,
-    marginBottom: 10,
   },
-  backButton: {
+  iconBtn: {
     padding: 8,
+    borderRadius: 20,
   },
-  backButtonIcon: {
-    width: 32,
-    height: 32,
+  icon: {
+    width: 28,
+    height: 28,
   },
-  helpButton: {
-    padding: 8,
+  helpIcon: {
+    fontSize: 30,
+    fontWeight: 'bold',
+    color: '#e91e63',
+  },
+
+  botCard: {
+    width: '100%',
+    backgroundColor: '#ffffff',
     borderRadius: 16,
-    backgroundColor: '#ffebee',
-  },
-  helpButtonText: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#d32f2f',
-  },
-  botImage: {
-    width: 160,
-    height: 160,
-    alignSelf: 'center',
-    marginVertical: 18,
-  },
-  messageContainer: {
-    width: '100%',
+    paddingVertical: 20,
     alignItems: 'center',
-    marginBottom: 10,
-  },
-  initialMessageOverlay: {
-    backgroundColor: '#e3f2fd',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 8,
-  },
-  initialMessageText: {
-    fontSize: 20,
-    color: '#1976d2',
-    textAlign: 'center',
-    fontWeight: 'bold',
-  },
-  helpMessageOverlay: {
-    backgroundColor: '#fffde7',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 8,
-  },
-  helpMessageText: {
-    fontSize: 18,
-    color: '#f57c00',
-    textAlign: 'center',
-    fontWeight: 'bold',
-  },
-  timeContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 4,
     marginTop: 12,
-    marginBottom: 10,
-    width: '100%',
   },
-  pickerSection: {
+  botImg: {
+    width: 140,
+    height: 140,
+  },
+  tooltip: {
+    position: 'absolute',
+    top: -10,
+    left: 20,
+    right: 20,
+    padding: 12,
+    borderRadius: 12,
+  },
+  tooltipInit: {
+    backgroundColor: '#e3f2fd',
+  },
+  tooltipHelp: {
+    backgroundColor: '#fff9c4',
+  },
+  tooltipText: {
+    textAlign: 'center',
+    fontSize: 16,
+    color: '#1976d2',
+    fontWeight: '600',
+    lineHeight: 22,
+  },
+  tooltipTextHelp: {
+    color: '#f57c00',
+  },
+
+  pickerRow: {
+    flexDirection: 'row',
+    width: '100%',
+    justifyContent: 'space-around',
+    marginTop: 24,
+  },
+  pickerBlock: {
     alignItems: 'center',
-    marginHorizontal: 12,
     flex: 1,
   },
-  timeLabel: {
-    fontSize: 18,
-    color: '#333',
+  pickerLabel: {
+    fontSize: 16,
+    color: '#555',
     marginBottom: 6,
-    fontWeight: 'bold',
+    fontWeight: '500',
   },
-  pickerContainer: {
+  pickerWrap: {
+    width: width * 0.3,
+    height: PICKER_HEIGHT + 80,       // 카드 높이 좀 더
+    backgroundColor: '#ffffff',
+    borderRadius: 20,                // 좀 더 둥글게
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 16,
-    overflow: 'hidden',
-    width: 110,
-    height: 60,
-    backgroundColor: '#fafafa',
+    borderColor: '#ececec',          // 은은한 테두리
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+    overflow: 'hidden',
+    paddingBottom: 150
   },
   picker: {
-    width: 110,
-    height: 60,
+    width: '100%',
+    height: '100%',
+    transform: [{ scaleY: 0.85 }],
   },
-  pickerItem: {
-    fontSize: 22,
-    textAlign: 'center',
-  },
-  levelPresetContainer: {
+
+  presets: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 18,
-    marginBottom: 18,
     width: '100%',
-    paddingHorizontal: 0,
+    marginTop: 32,
   },
-  levelButton: {
-    width: 110,
-    paddingVertical: 16,
-    borderRadius: 22,
+  presetBtn: {
+    flex: 1,
     marginHorizontal: 4,
+    paddingVertical: 14,
+    borderRadius: 24,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    elevation: 2,
+    justifyContent: 'center',
   },
-  levelButtonText: {
-    fontSize: 18,
-    fontWeight: 'bold',
+  presetText: {
+    textAlign: 'center',
+    fontSize: 15,
+    fontWeight: '600',
     color: '#333',
+    lineHeight: 20,
   },
-  selectedTimeContainer: {
-    marginTop: 12,
-    marginBottom: 20,
+
+  selected: {
+    marginTop: 28,
     backgroundColor: '#e8f5e9',
     borderRadius: 12,
-    paddingVertical: 14,
+    paddingVertical: 12,
     paddingHorizontal: 24,
-    alignItems: 'center',
-    alignSelf: 'center',
   },
-  selectedTimeText: {
-    fontSize: 20,
+  selectedText: {
+    fontSize: 18,
+    fontWeight: '600',
     color: '#388e3c',
-    fontWeight: 'bold',
-    textAlign: 'center',
   },
-  completeButton: {
-    marginTop: 18,
-    backgroundColor: '#b9f6ca',
-    borderRadius: 60,
-    paddingVertical: 26,
-    paddingHorizontal: 70,
-    alignItems: 'center',
-    alignSelf: 'center',
-    elevation: 2,
-    width: 220,
+
+  runBtn: {
+    marginTop: 24,
+    backgroundColor: '#a8e6cf',
+    paddingVertical: 18,
+    paddingHorizontal: 80,
+    borderRadius: 50,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 3,
   },
-  completeButtonText: {
-    fontSize: 24,
+  runText: {
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#222',
+    color: '#22543d',
   },
 });
 
