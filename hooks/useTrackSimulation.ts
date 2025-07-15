@@ -20,6 +20,9 @@ export const useTrackSimulation = ({
   const [startCoursePosition, setStartCoursePosition] = useState<Coordinate | null>(null);
   const [endCoursePosition, setEndCoursePosition] = useState<Coordinate | null>(null);
   const animationFrameId = useRef<number | null>(null);
+  // 봇 진행 상태(거리, 시간) 저장
+  const progressRef = useRef<{ distance: number; startIndex: number }>({ distance: 0, startIndex: 0 });
+  const [savedProgress, setSavedProgress] = useState<{ distance: number; startIndex: number } | null>(null);
 
   // 시작점과 끝점 설정
   useEffect(() => {
@@ -35,16 +38,19 @@ export const useTrackSimulation = ({
     if (!externalPath || externalPath.length === 0) return;
     if (!isSimulating) return;
 
-    const pausedCoord = pausedPosition;
-
-    // 일시정지된 위치에서 재시작할 경우 가장 가까운 인덱스 찾기
+    // 일시정지 후 재개 시 저장된 진행 상태에서 시작
     let startIndex = 0;
-    if (pausedCoord) {
+    let startDistance = 0;
+    if (savedProgress) {
+      startIndex = savedProgress.startIndex;
+      startDistance = savedProgress.distance;
+    } else if (pausedPosition) {
+      // 일시정지된 위치에서 재시작할 경우 가장 가까운 인덱스 찾기
       let minD = Infinity;
       externalPath.forEach((p, i) => {
         const d = Math.sqrt(
-          Math.pow((p.latitude - pausedCoord.latitude) * 111000, 2) +
-          Math.pow((p.longitude - pausedCoord.longitude) * 111000, 2)
+          Math.pow((p.latitude - pausedPosition.latitude) * 111000, 2) +
+          Math.pow((p.longitude - pausedPosition.longitude) * 111000, 2)
         );
         if (d < minD) {
           minD = d;
@@ -57,13 +63,16 @@ export const useTrackSimulation = ({
     const tools = createPathTools(simPath);
     const speedMps = paceToKmh(botPace.minutes, botPace.seconds) / 3.6; // m/s
 
-    setCurrentPosition(pausedCoord ?? simPath[0]);
-
+    // 진행 상태 복원
+    let initialDistance = startDistance;
+    setCurrentPosition(pausedPosition ?? simPath[0]);
     let startTime: number | null = null;
     animationFrameId.current = requestAnimationFrame(function animate(ts) {
       if (!startTime) startTime = ts;
       const elapsedSec = (ts - startTime) / 1000;
-      const dist = elapsedSec * speedMps;
+      const dist = initialDistance + elapsedSec * speedMps;
+
+      progressRef.current = { distance: dist, startIndex };
 
       if (dist >= tools.totalDistance) {
         setCurrentPosition(tools.getCoordinateAt(tools.totalDistance));
@@ -83,7 +92,22 @@ export const useTrackSimulation = ({
         animationFrameId.current = null;
       }
     };
-  }, [externalPath, botPace, isSimulating, pausedPosition]);
+  }, [externalPath, botPace, isSimulating, pausedPosition, savedProgress]);
+
+  // 일시정지 시 진행 상태 저장
+  const pauseSimulation = useCallback(() => {
+    setSavedProgress(progressRef.current);
+    if (animationFrameId.current) {
+      cancelAnimationFrame(animationFrameId.current);
+      animationFrameId.current = null;
+    }
+  }, []);
+
+  // 재개 시 진행 상태 복원
+  const resumeSimulation = useCallback(() => {
+    // savedProgress는 useEffect에서 자동으로 반영됨
+    // 여기서는 별도 동작 필요 없음
+  }, []);
 
   const stopSimulation = useCallback(() => {
     if (animationFrameId.current) {
@@ -91,6 +115,7 @@ export const useTrackSimulation = ({
       animationFrameId.current = null;
     }
     setCurrentPosition(null);
+    setSavedProgress(null);
   }, []);
 
   const resetSimulation = useCallback(() => {
@@ -98,6 +123,7 @@ export const useTrackSimulation = ({
     if (externalPath && externalPath.length > 0) {
       setCurrentPosition(externalPath[0]);
     }
+    setSavedProgress(null);
   }, [externalPath, stopSimulation]);
 
   return {
@@ -106,5 +132,7 @@ export const useTrackSimulation = ({
     endCoursePosition,
     stopSimulation,
     resetSimulation,
+    pauseSimulation,
+    resumeSimulation,
   };
 };
