@@ -18,7 +18,7 @@ export default function BackButton({ onPress }: BackButtonProps) {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: 50,
+    top: 10,
     left: 20,
     zIndex: 10,
     backgroundColor: 'rgba(255,255,255,0.8)',

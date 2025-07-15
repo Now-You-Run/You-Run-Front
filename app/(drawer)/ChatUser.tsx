@@ -62,7 +62,7 @@ const ChatUser = () => {
 
   const client = useRef<Client | null>(null);
   const flatListRef = useRef<FlatList<ChatMessage>>(null);
-  const typingTimeout = useRef<NodeJS.Timeout | null>(null);
+  const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const roomId =
     Number(myUserId) < Number(userId)

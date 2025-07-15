@@ -32,6 +32,25 @@ import AvatarCreator from '@/components/ReadyPlayerMe/AvatarCreator';
 import OutfitChanger from '@/components/ReadyPlayerMe/OutfitChanger';
 import { AvatarService } from '@/services/AvatarService';
 
+const SERVER_API_URL = process.env.EXPO_PUBLIC_SERVER_API_URL;
+const MY_USER_ID = 1; // 유저 1로 하드코딩
+
+const fetchUserName = async (userId: number) => {
+  try {
+    const response = await fetch(
+      `${SERVER_API_URL}/api/user?userId=${MY_USER_ID}`
+    );
+    if (!response.ok) {
+      throw new Error('네트워크 오류');
+    }
+    const json = await response.json();
+    return json.data.name as string;
+  } catch (error) {
+    console.error('유저 이름 불러오기 실패:', error);
+    return '이름 없음';
+  }
+};
+
 // Splash screen for font loading
 SplashScreen.preventAutoHideAsync();
 
@@ -113,7 +132,7 @@ export default function HomeScreen() {
     animationSources.sunny
   );
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [userName] = useState('나롱이');
+  const [userName, setUserName] = useState<string>(''); // 초기 공백
 
   // ReadyPlayerMe state
   const [showAvatarCreator, setShowAvatarCreator] = useState(false);
@@ -133,7 +152,6 @@ export default function HomeScreen() {
     'Karantina-Regular': require('@/assets/fonts/Karantina-Regular.ttf'),
     'Karantina-Bold': require('@/assets/fonts/Karantina-Bold.ttf'),
   });
-
 
   // Weather update logic
   const updateWeather = async () => {
@@ -195,28 +213,24 @@ export default function HomeScreen() {
   };
 
   const deleteAvatar = async (avatarId: string) => {
-    Alert.alert(
-      '아바타 삭제',
-      '정말로 이 아바타를 삭제하시겠습니까?',
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '삭제',
-          style: 'destructive',
-          onPress: async () => {
-            const success = await AvatarService.deleteAvatar(avatarId);
-            if (success) {
-              await loadAvatars();
+    Alert.alert('아바타 삭제', '정말로 이 아바타를 삭제하시겠습니까?', [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '삭제',
+        style: 'destructive',
+        onPress: async () => {
+          const success = await AvatarService.deleteAvatar(avatarId);
+          if (success) {
+            await loadAvatars();
 
-              if (selectedAvatar && selectedAvatar.id === avatarId) {
-                setSelectedAvatar(null);
-                setDefaultAvatar(null);
-              }
+            if (selectedAvatar && selectedAvatar.id === avatarId) {
+              setSelectedAvatar(null);
+              setDefaultAvatar(null);
             }
-          },
+          }
         },
-      ],
-    );
+      },
+    ]);
   };
 
   const renderAvatarItem = ({ item }: { item: Avatar }) => (
@@ -224,8 +238,8 @@ export default function HomeScreen() {
       style={[
         styles.avatarItem,
         selectedAvatar &&
-        selectedAvatar.id === item.id &&
-        styles.selectedAvatarItem,
+          selectedAvatar.id === item.id &&
+          styles.selectedAvatarItem,
       ]}
       onPress={() => selectAvatar(item)}
     >
@@ -262,6 +276,9 @@ export default function HomeScreen() {
       updateWeather();
       loadAvatars();
       loadDefaultAvatar();
+
+      // ✅ 유저 이름 불러오기 연동
+      fetchUserName(MY_USER_ID).then(setUserName);
     }
   }, [fontsLoaded]);
 
@@ -367,7 +384,7 @@ export default function HomeScreen() {
             <TouchableOpacity
               style={styles.modalContent}
               activeOpacity={1}
-              onPress={() => { }}
+              onPress={() => {}}
             >
               <Text style={styles.modalText}>{userName}님, 달려볼까요?</Text>
               <View style={styles.modalButtons}>
