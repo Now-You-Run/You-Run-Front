@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
-    paddingTop: 60,
+    paddingTop: 20,
     paddingHorizontal: 20,
   },
   headerContainer: {
@@ -520,8 +520,8 @@ const styles = StyleSheet.create({
   friendName: { fontSize: 16, fontWeight: '600', color: '#333' },
   friendLevelGrade: { fontSize: 12, color: '#555', marginTop: 2 },
   deleteButton: {
-    marginLeft: 'auto',
-    backgroundColor: '#fff',
+    marginLeft: 190,
+    backgroundColor: '#f0f0f0',
     borderRadius: 12,
     padding: 4,
     elevation: 3,
@@ -531,7 +531,7 @@ const styles = StyleSheet.create({
     shadowRadius: 1.41,
   },
   chatButton: {
-    marginLeft: 8,
+    marginLeft: 190,
     padding: 6,
     backgroundColor: '#f0f0f0',
     borderRadius: 20,

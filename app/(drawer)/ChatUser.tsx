@@ -294,7 +294,7 @@ const ChatUser = () => {
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            paddingTop: 30,
+            paddingTop: 0,
             paddingVertical: 20,
             borderBottomWidth: 1,
             borderColor: '#ccc',
