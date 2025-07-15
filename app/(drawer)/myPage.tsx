@@ -1,9 +1,10 @@
 // app/(drawer)/MyPage.tsx
 
 import { AuthAsyncStorage } from '@/repositories/AuthAsyncStorage'
+import { fetchUserProfile } from '@/repositories/UserRepository'
 import { useUserStore } from '@/stores/userStore'
 import { isAfter, parseISO, subDays } from 'date-fns'
-import { useRouter } from 'expo-router'
+import { SplashScreen, useFocusEffect, useRouter } from 'expo-router'
 import React, { useEffect, useState } from 'react'
 import {
   ActivityIndicator,
@@ -17,7 +18,7 @@ import {
   View
 } from 'react-native'
 
-const API_BASE = 'https://yourun.shop'
+const API_BASE = process.env.EXPO_PUBLIC_SERVER_API_URL
 
 // 화면 전용으로 사용하는 레코드 타입
 interface ScreenRecord {
@@ -48,8 +49,29 @@ export default function MyPageScreen() {
 
   const router = useRouter();
 
+  const [isLoading, setIsLoading] = useState(true);
+  const setProfile = useUserStore((state) => state.setProfile);
+  useEffect(() => {
+    async function loadDataAndSetup() {
+      try {
+        const userProfile = await fetchUserProfile();
+        if (userProfile) {
+          setProfile(userProfile);
+        }
+      } catch (e) {
+        console.warn('Failed to load user data:', e);
+      } finally {
+        setIsLoading(false);
+        SplashScreen.hideAsync();
+      }
+    }
+
+    loadDataAndSetup();
+  }, []);
+
   // user store에서 프로필 불러오기
   const user = useUserStore(state => state.profile);
+
 
   // 'track' vs 'free' 모드
   type Mode = 'track' | 'free'
@@ -66,7 +88,10 @@ export default function MyPageScreen() {
       const userIdNum = rawUserId
 
       // ─── 서버에서 BOT/MATCH 기록만 ─────────────────
-      const res = await fetch(`${API_BASE}/api/record?userId=${userIdNum}`)
+      const res = await fetch(`${API_BASE}/api/record?userId=${userIdNum}`, {
+        headers: { 'Cache-Control': 'no-cache' },
+        cache: 'no-store',
+      });
       if (!res.ok) throw new Error(`status ${res.status}`)
 
       // ① 서버 응답 파싱
@@ -102,10 +127,11 @@ export default function MyPageScreen() {
     }
   }
 
-  // 모드 변경 또는 마운트 시마다 재조회
-  useEffect(() => {
-    fetchRecords()
-  }, [mode])
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchRecords();
+    }, [mode])
+  );
 
   // ─── 이번 주 통계 ──────────────────────────────────────────
   const weekRecs = records.filter(r =>
@@ -196,7 +222,7 @@ export default function MyPageScreen() {
                       Lv.{user.level} · {user.grade} · {user.point}P
                     </Text>
                     <Text style={styles.userMeta}>
-                      총 거리: {(user.totalDistance/1000).toFixed(2)}km
+                      총 거리: {(user.totalDistance/1000).toFixed(3)}km
                     </Text>
                   </>
                 )}
