@@ -19,6 +19,7 @@ interface RunningMapProps {
   startPosition?: Coordinate | null;
   endPosition?: Coordinate | null;
   isSimulating?: boolean;
+  opponentGhost?: Coordinate | null;
   
   // 상위 컴포넌트와 통신하기 위한 콜백 함수
   onAvatarPositionUpdate: (coord: Coordinate, force?: boolean) => void;
@@ -39,7 +40,8 @@ export const RunningMap: React.FC<RunningMapProps> = React.memo(({
   endPosition,
   isSimulating,
   userLocation,
-  opponentLivePath
+  opponentLivePath,
+  opponentGhost
 }) => {
   const mapRef = useRef<MapView>(null);
   const insets = useSafeAreaInsets();
@@ -184,24 +186,26 @@ export const RunningMap: React.FC<RunningMapProps> = React.memo(({
 
         {/* 3. **상대 경로(빨간 실선)** */}
         {opponentLivePath && opponentLivePath.length > 0 && (
-          <>
-            <Polyline
-              coordinates={opponentLivePath}
-              strokeColor="#ff4444"
-              strokeWidth={4}
-              zIndex={8}
-            />
-            <Marker coordinate={opponentLivePath[opponentLivePath.length - 1]} anchor={{ x: 0.5, y: 1 }} zIndex={11}>
-              <View style={{ alignItems: 'center' }}>
-                <View style={{
-                  width: 16, height: 16,
-                  backgroundColor: '#ff4444',
-                  borderRadius: 8, borderWidth: 2, borderColor: '#fff'
-                }} />
-                <Text style={{ color: '#ff4444', fontWeight: 'bold', fontSize: 12, marginTop: 2 }}>상대</Text>
-              </View>
-            </Marker>
-          </>
+          <Polyline
+            coordinates={opponentLivePath}
+            strokeColor="#ff4444"
+            strokeWidth={4}
+            zIndex={8}
+          />
+        )}
+
+        {/* ✅ 상대방 고스트(마커) */}
+        {opponentGhost && (
+          <Marker coordinate={opponentGhost} anchor={{ x: 0.5, y: 1 }} zIndex={11}>
+            <View style={{ alignItems: 'center' }}>
+              <View style={{
+                width: 16, height: 16,
+                backgroundColor: '#ff4444',
+                borderRadius: 8, borderWidth: 2, borderColor: '#fff'
+              }} />
+              <Text style={{ color: '#ff4444', fontWeight: 'bold', fontSize: 12, marginTop: 2 }}>상대</Text>
+            </View>
+          </Marker>
         )}
 
         {/* ✅ 시작점 마커 */}

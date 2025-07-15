@@ -2,6 +2,42 @@
 
 import { Coordinate } from "@/types/TrackDto";
 
+// 경과 시간까지 실선과, 고스트(마커) 위치 동시에 계산
+export function getOpponentPathAndGhost(
+  opponentPath: any[],
+  elapsedTime: number
+): { livePath: Coordinate[]; ghost: Coordinate | null } {
+  if (!opponentPath || opponentPath.length === 0) {
+    return { livePath: [], ghost: null };
+  }
+  const target = elapsedTime * 1000; // ms
+
+  let idx = 0;
+  for (; idx < opponentPath.length; ++idx) {
+    if (opponentPath[idx].timestamp > target) break;
+  }
+
+  let livePath = opponentPath.slice(0, idx);
+  let ghost: Coordinate | null = null;
+
+  if (idx === 0) {
+    ghost = opponentPath[0];
+  } else if (idx < opponentPath.length) {
+    const prev = opponentPath[idx - 1];
+    const next = opponentPath[idx];
+    const t = (target - prev.timestamp) / (next.timestamp - prev.timestamp);
+    ghost = {
+      latitude: prev.latitude + (next.latitude - prev.latitude) * t,
+      longitude: prev.longitude + (next.longitude - prev.longitude) * t,
+    };
+    livePath = [...livePath, ghost]; // 실선 끝에 ghost도 포함해서 자연스럽게 이어지게!
+  } else {
+    ghost = opponentPath[opponentPath.length - 1];
+  }
+
+  return { livePath, ghost };
+}
+
 export const haversineDistance = (
   lat1: number,
   lon1: number,
