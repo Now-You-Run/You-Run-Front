@@ -1,7 +1,40 @@
 // /utils/runningUtils.ts
 
 import { Coordinate } from "@/types/TrackDto";
+export function getOpponentPathAndGhost(
+  opponentPath: any[],
+  elapsedTime: number
+): { livePath: Coordinate[]; ghost: Coordinate | null } {
+  if (!opponentPath || opponentPath.length === 0) {
+    return { livePath: [], ghost: null };
+  }
+  const target = elapsedTime * 1000; // ms
 
+  let idx = 0;
+  for (; idx < opponentPath.length; ++idx) {
+    if (opponentPath[idx].timestamp > target) break;
+  }
+
+  let livePath = opponentPath.slice(0, idx);
+  let ghost: Coordinate | null = null;
+
+  if (idx === 0) {
+    ghost = opponentPath[0];
+  } else if (idx < opponentPath.length) {
+    const prev = opponentPath[idx - 1];
+    const next = opponentPath[idx];
+    const t = (target - prev.timestamp) / (next.timestamp - prev.timestamp);
+    ghost = {
+      latitude: prev.latitude + (next.latitude - prev.latitude) * t,
+      longitude: prev.longitude + (next.longitude - prev.longitude) * t,
+    };
+    livePath = [...livePath, ghost]; // 실선 끝에 ghost도 포함해서 자연스럽게 이어지게!
+  } else {
+    ghost = opponentPath[opponentPath.length - 1];
+  }
+
+  return { livePath, ghost };
+}
 export const haversineDistance = (
   lat1: number,
   lon1: number,
@@ -63,7 +96,7 @@ export function paceToKmh(minutes: number, seconds: number): number {
   return totalMinutes === 0 ? 0 : 60 / totalMinutes;
 }
 
-export const formatDateTime = (date : Date) => {
+export const formatDateTime = (date: Date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0'); // 월은 0부터 시작하므로 +1
   const day = String(date.getDate()).padStart(2, '0');
@@ -117,36 +150,36 @@ export function smoothPath(
 }
 
 export function findPositionOnTrack(
-  targetCoord: Coordinate, 
+  targetCoord: Coordinate,
   trackPath: Coordinate[]
 ): { distance: number; closestIndex: number; progress: number } {
   if (!trackPath.length) return { distance: 0, closestIndex: 0, progress: 0 };
-  
+
   let minDistance = Infinity;
   let closestIndex = 0;
   let progressDistance = 0;
-  
+
   // 가장 가까운 트랙 지점 찾기
   for (let i = 0; i < trackPath.length; i++) {
     const distance = haversineDistance(
       targetCoord.latitude, targetCoord.longitude,
       trackPath[i].latitude, trackPath[i].longitude
     ) * 1000; // 미터 단위
-    
+
     if (distance < minDistance) {
       minDistance = distance;
       closestIndex = i;
     }
   }
-  
+
   // 해당 지점까지의 진행 거리 계산
   for (let i = 1; i <= closestIndex; i++) {
     progressDistance += haversineDistance(
-      trackPath[i-1].latitude, trackPath[i-1].longitude,
+      trackPath[i - 1].latitude, trackPath[i - 1].longitude,
       trackPath[i].latitude, trackPath[i].longitude
     ) * 1000; // 미터 단위
   }
-  
+
   return {
     distance: minDistance,
     closestIndex,
@@ -162,16 +195,16 @@ export function calculateTrackDistance(
   if (!botPosition || !userPosition || !trackPath.length) {
     return { distanceMeters: 0, isAhead: false, botProgress: 0, userProgress: 0 };
   }
-  
+
   // 봇의 트랙 상 위치 및 진행 거리
   const botOnTrack = findPositionOnTrack(botPosition, trackPath);
-  
+
   // 사용자의 트랙 상 위치 및 진행 거리  
   const userOnTrack = findPositionOnTrack(userPosition, trackPath);
-  
+
   // 트랙 상에서의 진행 거리 차이 계산
   const progressDifference = botOnTrack.progress - userOnTrack.progress;
-  
+
   return {
     distanceMeters: Math.abs(progressDifference),
     isAhead: progressDifference > 0, // 봇이 앞서고 있는지

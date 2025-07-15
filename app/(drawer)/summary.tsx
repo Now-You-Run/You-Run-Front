@@ -119,6 +119,48 @@ export default function SummaryScreen() {
     });
     setIsCalculating(false);
   }, [userProfile]);
+  // 테스트 코드 시작
+  const setProfile = useUserStore((state) => state.setProfile);
+
+  useEffect(() => {
+    // 아이언 마지막 레벨(9), 누적 거리 17999m로 세팅 (1m만 더 달리면 브론즈)
+    setProfile({
+      username: '테스트유저',
+      level: 9, // 아이언 마지막 레벨
+      grade: '아이언', // displayName과 정확히 일치해야 함!
+      point: 0,
+      totalDistance: 17999, // 1m만 더 달리면 브론즈 진입
+      // 필요한 필드 추가
+    });
+
+    // UserGrades와 getGradeByLevel 동작 점검
+    console.log('UserGrades:', UserGrades);
+    console.log('getGradeByLevel(9):', calculationService.grade.getGradeByLevel(9));
+    console.log('getGradeByLevel(10):', calculationService.grade.getGradeByLevel(10));
+    console.log('getGradeByLevel(19):', calculationService.grade.getGradeByLevel(19));
+    console.log('getGradeByLevel(20):', calculationService.grade.getGradeByLevel(20));
+  }, []);
+
+  useEffect(() => {
+    if (!userProfile) return;
+    const distanceMeters = totalDistanceKm * 1000;
+    const prevLevel = userProfile.level;
+    const prevGrade = calculationService.grade.getGradeByLevel(prevLevel);
+    const newLevel = calculationService.level.calculateNewLevel(userProfile.totalDistance + distanceMeters, distanceMeters);
+    const newGrade = calculationService.grade.getGradeByLevel(newLevel);
+    const prevRank = getGradeRank(prevGrade);
+    const newRank = getGradeRank(newGrade);
+
+    console.log('==== 등급업 테스트 진단 ====');
+    console.log('userProfile.level:', prevLevel);
+    console.log('userProfile.totalDistance:', userProfile.totalDistance);
+    console.log('이번 러닝 거리:', distanceMeters);
+    console.log('prevGrade:', prevGrade, 'newGrade:', newGrade);
+    console.log('prevRank:', prevRank, 'newRank:', newRank);
+    console.log('didGradeUp:', newRank > prevRank);
+    console.log('===========================');
+  }, [userProfile, totalDistanceKm]);
+// 테스트 코드 끝
 
   // --- 기존 저장 관련 핸들러들 (변경 없음) ---
   // 트랙모드(봇) OR 자유모드에 따라 저장 분기

@@ -14,7 +14,7 @@ import { RunningStats } from '@/components/running/RunningStats';
 import { useRunning } from '@/context/RunningContext';
 import { loadTrackInfo, TrackInfo } from '@/repositories/appStorage';
 import { Coordinate } from '@/types/TrackDto';
-import { calculateTotalDistance, haversineDistance, smoothPath } from '@/utils/RunningUtils';
+import { calculateTotalDistance, getOpponentPathAndGhost, haversineDistance, smoothPath } from '@/utils/RunningUtils';
 import { Region } from 'react-native-maps';
 
 interface SummaryData {
@@ -29,10 +29,9 @@ const START_BUFFER_METERS = 10;
 
 export default function MatchRunningScreen() {
 
-    console.log('🟩 MatchRunningScreen 마운트!');
   const router = useRouter();
   const navigation = useNavigation();
-  const { trackId, recordId } = useLocalSearchParams<{ trackId?: string; recordId?: string }>();
+  const { trackId, recordId, trackInfo: trackInfoParam } = useLocalSearchParams<{ trackId?: string; recordId?: string; trackInfo?: string }>();
 
   // --- State Management ---
   const [trackInfo, setTrackInfo] = useState<TrackInfo | null>(null);
@@ -52,53 +51,82 @@ export default function MatchRunningScreen() {
   const {
     isActive, elapsedTime, path, currentSpeed, startRunning, pauseRunning,
     resumeRunning, stopRunning, resetRunning, userLocation,
+    startLocationTracking, stopLocationTracking, setUserLocation
   } = useRunning();
+
+  // 3. 컴포넌트 마운트시 "무조건" 위치 구독을 시작하도록 추가
+useEffect(() => {
+  // ✅ 러닝 시작 전에도 내 위치를 지도에서 계속 실시간으로 보이게!
+  if (startLocationTracking && stopLocationTracking) {
+    startLocationTracking(); // 위치 추적 시작
+    return () => {
+      stopLocationTracking(); // 언마운트 시 안전하게 정지
+    };
+  }
+}, [startLocationTracking, stopLocationTracking]);
+// 4. userLocation이 없으면 최초에 한 번 받아서 지도에 내 위치 바로 찍히게
+useEffect(() => {
+  // ✅ 최초 진입시 내 위치 즉시 세팅 (지도의 초기 중심점 표시 등)
+  if (!userLocation && setUserLocation) {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        setUserLocation({
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+          timestamp: Date.now(),
+        });
+      }
+    })();
+  }
+}, [userLocation, setUserLocation]);
 
   const isPaused = !isActive && elapsedTime > 0;
 
+  // --- 상대방 경로 관리 ---
   const [opponentPath, setOpponentPath] = useState<Coordinate[]>([]);
-  const [opponentDrawPath, setOpponentDrawPath] = useState<Coordinate[]>([]);
 
+  // --- 상대방 기록 불러오기 ---
   useEffect(() => {
-  console.log('---------------start useEffect-----------------');
-  console.log('🎯 recordId:', recordId);
-  if (!recordId) return;
-  axios.get(`https://yourun.shop/api/record/${recordId}`).then(res => {
-    console.log('상대방 기록(userPath):', res.data.data.userPath);
-    const path = res.data.data.userPath.map((point: any) => ({
-      latitude: point.latitude || point.Latitude,
-      longitude: point.longitude || point.Longitude,
-    }));
-    setOpponentPath(path);
-  })
-  .catch(err => {
-      console.log('🔥🔥 axios 에러:', err); // <<<<<<<<<<<<<< 이거!
+    if (!recordId) return;
+    axios.get(`https://yourun.shop/api/record/${recordId}`).then(res => {
+      const userPath = res.data.data.userPath;
+      const baseTime = userPath[0]?.timestamp ?? 0;
+      const path = res.data.data.userPath.map((point: any) => ({
+        latitude: point.latitude || point.Latitude,
+        longitude: point.longitude || point.Longitude,
+        timestamp: point.timestamp - baseTime,
+      }));
+      setOpponentPath(path);
+    }).catch(err => {
+      console.log('🔥🔥 axios 에러:', err);
     });
-}, [recordId]);
+  }, [recordId]);
 
-// 2. 내 경로가 늘어날 때마다, 상대 경로도 똑같이 늘림 (내가 7번째 찍으면 상대도 7번째까지 그림)
-useEffect(() => {
-  if (!isActive || opponentPath.length === 0 || opponentPath.length === 0) {
-    setOpponentDrawPath([]);
-    return;
-  }
-  setOpponentDrawPath(opponentPath.slice(0, path.length));
-}, [isActive, path, opponentPath]);
+  // --- 상대 실선+고스트 (경과시간 기준) ---
+  const { livePath: opponentLivePath, ghost: opponentGhost } = React.useMemo(() => {
+    return getOpponentPathAndGhost(opponentPath, elapsedTime ?? 0);
+  }, [opponentPath, elapsedTime]);
 
-  // --- 트랙 정보 불러오기 ---
+  // trackInfoParam이 있으면 우선 사용, 없으면 서버 fetch
   useEffect(() => {
-    if (trackId) {
+    if (trackInfoParam) {
+      try {
+        const parsed = JSON.parse(trackInfoParam);
+        setTrackInfo(parsed);
+      } catch (e) {
+        setTrackInfo(null);
+      }
+    } else if (trackId) {
       loadTrackInfo(trackId)
         .then(info => {
           if (info) setTrackInfo(info);
-          else setTrackError('트랙 정보를 찾을 수 없습니다.');
+          else setTrackInfo(null);
         })
-        .catch(err => {
-          console.error("트랙 로딩 실패:", err);
-          setTrackError('트랙 정보를 불러오는 중 오류가 발생했습니다.');
-        });
+        .catch(() => setTrackInfo(null));
     }
-  }, [trackId]);
+  }, [trackId, trackInfoParam]);
 
   // --- 지도 region 초기화 ---
   useEffect(() => {
@@ -251,15 +279,16 @@ useEffect(() => {
 
       {/* 지도/러닝 경로 */}
       <RunningMap
-        path={smoothPath(path, 5)}
+        path={trackInfo?.path ? trackInfo.path : smoothPath(path, 5)}
         isActive={isActive}
         initialRegion={mapRegion}
         userLocation={userLocation}
         externalPath={trackInfo?.path}
-        opponentLivePath={opponentDrawPath} // 상대 실시간 경로
+        opponentLivePath={opponentLivePath} // 상대 실시간 경로
         startPosition={trackInfo?.path?.[0]}
         endPosition={trackInfo?.path?.[trackInfo?.path.length - 1]}
         onAvatarPositionUpdate={() => {}}
+        opponentGhost={opponentGhost}
       />
 
       {/* 하단 오버레이 */}

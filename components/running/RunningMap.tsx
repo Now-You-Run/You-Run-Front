@@ -21,7 +21,8 @@ interface RunningMapProps {
   startPosition?: Coordinate | null;
   endPosition?: Coordinate | null;
   isSimulating?: boolean;
-  
+  opponentGhost?: Coordinate | null;
+
   // 상위 컴포넌트와 통신하기 위한 콜백 함수
   onAvatarPositionUpdate: (coord: Coordinate, force?: boolean) => void;
   onMapReady?: (mapRef: MapView | null) => void;
@@ -42,17 +43,18 @@ export const RunningMap: React.FC<RunningMapProps> = React.memo(({
   endPosition,
   isSimulating,
   userLocation,
-  opponentLivePath
+  opponentLivePath,
+  opponentGhost
 }) => {
   const mapRef = useRef<MapView>(null);
   const insets = useSafeAreaInsets();
   const lastUpdateRef = useRef<number>(0);
-  
+
   // ✅ 카메라 자동 추적 제어
   const [autoCenter, setAutoCenter] = useState(true);
   const CAMERA_UPDATE_THRESHOLD_M = 20;  // 20m 이상 이동 시만 카메라 이동
   const CAMERA_UPDATE_INTERVAL = 3000;   // 3초에 한 번만 업데이트
-  
+
   const lastCameraUpdateRef = useRef(Date.now());
   const lastCameraCoordRef = useRef<Coordinate | null>(null);
   const lastHeadingRef = useRef<number | undefined>(undefined);
@@ -123,13 +125,13 @@ export const RunningMap: React.FC<RunningMapProps> = React.memo(({
   // 내 위치 버튼 핸들러
   const handleMyLocationPress = useCallback(() => {
     if (path.length === 0) return;
-    
+
     const lastCoord = path[path.length - 1];
     mapRef.current?.animateCamera({
       center: lastCoord,
       zoom: 17,
     }, { duration: 500 });
-    
+
     // 아바타 위치 강제 업데이트
     setTimeout(() => {
       onAvatarPositionUpdate(lastCoord, true);
@@ -168,13 +170,13 @@ export const RunningMap: React.FC<RunningMapProps> = React.memo(({
       >
         {/* ✅ 사용자 GPS 마커 (파란색 점) */}
         {userLocation && (
-          <Marker 
+          <Marker
             coordinate={userLocation}
             anchor={{ x: 0.5, y: 0.5 }}
             zIndex={10}
           >
             <View style={{ alignItems: 'center' }}>
-            <View style={styles.userMarker} />
+              <View style={styles.userMarker} />
               <Text style={{ color: '#007aff', fontWeight: 'bold', fontSize: 12, marginTop: 2 }}>나</Text>
             </View>
           </Marker>
@@ -223,6 +225,19 @@ export const RunningMap: React.FC<RunningMapProps> = React.memo(({
           </>
         )}
 
+        {opponentGhost && (
+          <Marker coordinate={opponentGhost} anchor={{ x: 0.5, y: 1 }} zIndex={11}>
+            <View style={{ alignItems: 'center' }}>
+              <View style={{
+                width: 16, height: 16,
+                backgroundColor: '#ff4444',
+                borderRadius: 8, borderWidth: 2, borderColor: '#fff'
+              }} />
+              <Text style={{ color: '#ff4444', fontWeight: 'bold', fontSize: 12, marginTop: 2 }}>상대</Text>
+            </View>
+          </Marker>
+        )}
+
         {/* ✅ 시작점 마커 */}
         {startPosition && (
           <Marker
@@ -255,7 +270,7 @@ export const RunningMap: React.FC<RunningMapProps> = React.memo(({
 
         {/* ✅ 봇 마커 (빨간색 점) */}
         {botPosition && (
-          <Marker 
+          <Marker
             coordinate={botPosition}
             anchor={{ x: 0.5, y: 0.5 }}
             zIndex={9}

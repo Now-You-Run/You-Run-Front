@@ -138,16 +138,14 @@ export const useRunningLogic = (
       isActive &&
       botDistanceMeters >= 0
     ) {
-      // 100m 단위로 안내
-      const currentStep = Math.floor(botDistanceMeters / 100);
+      // 100m 단위로 안내 (경계 근처에서 한 번만 안내)
+      const currentStep = Math.round(botDistanceMeters / 100);
+      const targetMeter = currentStep * 100;
       const aheadText = isAhead ? '봇이 앞서고 있습니다.' : '당신이 앞서고 있습니다.';
-      // 최초 한 번도 안내
-      if (lastBotAnnounceStep.current === null) {
-        Speech.speak(
-          `봇과의 거리는 약 ${Math.round(botDistanceMeters)}미터. ${aheadText}`
-        );
-        lastBotAnnounceStep.current = currentStep;
-      } else if (currentStep !== lastBotAnnounceStep.current) {
+      if (
+        lastBotAnnounceStep.current === null ||
+        (Math.abs(botDistanceMeters - targetMeter) < 5 && currentStep !== lastBotAnnounceStep.current)
+      ) {
         Speech.speak(
           `봇과의 거리는 약 ${Math.round(botDistanceMeters)}미터. ${aheadText}`
         );
