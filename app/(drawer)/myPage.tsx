@@ -15,38 +15,37 @@ import {
   SafeAreaView,
   StyleSheet,
   Text,
-  View
-} from 'react-native'
+  View,
+} from 'react-native';
 
 const API_BASE = process.env.EXPO_PUBLIC_SERVER_API_URL
 
 // 화면 전용으로 사용하는 레코드 타입
 interface ScreenRecord {
-  id: number
-  userId: number
-  mode: 'BOT' | 'MATCH' | 'FREE'
-  trackId: number
-  trackName?: string
-  opponentId: number | null
-  isWinner: boolean
-  startedAt: string
-  finishedAt: string
-  resultTime: number
-  distance: number
-  averagePace: number
+  id: number;
+  userId: number;
+  mode: 'BOT' | 'MATCH' | 'FREE';
+  trackId: number;
+  trackName?: string;
+  opponentId: number | null;
+  isWinner: boolean;
+  startedAt: string;
+  finishedAt: string;
+  resultTime: number;
+  distance: number;
+  averagePace: number;
 }
 
-type Stat = { label: string; value: string }
+type Stat = { label: string; value: string };
 type RecentRun = {
-  recordId: string
-  date: string
-  trackName?: string
-  distanceKm: number
-  timeSec: number
-}
+  recordId: string;
+  date: string;
+  trackName?: string;
+  distanceKm: number;
+  timeSec: number;
+};
 
 export default function MyPageScreen() {
-
   const router = useRouter();
 
   const [isLoading, setIsLoading] = useState(true);
@@ -70,24 +69,23 @@ export default function MyPageScreen() {
   }, []);
 
   // user store에서 프로필 불러오기
-  const user = useUserStore(state => state.profile);
+  const user = useUserStore((state) => state.profile);
 
 
   // 'track' vs 'free' 모드
-  type Mode = 'track' | 'free'
-  const [mode, setMode] = useState<Mode>('track')
+  type Mode = 'track' | 'free';
+  const [mode, setMode] = useState<Mode>('track');
 
-  const [records, setRecords] = useState<ScreenRecord[]>([])
-  const [loading, setLoading] = useState(false)
+  const [records, setRecords] = useState<ScreenRecord[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const fetchRecords = async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const rawUserId = await AuthAsyncStorage.getUserId()
-      if (!rawUserId) throw new Error('로그인 정보가 없습니다.')
-      const userIdNum = rawUserId
+      const rawUserId = await AuthAsyncStorage.getUserId();
+      if (!rawUserId) throw new Error('로그인 정보가 없습니다.');
+      const userIdNum = rawUserId;
 
-      // ─── 서버에서 BOT/MATCH 기록만 ─────────────────
       const res = await fetch(`${API_BASE}/api/record?userId=${userIdNum}`, {
         headers: { 'Cache-Control': 'no-cache' },
         cache: 'no-store',
@@ -97,35 +95,38 @@ export default function MyPageScreen() {
       // ① 서버 응답 파싱
       const json = (await res.json()) as {
         data: Array<{
-          trackInfoDto:{name: string},
-          record: ScreenRecord
-        }>
-      }
+          trackInfoDto: { name: string };
+          record: ScreenRecord;
+        }>;
+      };
 
       // ② record 객체만 꺼내서 BOT/MATCH 필터링
-      let serverRecs = json.data.map(item => ({
-            ...item.record,
-            trackName: item.trackInfoDto?.name,
-      }))
+      let serverRecs = json.data.map((item) => ({
+        ...item.record,
+        trackName: item.trackInfoDto?.name,
+      }));
 
       if (mode === 'track') {
-        serverRecs = serverRecs.filter(r => r.mode === 'BOT' || r.mode === 'MATCH')
+        serverRecs = serverRecs.filter(
+          (r) => r.mode === 'BOT' || r.mode === 'MATCH'
+        );
       } else {
-        serverRecs = serverRecs.filter(r => r.mode === 'FREE')
+        serverRecs = serverRecs.filter((r) => r.mode === 'FREE');
       }
 
       setRecords(
         serverRecs.sort(
-          (a, b) => new Date(b.finishedAt).getTime() - new Date(a.finishedAt).getTime()
+          (a, b) =>
+            new Date(b.finishedAt).getTime() - new Date(a.finishedAt).getTime()
         )
-      )
+      );
     } catch (e: any) {
-      console.warn(e)
-      Alert.alert('불러오기 실패', e.message)
+      console.warn(e);
+      Alert.alert('불러오기 실패', e.message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useFocusEffect(
     React.useCallback(() => {
@@ -134,15 +135,18 @@ export default function MyPageScreen() {
   );
 
   // ─── 이번 주 통계 ──────────────────────────────────────────
-  const weekRecs = records.filter(r =>
+  const weekRecs = records.filter((r) =>
     isAfter(parseISO(r.finishedAt), subDays(new Date(), 7))
-  )
-  const weeklyDistance = weekRecs.reduce((sum, r) => sum + r.distance / 1000, 0)
-  const runCount = weekRecs.length
+  );
+  const weeklyDistance = weekRecs.reduce(
+    (sum, r) => sum + r.distance / 1000,
+    0
+  );
+  const runCount = weekRecs.length;
   const avgPaceSec =
     runCount > 0
       ? weekRecs.reduce((sum, r) => sum + r.averagePace, 0) / runCount
-      : 0
+      : 0;
 
   const stats: Stat[] = [
     {
@@ -156,28 +160,28 @@ export default function MyPageScreen() {
     },
     { label: '달린 거리', value: `${weeklyDistance.toFixed(2)}km` },
     { label: '횟수', value: `${runCount}회` },
-  ]
+  ];
 
   // ─── 최근 달리기 리스트 ────────────────────────────────────
-  const recent: RecentRun[] = weekRecs.map(r => ({
+  const recent: RecentRun[] = weekRecs.map((r) => ({
     recordId: String(r.id),
     date: new Date(r.finishedAt).toLocaleDateString(),
-    trackName : r.trackName,
+    trackName: r.trackName,
     distanceKm: r.distance / 1000,
     timeSec: r.resultTime,
-  }))
+  }));
 
-  const windowWidth = Dimensions.get('window').width
-  const statItemWidth = (windowWidth - 32 - 16) / 3
+  const windowWidth = Dimensions.get('window').width;
+  const statItemWidth = (windowWidth - 32 - 16) / 3;
 
   const renderRecent = ({ item }: { item: RecentRun }) => {
-    const m = Math.floor(item.timeSec / 60)
-    const s = String(Math.round(item.timeSec % 60)).padStart(2, '0')
+    const m = Math.floor(item.timeSec / 60);
+    const s = String(Math.round(item.timeSec % 60)).padStart(2, '0');
     return (
       <Pressable
         style={styles.matchRow}
         onPress={() => router.push(`/record/${item.recordId}`)}
-        >
+      >
         <Text style={styles.matchText}>
           {item.date}
           {item.trackName ? ` · ${item.trackName}` : ''}
@@ -187,22 +191,25 @@ export default function MyPageScreen() {
           {m}분{s}초
         </Text>
       </Pressable>
-    )
-  }
+    );
+  };
 
-   return (
+  return (
     <SafeAreaView style={styles.flex}>
+      <BackButton onPress={() => router.back()} />
       {/* ─── 새로고침 버튼 ─────────────────────── */}
       <View style={{ alignItems: 'flex-end', padding: 16 }}>
         <Pressable onPress={fetchRecords} style={styles.refreshButton}>
-          <Text style={styles.refreshText}>{loading ? '로딩 중…' : '다시 불러오기'}</Text>
+          <Text style={styles.refreshText}>
+            {loading ? '로딩 중…' : '다시 불러오기'}
+          </Text>
         </Pressable>
       </View>
 
       {/* ─── 리스트 ─────────────────────────────── */}
       <FlatList
         data={recent}
-        keyExtractor={item => `${item.recordId}-${item.date}-${item.timeSec}`}
+        keyExtractor={(item) => `${item.recordId}-${item.date}-${item.timeSec}`}
         contentContainerStyle={styles.container}
         ListHeaderComponent={() => (
           <>
@@ -211,9 +218,11 @@ export default function MyPageScreen() {
               <View>
                 {/* 👇 실제 유저 정보로 표시 */}
                 {!user ? (
-                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <ActivityIndicator size="small" />
-                    <Text style={{marginLeft: 10, color: '#aaa'}}>유저 정보를 불러오는 중…</Text>
+                    <Text style={{ marginLeft: 10, color: '#aaa' }}>
+                      유저 정보를 불러오는 중…
+                    </Text>
                   </View>
                 ) : (
                   <>
@@ -233,8 +242,11 @@ export default function MyPageScreen() {
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>이번 주</Text>
               <View style={styles.statRow}>
-                {stats.map(s => (
-                  <View key={s.label} style={[styles.statItem, { width: statItemWidth }]}>
+                {stats.map((s) => (
+                  <View
+                    key={s.label}
+                    style={[styles.statItem, { width: statItemWidth }]}
+                  >
                     <Text style={styles.statValue}>{s.value}</Text>
                     <Text style={styles.statLabel}>{s.label}</Text>
                   </View>
@@ -242,50 +254,50 @@ export default function MyPageScreen() {
               </View>
             </View>
 
- {/* ─── 리스트 제목 + 작은 탭 ──────────────────────────── */}
-      <View style={styles.titleWithTabs}>
-        <Text style={styles.sectionTitle}>
-          {mode === 'track'
-            ? '최근 트랙 모드 기록'
-            : '최근 자유 모드 기록'}
-        </Text>
-        <View style={styles.smallTabRow}>
-          <Pressable
-            style={[
-              styles.smallTabButton,
-              mode === 'track' && styles.smallTabButtonActive
-            ]}
-            onPress={() => setMode('track')}
-          >
-            <Text
-              style={[
-                styles.smallTabText,
-                mode === 'track' && styles.smallTabTextActive
-              ]}
-            >
-              트랙
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[
-              styles.smallTabButton,
-              mode === 'free' && styles.smallTabButtonActive
-            ]}
-            onPress={() => setMode('free')}
-          >
-            <Text
-              style={[
-                styles.smallTabText,
-                mode === 'free' && styles.smallTabTextActive
-              ]}
-            >
-              자유
-            </Text>
-          </Pressable>
-        </View>
-      </View>
-    </>
-  )}
+            {/* ─── 리스트 제목 + 작은 탭 ──────────────────────────── */}
+            <View style={styles.titleWithTabs}>
+              <Text style={styles.sectionTitle}>
+                {mode === 'track'
+                  ? '최근 트랙 모드 기록'
+                  : '최근 자유 모드 기록'}
+              </Text>
+              <View style={styles.smallTabRow}>
+                <Pressable
+                  style={[
+                    styles.smallTabButton,
+                    mode === 'track' && styles.smallTabButtonActive,
+                  ]}
+                  onPress={() => setMode('track')}
+                >
+                  <Text
+                    style={[
+                      styles.smallTabText,
+                      mode === 'track' && styles.smallTabTextActive,
+                    ]}
+                  >
+                    트랙
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[
+                    styles.smallTabButton,
+                    mode === 'free' && styles.smallTabButtonActive,
+                  ]}
+                  onPress={() => setMode('free')}
+                >
+                  <Text
+                    style={[
+                      styles.smallTabText,
+                      mode === 'free' && styles.smallTabTextActive,
+                    ]}
+                  >
+                    자유
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          </>
+        )}
         ListEmptyComponent={() => (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>최근 기록이 없습니다.</Text>
@@ -295,7 +307,7 @@ export default function MyPageScreen() {
         ItemSeparatorComponent={() => <View style={styles.separator} />}
       />
     </SafeAreaView>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -349,7 +361,11 @@ const styles = StyleSheet.create({
   statItem: { alignItems: 'center' },
   statValue: { fontSize: 20, fontWeight: 'bold' },
   statLabel: { marginTop: 4, fontSize: 12, color: '#666' },
-  matchRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12 },
+  matchRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+  },
   matchText: { fontSize: 16 },
   matchResult: { fontSize: 16, fontWeight: '600' },
   separator: { height: 1, backgroundColor: '#eee' },
@@ -360,7 +376,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
-    paddingHorizontal: 16,  // sectionTitle 과 동일한 패딩
+    paddingHorizontal: 16, // sectionTitle 과 동일한 패딩
   },
   smallTabRow: {
     flexDirection: 'row',
@@ -383,4 +399,4 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
   },
-})
+});

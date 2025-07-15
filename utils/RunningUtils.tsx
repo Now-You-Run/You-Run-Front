@@ -32,7 +32,6 @@ export function getOpponentPathAndGhost(
   } else {
     ghost = opponentPath[opponentPath.length - 1];
   }
-
   return { livePath, ghost };
 }
 export const haversineDistance = (

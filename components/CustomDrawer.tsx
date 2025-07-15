@@ -21,7 +21,7 @@ export default function CustomDrawer({ closeMenu }: CustomDrawerProps) {
     <Pressable style={styles.overlay} onPress={closeMenu}>
       <View style={[styles.drawerContainer, { paddingTop: insets.top }]}>
         <View style={styles.profileSection}>
-          <Text style={styles.profileText}>사용자 이름</Text>
+          <Text style={styles.profileText}>메뉴</Text>
         </View>
 
         {/* 이제 navigateTo에 전달하는 경로에 오타가 있으면 타입스크립트가 오류를 알려줍니다. */}
@@ -41,35 +41,23 @@ export default function CustomDrawer({ closeMenu }: CustomDrawerProps) {
 
         <Pressable
           style={styles.menuItem}
-          onPress={() => navigateTo('/(drawer)/RankingScreen')}
-        >
-          <Text style={styles.menuText}>ranking screen</Text>
-        </Pressable>
-        <Pressable
-          style={styles.menuItem}
           onPress={() => navigateTo('/(drawer)/myPage')}
         >
-          <Text style={styles.menuText}>마이페이지</Text>
-        </Pressable>
-        <Pressable
-          style={styles.menuItem}
-          onPress={() => navigateTo('/(drawer)/Simul')}
-        >
-          <Text style={styles.menuText}>러닝 시뮬 테스트</Text>
+          <Text style={styles.menuText}>📄 마이페이지</Text>
         </Pressable>
 
         <Pressable
           style={styles.menuItem}
           onPress={() => navigateTo('/(drawer)/Social')}
         >
-          <Text style={styles.menuText}>친구</Text>
+          <Text style={styles.menuText}>👤 친구</Text>
         </Pressable>
 
         <Pressable
           style={styles.menuItem}
           onPress={() => navigateTo('/(drawer)/AvatarShop')}
         >
-          <Text style={styles.menuText}>상점</Text>
+          <Text style={styles.menuText}>🏬 상점</Text>
         </Pressable>
 
         <Pressable
