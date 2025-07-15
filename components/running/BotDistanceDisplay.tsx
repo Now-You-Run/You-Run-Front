@@ -6,14 +6,16 @@ interface BotDistanceDisplayProps {
   isAhead: boolean;
   userProgress: number;
   totalDistance: number;
+  isOffCourse?: boolean;
 }
 
-export const BotDistanceDisplay: React.FC<BotDistanceDisplayProps> = ({
+export const BotDistanceDisplay = React.memo(function BotDistanceDisplay({
   distanceMeters,
   isAhead,
   userProgress,
-  totalDistance
-}) => {
+  totalDistance,
+  isOffCourse = false,
+}: BotDistanceDisplayProps) {
   const progressPercentage = totalDistance > 0 ? (userProgress / totalDistance) * 100 : 0;
   
   // ✅ 타입 안전한 width 계산
@@ -21,6 +23,12 @@ export const BotDistanceDisplay: React.FC<BotDistanceDisplayProps> = ({
 
   return (
     <View style={styles.container}>
+      {/* 경로 이탈 경고 */}
+      {isOffCourse && (
+        <View style={styles.offCourseBanner}>
+          <Text style={styles.offCourseText}>트랙 이탈! 복귀 후 러닝이 재개됩니다.</Text>
+        </View>
+      )}
       {/* 봇과의 거리 */}
       <View style={styles.botDistanceRow}>
         <Text style={styles.botDistanceLabel}>
@@ -50,7 +58,7 @@ export const BotDistanceDisplay: React.FC<BotDistanceDisplayProps> = ({
       </View>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -94,5 +102,17 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#007aff',
     borderRadius: 3,
+  },
+  offCourseBanner: {
+    backgroundColor: '#ff4444',
+    padding: 6,
+    borderRadius: 6,
+    marginBottom: 8,
+  },
+  offCourseText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 14,
+    textAlign: 'center',
   },
 });

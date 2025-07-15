@@ -185,6 +185,28 @@ const FacePaceScreen: React.FC<FacePaceScreenProps> = () => {
         </View>
       </View>
 
+      {/* 난이도 프리셋 버튼 */}
+      <View style={styles.levelPresetContainer}>
+        <TouchableOpacity
+          style={[styles.levelButton, { backgroundColor: '#e0f7fa' }]}
+          onPress={() => { setMinutes(10); setSeconds(0); }}
+        >
+          <Text style={styles.levelButtonText}>초급자 (10분)</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.levelButton, { backgroundColor: '#ffe0b2' }]}
+          onPress={() => { setMinutes(7); setSeconds(0); }}
+        >
+          <Text style={styles.levelButtonText}>중급자 (7분)</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.levelButton, { backgroundColor: '#ffcdd2' }]}
+          onPress={() => { setMinutes(5); setSeconds(0); }}
+        >
+          <Text style={styles.levelButtonText}>고급자 (5분)</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Selected Time Display */}
       <View style={styles.selectedTimeContainer}>
         <Text style={styles.selectedTimeText}>
@@ -205,156 +227,164 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
-    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingHorizontal: 16,
   },
   header: {
+    width: '100%',
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 10,
-    paddingBottom: 20,
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    marginTop: 10,
+    marginBottom: 10,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 15,
+    padding: 8,
   },
   backButtonIcon: {
-    width: 24,
-    height: 24,
+    width: 32,
+    height: 32,
   },
   helpButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#ff4444',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 20,
+    padding: 8,
+    borderRadius: 16,
+    backgroundColor: '#ffebee',
   },
   helpButtonText: {
-    color: '#fff',
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: 'bold',
-  },
-  messageContainer: {
-    alignItems: 'center',
-    marginBottom: 30,
-    position: 'relative',
-  },
-  initialMessageOverlay: {
-   position: 'absolute',
-    bottom: 100,
-    backgroundColor: '#E9E9E9', 
-    opacity: 0.9,
-    paddingTop: 15,
-    paddingHorizontal: 20,
-    borderRadius: 25,
-    width: 320,
-    height: 180,
-    zIndex: 10,
-    alignSelf: 'center',
-  },
-  initialMessageText: {
-    fontFamily: 'System',
-    fontSize: 27,
-    color: '#333', // 진한 분홍색 텍스트
-    textAlign: 'center',
-    lineHeight: 40,
-    fontWeight: 'bold',
-    paddingTop:35,
-  },
-  // 🎨 도움말 메시지 스타일
-  helpMessageOverlay: {
-    position: 'absolute',
-    bottom: 100,
-    backgroundColor: '#E9E9E9', 
-    opacity: 0.9,
-    paddingTop: 15,
-    paddingHorizontal: 20,
-    borderRadius: 25,
-    width: 320,
-    height: 180,
-    zIndex: 10,
-    alignSelf: 'center',
-  },
-  helpMessageText: {
-    fontFamily: 'System',
-    fontSize: 19,
-    color: '#333', 
-    textAlign: 'center',
-    lineHeight: 28,
-    paddingTop: 18,
-    fontWeight: '500',
+    color: '#d32f2f',
   },
   botImage: {
-    width: 400,
-    height: 300,
-    marginBottom: -50,
+    width: 160,
+    height: 160,
+    alignSelf: 'center',
+    marginVertical: 18,
+  },
+  messageContainer: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  initialMessageOverlay: {
+    backgroundColor: '#e3f2fd',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 8,
+  },
+  initialMessageText: {
+    fontSize: 20,
+    color: '#1976d2',
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
+  helpMessageOverlay: {
+    backgroundColor: '#fffde7',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 8,
+  },
+  helpMessageText: {
+    fontSize: 18,
+    color: '#f57c00',
+    textAlign: 'center',
+    fontWeight: 'bold',
   },
   timeContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
-    paddingLeft: 20,
-    paddingRight: 20,
+    marginTop: 12,
+    marginBottom: 10,
+    width: '100%',
   },
   pickerSection: {
     alignItems: 'center',
+    marginHorizontal: 12,
     flex: 1,
   },
   timeLabel: {
-    fontSize: 16,
+    fontSize: 18,
     color: '#333',
-    marginBottom: 10,
+    marginBottom: 6,
     fontWeight: 'bold',
   },
   pickerContainer: {
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
+    borderColor: '#e0e0e0',
+    borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: '#f9f9f9',
-    width: 120,
+    width: 110,
+    height: 60,
+    backgroundColor: '#fafafa',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   picker: {
-    height: 120,
-    width: '100%',
+    width: 110,
+    height: 60,
   },
   pickerItem: {
-    fontSize: 18,
-    height: 120,
+    fontSize: 22,
+    textAlign: 'center',
   },
-  selectedTimeContainer: {
+  levelPresetContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
-    backgroundColor: '#e8f5e8',
-    padding: 15,
-    borderRadius: 10,
-    marginHorizontal: 20,
+    marginTop: 18,
+    marginBottom: 18,
+    width: '100%',
+    paddingHorizontal: 0,
   },
-  selectedTimeText: {
+  levelButton: {
+    width: 110,
+    paddingVertical: 16,
+    borderRadius: 22,
+    marginHorizontal: 4,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    elevation: 2,
+  },
+  levelButtonText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#4CAF50',
+    color: '#333',
   },
-  completeButton: {
-    backgroundColor: '#5EFFAE',
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    justifyContent: 'center',
+  selectedTimeContainer: {
+    marginTop: 12,
+    marginBottom: 20,
+    backgroundColor: '#e8f5e9',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
     alignItems: 'center',
     alignSelf: 'center',
   },
-  completeButtonText: {
-    color: 'black',
+  selectedTimeText: {
     fontSize: 20,
+    color: '#388e3c',
     fontWeight: 'bold',
     textAlign: 'center',
+  },
+  completeButton: {
+    marginTop: 18,
+    backgroundColor: '#b9f6ca',
+    borderRadius: 60,
+    paddingVertical: 26,
+    paddingHorizontal: 70,
+    alignItems: 'center',
+    alignSelf: 'center',
+    elevation: 2,
+    width: 220,
+  },
+  completeButtonText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#222',
   },
 });
 

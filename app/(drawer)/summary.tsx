@@ -20,6 +20,7 @@ import { useRepositories } from '@/context/RepositoryContext';
 import { Coord } from '@/context/RunningContext';
 import { postRunningTrack, RunningTrackPayload } from '@/repositories/TrackRepository';
 import { useUserStore } from '@/stores/userStore';
+import { UserGrades } from '@/types/Grades';
 import { SaveRecordDto } from '@/types/ServerRecordDto';
 import { calculateAveragePace, formatTime } from '@/utils/RunningUtils';
 import { calculationService } from '@/utils/UserDataCalculator';
@@ -31,6 +32,7 @@ interface RunResult {
   gainedPoints: number;
   didLevelUp: boolean;
   didGradeUp: boolean;
+  didGradeDown: boolean;
 }
 
 export default function SummaryScreen() {
@@ -47,6 +49,11 @@ export default function SummaryScreen() {
   const userProfile = useUserStore((state) => state.profile);
   const [results, setResults] = useState<RunResult | null>(null);
   const [isCalculating, setIsCalculating] = useState(true);
+
+  // 등급 랭크(순서) 비교 함수
+  function getGradeRank(gradeName: string) {
+    return UserGrades.findIndex(g => g.displayName === gradeName);
+  }
 
   // --- 데이터 파싱 로직 ---
   if (!data) {
@@ -66,6 +73,9 @@ export default function SummaryScreen() {
   const opponentId = parsed.opponentId ?? 0;
   const botPace = parsed.botPace;
 
+  // 경고 메시지 조건
+  const isPathTooShort = !userPath || userPath.length < 2 || totalDistanceKm <= 0;
+
   // --- 화면 로딩 시 낙관적 UI 계산을 수행 ---
   useEffect(() => {
     console.log('계산 시점의 userProfile:', JSON.stringify(userProfile, null, 2));
@@ -80,25 +90,77 @@ export default function SummaryScreen() {
         gainedPoints: 0,
         didLevelUp: false,
         didGradeUp: false,
+        didGradeDown: false,
       });
       setIsCalculating(false);
       return; // 이후 계산을 중단
     }
 
-
-    const newLevel = calculationService.level.calculateNewLevel(userProfile.totalDistance, distanceMeters);
+    // 기존 등급/레벨
+    const prevLevel = userProfile.level;
+    const prevGrade = calculationService.grade.getGradeByLevel(prevLevel);
+    // 누적 거리 반영 후 등급/레벨
+    const newLevel = calculationService.level.calculateNewLevel(userProfile.totalDistance + distanceMeters, distanceMeters);
     const newGrade = calculationService.grade.getGradeByLevel(newLevel);
     const gainedPoints = calculationService.point.calculatePoint(distanceMeters);
+
+    const prevRank = getGradeRank(prevGrade);
+    const newRank = getGradeRank(newGrade);
+    const didGradeUp = newRank > prevRank;
+    const didGradeDown = newRank < prevRank;
 
     setResults({
       newLevel,
       newGrade,
       gainedPoints,
-      didLevelUp: newLevel > userProfile.level,
-      didGradeUp: newGrade !== userProfile.grade,
+      didLevelUp: newLevel > prevLevel,
+      didGradeUp,
+      didGradeDown,
     });
     setIsCalculating(false);
   }, [userProfile]);
+  // 테스트 코드 시작
+  const setProfile = useUserStore((state) => state.setProfile);
+
+  useEffect(() => {
+    // 아이언 마지막 레벨(9), 누적 거리 17999m로 세팅 (1m만 더 달리면 브론즈)
+    setProfile({
+      username: '테스트유저',
+      level: 9, // 아이언 마지막 레벨
+      grade: '아이언', // displayName과 정확히 일치해야 함!
+      point: 0,
+      totalDistance: 17999, // 1m만 더 달리면 브론즈 진입
+      // 필요한 필드 추가
+    });
+
+    // UserGrades와 getGradeByLevel 동작 점검
+    console.log('UserGrades:', UserGrades);
+    console.log('getGradeByLevel(9):', calculationService.grade.getGradeByLevel(9));
+    console.log('getGradeByLevel(10):', calculationService.grade.getGradeByLevel(10));
+    console.log('getGradeByLevel(19):', calculationService.grade.getGradeByLevel(19));
+    console.log('getGradeByLevel(20):', calculationService.grade.getGradeByLevel(20));
+  }, []);
+
+  useEffect(() => {
+    if (!userProfile) return;
+    const distanceMeters = totalDistanceKm * 1000;
+    const prevLevel = userProfile.level;
+    const prevGrade = calculationService.grade.getGradeByLevel(prevLevel);
+    const newLevel = calculationService.level.calculateNewLevel(userProfile.totalDistance + distanceMeters, distanceMeters);
+    const newGrade = calculationService.grade.getGradeByLevel(newLevel);
+    const prevRank = getGradeRank(prevGrade);
+    const newRank = getGradeRank(newGrade);
+
+    console.log('==== 등급업 테스트 진단 ====');
+    console.log('userProfile.level:', prevLevel);
+    console.log('userProfile.totalDistance:', userProfile.totalDistance);
+    console.log('이번 러닝 거리:', distanceMeters);
+    console.log('prevGrade:', prevGrade, 'newGrade:', newGrade);
+    console.log('prevRank:', prevRank, 'newRank:', newRank);
+    console.log('didGradeUp:', newRank > prevRank);
+    console.log('===========================');
+  }, [userProfile, totalDistanceKm]);
+// 테스트 코드 끝
 
   // --- 기존 저장 관련 핸들러들 (변경 없음) ---
   // 트랙모드(봇) OR 자유모드에 따라 저장 분기
@@ -281,6 +343,12 @@ export default function SummaryScreen() {
 
   return (
     <View style={styles.container}>
+      {/* 상단 안내 메시지 */}
+      {isPathTooShort && (
+        <View style={styles.warningBanner}>
+          <Text style={styles.warningText}>경로가 짧아 기록하지 못했습니다.</Text>
+        </View>
+      )}
       {/* --- 애니메이션 효과 섹션 --- */}
       {results && userProfile && (
         <View style={styles.resultsContainer}>
@@ -306,7 +374,7 @@ export default function SummaryScreen() {
                   <Text style={styles.levelChangeText}>Lv. {userProfile.level} → Lv. {results.newLevel}</Text>
                 </Animated.View>
               )}
-              {results.didGradeUp && (
+              {results.didGradeUp && !results.didGradeDown && (
                 <Animated.View entering={SlideInDown.delay(1000)} style={styles.resultBox}>
                   <Text style={styles.gradeUpText}>✨ 등급 상승! ✨</Text>
                   <View style={styles.gradeChangeContainer}>
@@ -356,6 +424,12 @@ export default function SummaryScreen() {
         <Text style={styles.completeButtonText}>저장하고 완료</Text>
       </Pressable>
 
+      {/* 하단 안내 메시지 */}
+      {isPathTooShort && (
+        <View style={styles.warningBannerBottom}>
+          <Text style={styles.warningText}>경로가 짧아 기록하지 못했습니다.</Text>
+        </View>
+      )}
       {/* --- 모달들은 기존과 동일 --- */}
       <Modal visible={modalType === 'saveNewTrack'} transparent animationType="fade" onRequestClose={() => setModalType(null)}>
         <View style={styles.modalContainer}>
@@ -440,5 +514,30 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#555',
     fontWeight: '600',
+  },
+  warningBanner: {
+    width: '100%',
+    backgroundColor: '#ffe0e0',
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ffbdbd',
+    zIndex: 10,
+  },
+  warningBannerBottom: {
+    width: '100%',
+    backgroundColor: '#ffe0e0',
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#ffbdbd',
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+  },
+  warningText: {
+    color: '#d32f2f',
+    fontWeight: 'bold',
+    fontSize: 15,
   },
 });

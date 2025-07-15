@@ -3,7 +3,10 @@ import { useLocalSearchParams } from 'expo-router';
 import * as Speech from 'expo-speech';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-export const useRunningLogic = () => {
+export const useRunningLogic = (
+  botDistanceMeters?: number,
+  isAhead?: boolean
+) => {
   const { mode, trackDistance, trackId } = useLocalSearchParams<{
     mode?: string;
     trackDistance?: string;
@@ -24,7 +27,8 @@ export const useRunningLogic = () => {
     resumeRunning,
     resetRunning,
     addStartPointIfNeeded,
-    userLocation
+    userLocation,
+    setUserLocation,
   } = useRunning();
 
   const [sectionIndex, setSectionIndex] = useState(0);
@@ -118,6 +122,42 @@ export const useRunningLogic = () => {
     }
   }, [totalDistance, isActive, mode, sectionIndex, sections.length, nextAnnounceKm]);
 
+  // 봇 거리 음성 안내 관련 상태
+  const lastBotAnnounceStep = useRef<number | null>(null);
+
+  // 러닝이 비활성화될 때 봇 안내 상태 초기화
+  useEffect(() => {
+    if (!isActive) {
+      lastBotAnnounceStep.current = null;
+    }
+  }, [isActive]);
+
+  useEffect(() => {
+    if (
+      typeof botDistanceMeters === 'number' &&
+      isActive &&
+      botDistanceMeters >= 0
+    ) {
+      // 100m 단위로 안내 (경계 근처에서 한 번만 안내)
+      const currentStep = Math.round(botDistanceMeters / 100);
+      const targetMeter = currentStep * 100;
+      const aheadText = isAhead ? '봇이 앞서고 있습니다.' : '당신이 앞서고 있습니다.';
+      if (
+        lastBotAnnounceStep.current === null ||
+        (Math.abs(botDistanceMeters - targetMeter) < 5 && currentStep !== lastBotAnnounceStep.current)
+      ) {
+        Speech.speak(
+          `봇과의 거리는 약 ${Math.round(botDistanceMeters)}미터. ${aheadText}`
+        );
+        lastBotAnnounceStep.current = currentStep;
+      }
+    }
+    // 러닝이 종료되면 안내 상태 초기화
+    if (!isActive) {
+      lastBotAnnounceStep.current = null;
+    }
+  }, [botDistanceMeters, isActive]);
+
   return {
     isActive,
     isPaused,
@@ -134,5 +174,8 @@ export const useRunningLogic = () => {
     setNextAnnounceKm,
     setIsPaused,
     userLocation,
+    setUserLocation,
+    pauseRunning: callbacksRef.current.pauseRunning,
+    resumeRunning: callbacksRef.current.resumeRunning,
   };
 };

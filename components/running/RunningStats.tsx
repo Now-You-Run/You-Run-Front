@@ -8,13 +8,12 @@ interface RunningStatsProps {
   elapsedTime: number;
 }
 
-export const RunningStats: React.FC<RunningStatsProps> = ({
+export const RunningStats = React.memo(function RunningStats({
   totalDistance,
   displaySpeed,
   elapsedTime
-}) => {
+}: RunningStatsProps) {
   const instantPace = calculateInstantPace(displaySpeed);
-
   return (
     <View style={styles.container}>
       <Text style={styles.distance}>{totalDistance.toFixed(2)} km</Text>
@@ -25,7 +24,7 @@ export const RunningStats: React.FC<RunningStatsProps> = ({
       </View>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
