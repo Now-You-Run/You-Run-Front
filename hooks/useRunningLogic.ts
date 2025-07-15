@@ -125,6 +125,13 @@ export const useRunningLogic = (
   // 봇 거리 음성 안내 관련 상태
   const lastBotAnnounceStep = useRef<number | null>(null);
 
+  // 러닝이 비활성화될 때 봇 안내 상태 초기화
+  useEffect(() => {
+    if (!isActive) {
+      lastBotAnnounceStep.current = null;
+    }
+  }, [isActive]);
+
   useEffect(() => {
     if (
       typeof botDistanceMeters === 'number' &&
@@ -133,17 +140,25 @@ export const useRunningLogic = (
     ) {
       // 100m 단위로 안내
       const currentStep = Math.floor(botDistanceMeters / 100);
+      const aheadText = isAhead ? '봇이 앞서고 있습니다.' : '당신이 앞서고 있습니다.';
+      // 최초 한 번도 안내
       if (lastBotAnnounceStep.current === null) {
+        Speech.speak(
+          `봇과의 거리는 약 ${Math.round(botDistanceMeters)}미터. ${aheadText}`
+        );
         lastBotAnnounceStep.current = currentStep;
       } else if (currentStep !== lastBotAnnounceStep.current) {
-        const aheadText = isAhead ? '봇이 앞서고 있습니다.' : '당신이 앞서고 있습니다.';
         Speech.speak(
           `봇과의 거리는 약 ${Math.round(botDistanceMeters)}미터. ${aheadText}`
         );
         lastBotAnnounceStep.current = currentStep;
       }
     }
-  }, [botDistanceMeters, isAhead, isActive]);
+    // 러닝이 종료되면 안내 상태 초기화
+    if (!isActive) {
+      lastBotAnnounceStep.current = null;
+    }
+  }, [botDistanceMeters, isActive]);
 
   return {
     isActive,

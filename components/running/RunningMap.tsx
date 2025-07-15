@@ -58,9 +58,9 @@ export const RunningMap: React.FC<RunningMapProps> = React.memo(({
   const lastHeadingRef = useRef<number | undefined>(undefined);
 
   // 경로 메모이제이션 (좌표 값이 실제로 바뀔 때만)
-  const memoizedPath = useMemo(() => {
-    return path.length > 0 ? [...path] : [];
-  }, [JSON.stringify(path)]);
+  // const memoizedPath = useMemo(() => {
+  //   return path.length > 0 ? [...path] : [];
+  // }, [JSON.stringify(path)]);
 
   const memoizedExternalPath = useMemo(() => {
     return externalPath && externalPath.length > 0 ? [...externalPath] : [];
@@ -84,19 +84,11 @@ export const RunningMap: React.FC<RunningMapProps> = React.memo(({
         prevCoord.latitude, prevCoord.longitude,
         coord.latitude, coord.longitude
       ) * 1000;
-      if (dist > 2) { // 2m 이상 이동했을 때만
-        const newHeading = bearing(prevCoord, coord);
-        if (heading === undefined) {
-          heading = newHeading;
-        } else {
-          // 각도 차이가 너무 크면(예: 90도 이상) 급변 방지
-          let diff = Math.abs(newHeading - heading);
-          if (diff > 180) diff = 360 - diff;
-          if (diff < 30) {
-            // 부드럽게 보간
-            heading = heading * 0.7 + newHeading * 0.3;
-          } // else: 급격한 변화는 무시
-        }
+      if (dist > 2) {
+        let newHeading = bearing(prevCoord, coord);
+        // === 180도 보정 필요시 아래 한 줄 활성화 ===
+        // newHeading = (newHeading + 180) % 360;
+        heading = newHeading;
         lastHeadingRef.current = heading;
       }
     }
@@ -105,10 +97,16 @@ export const RunningMap: React.FC<RunningMapProps> = React.memo(({
       moved > CAMERA_UPDATE_THRESHOLD_M ||
       now - lastCameraUpdateRef.current > CAMERA_UPDATE_INTERVAL
     ) {
-      mapRef.current?.animateCamera({
-        center: coord,
-        heading: heading,
-      }, { duration: 500 });
+      if (typeof heading === 'number' && !isNaN(heading)) {
+        mapRef.current?.animateCamera({
+          center: coord,
+          heading: heading,
+        }, { duration: 500 });
+      } else {
+        mapRef.current?.animateCamera({
+          center: coord,
+        }, { duration: 500 });
+      }
       lastCameraUpdateRef.current = now;
       lastCameraCoordRef.current = coord;
     }
@@ -117,22 +115,10 @@ export const RunningMap: React.FC<RunningMapProps> = React.memo(({
   // ✅ 실시간 위치 업데이트 (카메라 추적 제한)
   useEffect(() => {
     if (path.length === 0) return;
-
-    const now = Date.now();
-    if (now - lastUpdateRef.current < 500) return;
-    lastUpdateRef.current = now;
-
-    const current = path[path.length - 1];
-
-    // 조건부 카메라 업데이트
-    updateCameraIfNeeded(current);
-
-    // 아바타 위치는 항상 업데이트 (지연 추가로 정확도 향상)
-    setTimeout(() => {
-      onAvatarPositionUpdate(current, true);
-    }, 100);
-
-  }, [path.length, onAvatarPositionUpdate, updateCameraIfNeeded]);
+    const lastCoord = path[path.length - 1];
+    updateCameraIfNeeded(lastCoord);
+    onAvatarPositionUpdate(lastCoord, true);
+  }, [path.length, path[path.length - 1]?.latitude, path[path.length - 1]?.longitude, updateCameraIfNeeded, onAvatarPositionUpdate]);
 
   // 내 위치 버튼 핸들러
   const handleMyLocationPress = useCallback(() => {
@@ -195,9 +181,9 @@ export const RunningMap: React.FC<RunningMapProps> = React.memo(({
         )}
 
         {/* ✅ 사용자 경로 (실선) */}
-        {isActive && memoizedPath.length > 0 && (
+        {isActive && path.length > 0 && (
           <Polyline
-            coordinates={memoizedPath}
+            coordinates={path}
             strokeColor="#007aff"
             strokeWidth={6}
             zIndex={3}
