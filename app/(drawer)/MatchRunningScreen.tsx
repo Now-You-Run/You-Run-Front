@@ -14,7 +14,7 @@ import { RunningStats } from '@/components/running/RunningStats';
 import { useRunning } from '@/context/RunningContext';
 import { loadTrackInfo, TrackInfo } from '@/repositories/appStorage';
 import { Coordinate } from '@/types/TrackDto';
-import { calculateTotalDistance, haversineDistance, smoothPath } from '@/utils/RunningUtils';
+import { calculateTotalDistance, getOpponentPathAndGhost, haversineDistance, smoothPath } from '@/utils/RunningUtils';
 import { Region } from 'react-native-maps';
 
 interface SummaryData {
@@ -29,7 +29,6 @@ const START_BUFFER_METERS = 10;
 
 export default function MatchRunningScreen() {
 
-    console.log('🟩 MatchRunningScreen 마운트!');
   const router = useRouter();
   const navigation = useNavigation();
   const { trackId, recordId } = useLocalSearchParams<{ trackId?: string; recordId?: string }>();
@@ -56,34 +55,30 @@ export default function MatchRunningScreen() {
 
   const isPaused = !isActive && elapsedTime > 0;
 
+  // --- 상대방 경로 관리 ---
   const [opponentPath, setOpponentPath] = useState<Coordinate[]>([]);
-  const [opponentDrawPath, setOpponentDrawPath] = useState<Coordinate[]>([]);
 
+  // --- 상대방 기록 불러오기 ---
   useEffect(() => {
-  console.log('---------------start useEffect-----------------');
-  console.log('🎯 recordId:', recordId);
-  if (!recordId) return;
-  axios.get(`https://yourun.shop/api/record/${recordId}`).then(res => {
-    console.log('상대방 기록(userPath):', res.data.data.userPath);
-    const path = res.data.data.userPath.map((point: any) => ({
-      latitude: point.latitude || point.Latitude,
-      longitude: point.longitude || point.Longitude,
-    }));
-    setOpponentPath(path);
-  })
-  .catch(err => {
-      console.log('🔥🔥 axios 에러:', err); // <<<<<<<<<<<<<< 이거!
+    if (!recordId) return;
+    axios.get(`https://yourun.shop/api/record/${recordId}`).then(res => {
+      const userPath = res.data.data.userPath;
+      const baseTime = userPath[0]?.timestamp ?? 0;
+      const path = res.data.data.userPath.map((point: any) => ({
+        latitude: point.latitude || point.Latitude,
+        longitude: point.longitude || point.Longitude,
+        timestamp: point.timestamp - baseTime,
+      }));
+      setOpponentPath(path);
+    }).catch(err => {
+      console.log('🔥🔥 axios 에러:', err);
     });
-}, [recordId]);
+  }, [recordId]);
 
-// 2. 내 경로가 늘어날 때마다, 상대 경로도 똑같이 늘림 (내가 7번째 찍으면 상대도 7번째까지 그림)
-useEffect(() => {
-  if (!isActive || opponentPath.length === 0 || opponentPath.length === 0) {
-    setOpponentDrawPath([]);
-    return;
-  }
-  setOpponentDrawPath(opponentPath.slice(0, path.length));
-}, [isActive, path, opponentPath]);
+  // --- 상대 실선+고스트 (경과시간 기준) ---
+  const { livePath: opponentLivePath, ghost: opponentGhost } = React.useMemo(() => {
+    return getOpponentPathAndGhost(opponentPath, elapsedTime ?? 0);
+  }, [opponentPath, elapsedTime]);
 
   // --- 트랙 정보 불러오기 ---
   useEffect(() => {
@@ -256,10 +251,11 @@ useEffect(() => {
         initialRegion={mapRegion}
         userLocation={userLocation}
         externalPath={trackInfo?.path}
-        opponentLivePath={opponentDrawPath} // 상대 실시간 경로
+        opponentLivePath={opponentLivePath} // 상대 실시간 경로
         startPosition={trackInfo?.path?.[0]}
         endPosition={trackInfo?.path?.[trackInfo?.path.length - 1]}
         onAvatarPositionUpdate={() => {}}
+        opponentGhost={opponentGhost}
       />
 
       {/* 하단 오버레이 */}
