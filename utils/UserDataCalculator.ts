@@ -13,28 +13,68 @@ class LevelCalculator {
 
     private getDistanceToLevelUp(level: number): number {
         const grade = UserGrades.find(g => level >= g.minLevel && level <= g.maxLevel);
-        return grade ? grade.levelMultiple * 1000 : Infinity;
+        const distance = grade ? grade.levelMultiple * 1000 : Infinity;
+        console.log(`레벨 ${level}의 등급: ${grade?.displayName || '없음'}, 필요 거리: ${distance}m`);
+        return distance;
     }
 
     private initLevelDistanceMap() {
+        console.log('🧪 레벨 거리 맵 초기화 시작');
+        console.log('UserGrades:', UserGrades);
+        
         let cumulativeDistance = 0;
         this.levelDistanceMap.set(1, 0);
+        console.log('레벨 1 필요 거리: 0m');
+        
         for (let i = 2; i <= 300; i++) {
-            cumulativeDistance += this.getDistanceToLevelUp(i - 1);
+            const distanceToLevelUp = this.getDistanceToLevelUp(i - 1);
+            cumulativeDistance += distanceToLevelUp;
             this.levelDistanceMap.set(i, cumulativeDistance);
+            
+            // if (i <= 20) { // 처음 20개 레벨만 로그 출력
+            //     console.log(`레벨 ${i} 필요 거리: ${cumulativeDistance}m (레벨 ${i-1}에서 ${distanceToLevelUp}m 추가)`);
+            // }
         }
+        
+        // 초기화 확인
+        // console.log('🧪 levelDistanceMap 확인:');
+        // for (let i = 1; i <= 15; i++) {
+        //     const distance = this.levelDistanceMap.get(i);
+        //     console.log(`레벨 ${i}: ${distance}m`);
+        // }
+        console.log('🧪 레벨 거리 맵 초기화 완료');
     }
 
     public calculateNewLevel(currentTotalDistance: number, newDistance: number): number {
         const newTotalDistance = currentTotalDistance + newDistance;
+        console.log('🧪 레벨 계산 디버그:', {
+            currentTotalDistance,
+            newDistance,
+            newTotalDistance
+        });
+        
+        // levelDistanceMap 상태 확인
+        console.log('🧪 levelDistanceMap 상태 확인:');
+        for (let i = 1; i <= 15; i++) {
+            const distance = this.levelDistanceMap.get(i);
+            console.log(`레벨 ${i}: ${distance}m`);
+        }
+        
         let newLevel = 1;
         for (let i = 1; i <= 300; i++) {
-            if (newTotalDistance >= (this.levelDistanceMap.get(i) || Infinity)) {
+            const requiredDistance = this.levelDistanceMap.get(i);
+            console.log(`레벨 ${i} 필요 거리: ${requiredDistance}m, 현재 거리: ${newTotalDistance}m`);
+            if (requiredDistance === undefined) {
+                console.log(`⚠️ 레벨 ${i}의 거리 정보가 없습니다!`);
+                break;
+            }
+            if (newTotalDistance >= requiredDistance) {
                 newLevel = i;
             } else {
                 break;
             }
         }
+        console.log('🧪 최종 레벨:', newLevel);
         return newLevel;
     }
 }

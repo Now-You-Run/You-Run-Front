@@ -115,11 +115,15 @@ export const RunningMap: React.FC<RunningMapProps> = React.memo(({
 
   // ✅ 실시간 위치 업데이트 (카메라 추적 제한)
   useEffect(() => {
-    if (path.length === 0) return;
-    const lastCoord = path[path.length - 1];
-    updateCameraIfNeeded(lastCoord);
-    onAvatarPositionUpdate(lastCoord, true);
-  }, [path.length, path[path.length - 1]?.latitude, path[path.length - 1]?.longitude, updateCameraIfNeeded, onAvatarPositionUpdate]);
+    if (path.length > 0) {
+      const lastCoord = path[path.length - 1];
+      updateCameraIfNeeded(lastCoord);
+      onAvatarPositionUpdate(lastCoord, true);
+    } else if (userLocation) {
+      updateCameraIfNeeded(userLocation);
+      onAvatarPositionUpdate(userLocation, true);
+    }
+  }, [path.length, path[path.length - 1]?.latitude, path[path.length - 1]?.longitude, userLocation, updateCameraIfNeeded, onAvatarPositionUpdate]);
 
   // 내 위치 버튼 핸들러
   const handleMyLocationPress = useCallback(() => {
@@ -182,7 +186,7 @@ export const RunningMap: React.FC<RunningMapProps> = React.memo(({
         )}
 
         {/* ✅ 사용자 경로 (실선) */}
-        {isActive && path.length > 0 && (
+        {path.length > 0 && (
           <Polyline
             coordinates={path}
             strokeColor="#007aff"

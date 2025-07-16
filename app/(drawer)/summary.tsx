@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import MapView, { Polyline } from 'react-native-maps';
 import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // --- 필요한 모든 모듈들을 가져옵니다 ---
 import GradeBadge from '@/components/GradeBadge';
@@ -109,58 +110,122 @@ export default function SummaryScreen() {
     const didGradeUp = newRank > prevRank;
     const didGradeDown = newRank < prevRank;
 
-    setResults({
-      newLevel,
-      newGrade,
-      gainedPoints,
-      didLevelUp: newLevel > prevLevel,
-      didGradeUp,
-      didGradeDown,
-    });
-    setIsCalculating(false);
-  }, [userProfile]);
-  // 테스트 코드 시작
-  const setProfile = useUserStore((state) => state.setProfile);
+    // 🔧 추가 안전장치: 음수 rank 처리
+    const safePrevRank = prevRank >= 0 ? prevRank : 0;
+    const safeNewRank = newRank >= 0 ? newRank : 0;
+    const safeDidGradeUp = safeNewRank > safePrevRank;
+    const safeDidGradeDown = safeNewRank < safePrevRank;
 
-  useEffect(() => {
-    // 아이언 마지막 레벨(9), 누적 거리 17999m로 세팅 (1m만 더 달리면 브론즈)
-    setProfile({
-      username: '테스트유저',
-      level: 9, // 아이언 마지막 레벨
-      grade: '아이언', // displayName과 정확히 일치해야 함!
-      point: 0,
-      totalDistance: 17999, // 1m만 더 달리면 브론즈 진입
-      // 필요한 필드 추가
-    });
-
-    // UserGrades와 getGradeByLevel 동작 점검
-    console.log('UserGrades:', UserGrades);
-    console.log('getGradeByLevel(9):', calculationService.grade.getGradeByLevel(9));
-    console.log('getGradeByLevel(10):', calculationService.grade.getGradeByLevel(10));
-    console.log('getGradeByLevel(19):', calculationService.grade.getGradeByLevel(19));
-    console.log('getGradeByLevel(20):', calculationService.grade.getGradeByLevel(20));
-  }, []);
-
-  useEffect(() => {
-    if (!userProfile) return;
-    const distanceMeters = totalDistanceKm * 1000;
-    const prevLevel = userProfile.level;
-    const prevGrade = calculationService.grade.getGradeByLevel(prevLevel);
-    const newLevel = calculationService.level.calculateNewLevel(userProfile.totalDistance + distanceMeters, distanceMeters);
-    const newGrade = calculationService.grade.getGradeByLevel(newLevel);
-    const prevRank = getGradeRank(prevGrade);
-    const newRank = getGradeRank(newGrade);
-
-    console.log('==== 등급업 테스트 진단 ====');
+    console.log('==== 등급업/레벨업 계산 결과 ====');
     console.log('userProfile.level:', prevLevel);
     console.log('userProfile.totalDistance:', userProfile.totalDistance);
     console.log('이번 러닝 거리:', distanceMeters);
     console.log('prevGrade:', prevGrade, 'newGrade:', newGrade);
     console.log('prevRank:', prevRank, 'newRank:', newRank);
-    console.log('didGradeUp:', newRank > prevRank);
+    console.log('didLevelUp:', newLevel > prevLevel);
+    console.log('didGradeUp:', didGradeUp);
     console.log('===========================');
+
+    // 🚨 잠재적 위험 테스트
+    console.log('🚨 잠재적 위험 테스트 시작 🚨');
+    
+    // 1. userProfile.grade와 prevGrade 불일치 테스트
+    console.log('1. Grade 불일치 테스트:');
+    console.log('  userProfile.grade:', userProfile.grade);
+    console.log('  prevGrade (계산된):', prevGrade);
+    console.log('  일치 여부:', userProfile.grade === prevGrade);
+    
+    // 2. getGradeRank 함수 테스트
+    console.log('2. getGradeRank 함수 테스트:');
+    console.log('  UserGrades 배열:', UserGrades.map(g => g.displayName));
+    console.log('  userProfile.grade의 rank:', getGradeRank(userProfile.grade));
+    console.log('  prevGrade의 rank:', prevRank);
+    console.log('  newGrade의 rank:', newRank);
+    
+    // 3. 경계값 테스트
+    console.log('3. 경계값 테스트:');
+    console.log('  아이언 마지막 레벨(9) 등급:', calculationService.grade.getGradeByLevel(9));
+    console.log('  브론즈 첫 레벨(10) 등급:', calculationService.grade.getGradeByLevel(10));
+    console.log('  브론즈 마지막 레벨(19) 등급:', calculationService.grade.getGradeByLevel(19));
+    console.log('  실버 첫 레벨(20) 등급:', calculationService.grade.getGradeByLevel(20));
+    
+    // 4. 레벨업 조건 테스트
+    console.log('4. 레벨업 조건 테스트:');
+    console.log('  prevLevel:', prevLevel, 'newLevel:', newLevel);
+    console.log('  레벨업 조건 (newLevel > prevLevel):', newLevel > prevLevel);
+    console.log('  레벨업 조건 (newLevel !== prevLevel):', newLevel !== prevLevel);
+    
+    // 5. 등급업 조건 테스트
+    console.log('5. 등급업 조건 테스트:');
+    console.log('  prevRank:', prevRank, 'newRank:', newRank);
+    console.log('  등급업 조건 (newRank > prevRank):', newRank > prevRank);
+    console.log('  등급업 조건 (newRank !== prevRank):', newRank !== prevRank);
+    
+    // 6. 음수 rank 테스트
+    console.log('6. 음수 rank 테스트:');
+    console.log('  prevRank가 -1인지:', prevRank === -1);
+    console.log('  newRank가 -1인지:', newRank === -1);
+    console.log('  안전한 등급업 판정:', safeDidGradeUp);
+    
+    console.log('🚨 잠재적 위험 테스트 완료 🚨');
+
+    setResults({
+      newLevel,
+      newGrade,
+      gainedPoints,
+      didLevelUp: newLevel > prevLevel,
+      didGradeUp: safeDidGradeUp, // 안전한 판정 사용
+      didGradeDown: safeDidGradeDown, // 안전한 판정 사용
+    });
+    setIsCalculating(false);
   }, [userProfile, totalDistanceKm]);
-// 테스트 코드 끝
+
+  // 🧪 테스트용 임시 코드 (실제 테스트 후 제거 예정)
+  const setProfile = useUserStore((state) => state.setProfile);
+  
+  useEffect(() => {
+    // 🧪 테스트 시나리오 (하나씩 테스트)
+    const testScenario :number = 2; // 1, 2, 3, 4, 0(비활성화)
+    
+    if (testScenario === 1) {
+      // 아이언 → 브론즈 등급업 테스트
+      setProfile({
+        username: '테스트유저1',
+        level: 9, // 아이언 마지막 레벨
+        grade: '아이언',
+        point: 0,
+        totalDistance: 17999, // 1m만 더 달리면 브론즈
+      });
+    } else if (testScenario === 2) {
+      // 브론즈 → 실버 등급업 테스트
+      setProfile({
+        username: '테스트유저2',
+        level: 19, // 브론즈 마지막 레벨
+        grade: '브론즈',
+        point: 0,
+        totalDistance: 39999, // 1m만 더 달리면 실버
+      });
+    } else if (testScenario === 3) {
+      // 레벨업만 테스트 (같은 등급 내)
+      setProfile({
+        username: '테스트유저3',
+        level: 5, // 아이언 중간 레벨
+        grade: '아이언',
+        point: 0,
+        totalDistance: 9999, // 1m만 더 달리면 레벨 6
+      });
+    } else if (testScenario === 4) {
+      // 등급 불일치 테스트 (userProfile.grade와 계산된 grade가 다른 경우)
+      setProfile({
+        username: '테스트유저4',
+        level: 10, // 브론즈 레벨이지만
+        grade: '아이언', // 잘못된 등급으로 설정
+        point: 0,
+        totalDistance: 20000,
+      });
+    }
+    // testScenario === 0이면 테스트 비활성화
+  }, []); // 한 번만 실행
 
   // --- 기존 저장 관련 핸들러들 (변경 없음) ---
   // 트랙모드(봇) OR 자유모드에 따라 저장 분기
@@ -342,7 +407,7 @@ export default function SummaryScreen() {
   const calories = Math.round(totalDistanceKm * 60);
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["bottom","left","right"]}>
       {/* 상단 안내 메시지 */}
       {isPathTooShort && (
         <View style={styles.warningBanner}>
@@ -374,7 +439,7 @@ export default function SummaryScreen() {
                   <Text style={styles.levelChangeText}>Lv. {userProfile.level} → Lv. {results.newLevel}</Text>
                 </Animated.View>
               )}
-              {results.didGradeUp && !results.didGradeDown && (
+              {results.didGradeUp && (
                 <Animated.View entering={SlideInDown.delay(1000)} style={styles.resultBox}>
                   <Text style={styles.gradeUpText}>✨ 등급 상승! ✨</Text>
                   <View style={styles.gradeChangeContainer}>
@@ -419,6 +484,7 @@ export default function SummaryScreen() {
         </View>
       </View>
 
+      {/* 저장 버튼을 summaryContainer 아래로 이동 */}
       <Pressable style={styles.completeButton} onPress={handleCompletePress}>
         <Text style={styles.completeIcon}>🏁</Text>
         <Text style={styles.completeButtonText}>저장하고 완료</Text>
@@ -438,10 +504,7 @@ export default function SummaryScreen() {
             <Text style={styles.modalText}>방금 달린 경로를 새로운 트랙으로 저장합니다. 트랙의 이름을 입력해주세요.</Text>
             <TextInput style={styles.input} placeholder="예: 우리집 산책로" value={newTrackName} onChangeText={setNewTrackName} />
             <View style={styles.modalButtonContainer}>
-              <Pressable style={[styles.modalButton, { backgroundColor: '#ccc' }]}
-                onPress={handleSaveRecordOnly}
-                disabled={isSaving}
-              >
+              <Pressable style={[styles.modalButton, { backgroundColor: '#ccc' }]} onPress={handleSaveRecordOnly} disabled={isSaving}>
                 {isSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalButtonText}>기록만 저장</Text>}
               </Pressable>
               <Pressable style={[styles.modalButton, { backgroundColor: '#007aff' }]} onPress={handleSaveNewTrackAndRecord} disabled={isSaving}>
@@ -468,13 +531,13 @@ export default function SummaryScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 
 // 스타일 시트
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: '#fff', paddingBottom: 140 },
   centeredContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   resultsContainer: { paddingVertical: 20, paddingHorizontal: 20, alignItems: 'center', backgroundColor: '#f0f8ff', borderBottomLeftRadius: 30, borderBottomRightRadius: 30, elevation: 5, marginBottom: 10 },
   title: { fontSize: 32, fontWeight: 'bold', marginVertical: 10 },
@@ -486,13 +549,24 @@ const styles = StyleSheet.create({
   gradeUpText: { fontSize: 22, fontWeight: 'bold', color: '#ff9800' },
   gradeChangeContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
   arrowText: { fontSize: 20, marginHorizontal: 15 },
-  summaryContainer: { flex: 1, alignItems: 'center', paddingTop: 10 },
+  summaryContainer: { alignItems: 'center', paddingTop: 10, marginBottom: 140, width: '100%' },
   distance: { fontSize: 56, fontWeight: '800', marginVertical: 15 },
-  statsRow: { flexDirection: 'row', justifyContent: 'space-around', width: '90%', marginBottom: 20 },
+  statsRow: { flexDirection: 'row', justifyContent: 'space-around', width: '90%', marginBottom: 0 },
   statBox: { alignItems: 'center', flex: 1 },
   statLabel: { fontSize: 14, color: '#888' },
   statValue: { fontSize: 20, fontWeight: '600', marginTop: 4 },
-  completeButton: { margin: 20, paddingVertical: 15, borderRadius: 15, backgroundColor: '#007aff', alignItems: 'center', flexDirection: 'row', justifyContent: 'center' },
+  completeButton: { 
+    position: 'absolute',
+    left: 20,
+    right: 20,
+    bottom: 20,
+    paddingVertical: 10, 
+    borderRadius: 15, 
+    backgroundColor: '#007aff', 
+    alignItems: 'center', 
+    flexDirection: 'row', 
+    justifyContent: 'center',
+  },
   completeIcon: { fontSize: 24 },
   completeButtonText: { fontSize: 18, color: '#fff', fontWeight: 'bold', marginLeft: 10 },
   modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)' },

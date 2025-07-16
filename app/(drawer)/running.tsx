@@ -17,9 +17,9 @@ import { FinishModal } from '@/components/running/FinishModal';
 import { RunningControls } from '@/components/running/RunningControls';
 import { RunningMap } from '@/components/running/RunningMap';
 import { RunningStats } from '@/components/running/RunningStats';
+import { RunningProvider, useRunning } from '@/context/RunningContext';
 import { useAvatarPosition } from '@/hooks/useAvatarPosition';
 import { useRunningLogic } from '@/hooks/useRunningLogic';
-import { JSX } from 'react';
 
 const avatarId: string = "686ece0ae610780c6c939703";
 
@@ -30,9 +30,13 @@ interface SummaryData {
   trackId?: string;
 }
 
-export default function RunningScreen(): JSX.Element {
+function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean, setIsTestMode: (v: boolean) => void }) {
   const router = useRouter();
   const navigation = useNavigation();
+
+  // 🧪 테스트 모드 상태
+  const fakeLocationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const fakeDistanceRef = useRef<number>(0); // 누적 거리를 ref로 관리
 
   const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
   const [isFinishModalVisible, setIsFinishModalVisible] = useState<boolean>(false);
@@ -64,8 +68,12 @@ export default function RunningScreen(): JSX.Element {
     onMainPress: originalOnMainPress,
     handleFinish,
     resetRunning,
-    userLocation
+    userLocation,
+    setUserLocation,
   } = useRunningLogic();
+
+  // 🧪 addToPath 함수를 useRunning에서 직접 가져오기
+  const { addToPath } = useRunning();
 
   const {
     avatarScreenPos,
@@ -74,6 +82,107 @@ export default function RunningScreen(): JSX.Element {
     updateAvatarPosition,
     setMapRef,
   } = useAvatarPosition();
+
+  // 🧪 가짜 위치 생성 함수
+  const generateFakeLocation = useCallback((baseLat: number, baseLng: number, distanceKm: number) => {
+    // 북쪽으로 일직선 이동 (위도 증가)
+    const latOffset = distanceKm / 111.32; // 1도 위도 ≈ 111.32km
+    return {
+      latitude: baseLat + latOffset,
+      longitude: baseLng,
+      timestamp: Date.now(),
+    };
+  }, []);
+
+  // 🧪 가짜 위치 업데이트 시작
+  const startFakeLocationUpdates = useCallback((baseLat: number, baseLng: number) => {
+    if (fakeLocationIntervalRef.current) {
+      clearInterval(fakeLocationIntervalRef.current);
+    }
+
+    // 러닝 시작 시 거리 초기화
+    if (!isActive) {
+      fakeDistanceRef.current = 0;
+    }
+
+    // 첫 번째 시작점 추가
+    const startCoord = {
+      latitude: baseLat,
+      longitude: baseLng,
+      timestamp: Date.now(),
+    };
+    addToPath(startCoord);
+    setUserLocation(startCoord);
+    console.log('🧪 테스트 모드 시작점 설정:', startCoord);
+
+    const interval = setInterval(() => {
+      if (isActive && !isPaused) {
+        fakeDistanceRef.current += 0.01; // 10m씩 증가
+        const fakeCoord = generateFakeLocation(baseLat, baseLng, fakeDistanceRef.current);
+        
+        // 경로에 추가
+        addToPath(fakeCoord);
+        
+        // 아바타 위치 업데이트
+        updateAvatarPosition(fakeCoord, false);
+        
+        // 🧪 내 위치도 업데이트 (마커 표시)
+        setUserLocation(fakeCoord);
+        
+        console.log('🧪 가짜 위치 업데이트:', fakeCoord, '거리:', fakeDistanceRef.current.toFixed(3), 'km');
+      }
+    }, 1000); // 1초마다 업데이트
+
+    fakeLocationIntervalRef.current = interval as any;
+  }, [isActive, isPaused, generateFakeLocation, addToPath, updateAvatarPosition, setUserLocation]);
+
+  // 🧪 가짜 위치 업데이트 중지
+  const stopFakeLocationUpdates = useCallback(() => {
+    if (fakeLocationIntervalRef.current) {
+      clearInterval(fakeLocationIntervalRef.current);
+      fakeLocationIntervalRef.current = null;
+    }
+  }, []);
+
+  // 🧪 러닝 상태에 따른 가짜 위치 제어
+  useEffect(() => {
+    if (!isTestMode || !mapRegion) return;
+
+    // 이미 인터벌이 실행 중이면 중복 실행 방지
+    if (fakeLocationIntervalRef.current) {
+      return;
+    }
+
+    if (isActive && !isPaused) {
+      startFakeLocationUpdates(mapRegion.latitude, mapRegion.longitude);
+    }
+
+    return () => {
+      stopFakeLocationUpdates();
+    };
+  }, [isActive, isPaused, isTestMode, mapRegion]);
+
+  // 🧪 러닝 일시정지/종료 시 가짜 위치 업데이트 중지
+  useEffect(() => {
+    if (!isActive || isPaused) {
+      stopFakeLocationUpdates();
+    }
+  }, [isActive, isPaused]);
+
+  // 🧪 러닝 재시작 시 거리 초기화
+  useEffect(() => {
+    if (!isActive) {
+      fakeDistanceRef.current = 0;
+      console.log('🧪 러닝 종료 - 가짜 거리 초기화');
+    }
+  }, [isActive]);
+
+  // 컴포넌트 언마운트 시 정리
+  useEffect(() => {
+    return () => {
+      stopFakeLocationUpdates();
+    };
+  }, []);
 
   // 초기화 로직
   // useEffect(() => {
@@ -140,7 +249,12 @@ export default function RunningScreen(): JSX.Element {
     if (avatarReady) {
       setIsAvatarConnected(true);
     }
-  }, [setMapRef, avatarReady]);
+
+    // 🧪 지도 준비 후, userLocation이 있으면 아바타 위치 갱신
+    if (userLocation) {
+      updateAvatarPosition(userLocation, true);
+    }
+  }, [setMapRef, avatarReady, userLocation, updateAvatarPosition]);
 
   // ✅ 아바타 준비 완료 시 연결 상태 업데이트
   useEffect(() => {
@@ -237,14 +351,27 @@ export default function RunningScreen(): JSX.Element {
         setInitialLocationLoaded(true);
         console.log('📍 초기 위치 설정 완료:', initialRegion);
 
-        const initialCoord = {
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
-        };
-
-        setTimeout(() => {
+        // 🧪 테스트 모드가 아닐 때만 실제 위치 추적 시작
+        if (!isTestMode) {
+          const initialCoord = {
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
+            timestamp: Date.now(),
+          };
+          setUserLocation(initialCoord); // 추가!
+          setTimeout(() => {
+            updateAvatarPosition(initialCoord, true);
+          }, 1000);
+        } else {
+          // 🧪 테스트 모드일 때도 아바타 위치를 바로 갱신
+          const initialCoord = {
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
+            timestamp: Date.now(),
+          };
+          setUserLocation(initialCoord);
           updateAvatarPosition(initialCoord, true);
-        }, 1000);
+        }
 
       } catch (error) {
         console.error('위치 가져오기 실패:', error);
@@ -253,7 +380,7 @@ export default function RunningScreen(): JSX.Element {
     };
 
     requestPermissions();
-  }, [updateAvatarPosition]);
+  }, [updateAvatarPosition, isTestMode]);
 
   // 자동 완료 체크
   const autoFinishRef = useRef(handleFinish);
@@ -415,6 +542,16 @@ export default function RunningScreen(): JSX.Element {
         <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
+        
+        {/* 🧪 테스트 모드 토글 버튼 */}
+        <TouchableOpacity 
+          style={[styles.testModeButton, { backgroundColor: isTestMode ? '#ff6b6b' : '#4ecdc4' }]} 
+          onPress={() => setIsTestMode(!isTestMode)}
+        >
+          <Text style={styles.testModeButtonText}>
+            {isTestMode ? '🧪 테스트 ON' : '🧪 테스트 OFF'}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* ✅ 위치 로딩 상태 표시 */}
@@ -424,6 +561,13 @@ export default function RunningScreen(): JSX.Element {
             <Text style={styles.loadingTitle}>위치 정보 가져오는 중...</Text>
             <Text style={styles.loadingSubtext}>GPS 신호를 수신하고 있습니다</Text>
           </View>
+        </View>
+      )}
+
+      {/* 🧪 테스트 모드 상태 표시 */}
+      {isTestMode && initialLocationLoaded && (
+        <View style={styles.testModeOverlay}>
+          <Text style={styles.testModeText}>🧪 테스트 모드 - 가짜 위치 사용 중</Text>
         </View>
       )}
 
@@ -544,6 +688,15 @@ export default function RunningScreen(): JSX.Element {
   );
 }
 
+export default function RunningScreen() {
+  const [isTestMode, setIsTestMode] = React.useState(false);
+  return (
+    <RunningProvider isTestMode={isTestMode}>
+      <RunningScreenInner isTestMode={isTestMode} setIsTestMode={setIsTestMode} />
+    </RunningProvider>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -556,7 +709,11 @@ const styles = StyleSheet.create({
     left: 20,
     zIndex: 10,
     backgroundColor: 'rgba(255,255,255,0.8)',
-    borderRadius: 20
+    borderRadius: 20,
+    flexDirection: 'row', // 버튼들을 가로로 배치
+    justifyContent: 'space-between', // 버튼들 사이에 공간 두기
+    alignItems: 'center', // 버튼들을 세로로 정렬
+    paddingHorizontal: 10, // 버튼들 사이의 간격
   },
   backButton: {
     width: 40,
@@ -567,6 +724,18 @@ const styles = StyleSheet.create({
   backButtonText: {
     fontSize: 24,
     color: '#333'
+  },
+  testModeButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  testModeButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   overlay: {
     width: '100%',
@@ -624,5 +793,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     textAlign: 'center',
+  },
+  testModeOverlay: {
+    position: 'absolute',
+    top: 100,
+    left: 20,
+    right: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    borderRadius: 10,
+    padding: 10,
+    zIndex: 1500,
+    alignItems: 'center',
+  },
+  testModeText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });
