@@ -20,6 +20,7 @@ import { RunningStats } from '@/components/running/RunningStats';
 import { RunningProvider, useRunning } from '@/context/RunningContext';
 import { useAvatarPosition } from '@/hooks/useAvatarPosition';
 import { useRunningLogic } from '@/hooks/useRunningLogic';
+import { haversineDistance } from '@/utils/RunningUtils';
 
 const avatarId: string = "686ece0ae610780c6c939703";
 
@@ -72,8 +73,8 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
     setUserLocation,
   } = useRunningLogic();
 
-  // 🧪 addToPath 함수를 useRunning에서 직접 가져오기
-  const { addToPath } = useRunning();
+  // 🧪 addToPath, setCurrentSpeed 함수를 useRunning에서 직접 가져오기
+  const { addToPath, setCurrentSpeed } = useRunning();
 
   const {
     avatarScreenPos,
@@ -106,35 +107,49 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
     }
 
     // 첫 번째 시작점 추가
-    const startCoord = {
+    let prevCoord = {
       latitude: baseLat,
       longitude: baseLng,
       timestamp: Date.now(),
     };
-    addToPath(startCoord);
-    setUserLocation(startCoord);
-    console.log('🧪 테스트 모드 시작점 설정:', startCoord);
+    let prevTimestamp = prevCoord.timestamp;
+    addToPath(prevCoord);
+    setUserLocation(prevCoord);
+    console.log('🧪 테스트 모드 시작점 설정:', prevCoord);
 
     const interval = setInterval(() => {
       if (isActive && !isPaused) {
         fakeDistanceRef.current += 0.01; // 10m씩 증가
+        const now = Date.now();
         const fakeCoord = generateFakeLocation(baseLat, baseLng, fakeDistanceRef.current);
-        
+
+        // 속도 계산 (km/h)
+        const dKm = haversineDistance(
+          prevCoord.latitude,
+          prevCoord.longitude,
+          fakeCoord.latitude,
+          fakeCoord.longitude
+        );
+        const dt = (now - prevTimestamp) / 1000;
+        const speedKmh = dt > 0 ? (dKm / (dt / 3600)) : 0;
+        setCurrentSpeed(speedKmh);
+
         // 경로에 추가
         addToPath(fakeCoord);
-        
         // 아바타 위치 업데이트
         updateAvatarPosition(fakeCoord, false);
-        
         // 🧪 내 위치도 업데이트 (마커 표시)
         setUserLocation(fakeCoord);
-        
-        console.log('🧪 가짜 위치 업데이트:', fakeCoord, '거리:', fakeDistanceRef.current.toFixed(3), 'km');
+
+        prevCoord = fakeCoord;
+        prevTimestamp = now;
+
+        console.log('🧪 가짜 위치 업데이트:', fakeCoord, '거리:', fakeDistanceRef.current.toFixed(3), 'km', '속도:', speedKmh.toFixed(2), 'km/h');
       }
     }, 1000); // 1초마다 업데이트
 
     fakeLocationIntervalRef.current = interval as any;
-  }, [isActive, isPaused, generateFakeLocation, addToPath, updateAvatarPosition, setUserLocation]);
+  }, [isActive, isPaused, generateFakeLocation, addToPath, updateAvatarPosition, setUserLocation, setCurrentSpeed]);
 
   // 🧪 가짜 위치 업데이트 중지
   const stopFakeLocationUpdates = useCallback(() => {

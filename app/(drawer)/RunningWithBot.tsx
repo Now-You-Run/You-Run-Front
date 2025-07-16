@@ -347,8 +347,10 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
   const minSpeedMps = 8 / 3.6; // 8km/h
   const defaultSpeedMps = 10 / 3.6; // 10km/h
 
+  // useRunning에서 setCurrentSpeed 가져오기
+  const { addToPath, startRunning, setCurrentSpeed } = useRunning();
+
   // 🧪 트랙 path 자동 이동 setInterval만 시작 (진행 상태는 건드리지 않음)
-  const { addToPath, startRunning } = useRunning(); // useRunning에서 addToPath, startRunning 가져오기
   const startFakeTrackInterval = useCallback(() => {
     if (!trackInfo?.path || trackInfo.path.length < 2) return;
     if (fakeLocationIntervalRef.current) clearInterval(fakeLocationIntervalRef.current);
@@ -357,50 +359,43 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
       ? Math.max((trackInfo.distanceMeters ?? 0) / (botPace.minutes * 60 + botPace.seconds), minSpeedMps)
       : defaultSpeedMps;
 
-    const interval = setInterval(() => {
+    let prevCoord = trackInfo.path[0];
+    let prevTimestamp = Date.now();
+    accIdxRef.current = 0;
+    lastCoordRef.current = { ...prevCoord, timestamp: prevTimestamp };
+
+    // 'timestamp' 포함
+    const initialTimestamp = Date.now();
+    setUserLocation({ ...prevCoord, timestamp: initialTimestamp });
+    addToPath({ ...prevCoord, timestamp: initialTimestamp });
+    updateAvatarPosition({ ...prevCoord }, false);
+
+    fakeLocationIntervalRef.current = setInterval(() => {
       if (!isActive || isPaused) return;
-      let moved = 0;
-      while (accIdxRef.current < trackInfo.path.length - 1 && moved < speedMps) {
-        const nextCoordRaw = trackInfo.path[accIdxRef.current + 1];
-        const nextCoord = { ...nextCoordRaw, timestamp: Date.now() };
-        const dx = nextCoord.latitude - lastCoordRef.current.latitude;
-        const dy = nextCoord.longitude - lastCoordRef.current.longitude;
-        const dist = haversineDistance(
-          lastCoordRef.current.latitude, lastCoordRef.current.longitude,
-          nextCoord.latitude, nextCoord.longitude
-        ) * 1000;
-        if (moved + dist > speedMps) {
-          const ratio = (speedMps - moved) / dist;
-          const interpLat = lastCoordRef.current.latitude + dx * ratio;
-          const interpLng = lastCoordRef.current.longitude + dy * ratio;
-          lastCoordRef.current = { latitude: interpLat, longitude: interpLng, timestamp: Date.now() };
-          setUserLocation(lastCoordRef.current);
-          addToPath(lastCoordRef.current);
-          updateAvatarPosition(lastCoordRef.current, true);
-          console.log('🧪 setUserLocation(보간)', lastCoordRef.current);
-          console.log('🧪 updateAvatarPosition(보간)', lastCoordRef.current);
-          console.log('🧪 보간 이동', lastCoordRef.current, 'idx', accIdxRef.current);
-          break;
-        } else {
-          moved += dist;
-          accIdxRef.current++;
-          lastCoordRef.current = { ...nextCoord, timestamp: Date.now() };
-          setUserLocation(lastCoordRef.current);
-          addToPath(lastCoordRef.current);
-          updateAvatarPosition(lastCoordRef.current, true);
-          console.log('🧪 setUserLocation(다음)', lastCoordRef.current);
-          console.log('🧪 updateAvatarPosition(다음)', lastCoordRef.current);
-          console.log('🧪 다음 좌표 이동', lastCoordRef.current, 'idx', accIdxRef.current);
-        }
-      }
-      if (accIdxRef.current >= trackInfo.path.length - 1) {
-        clearInterval(interval);
-        fakeLocationIntervalRef.current = null;
-        console.log('🧪 트랙 끝 도달');
-      }
-    }, 1000);
-    fakeLocationIntervalRef.current = interval as any;
-  }, [isActive, isPaused, trackInfo, setUserLocation, updateAvatarPosition, botPace, addToPath]);
+      // 다음 좌표 계산
+      accIdxRef.current = Math.min(accIdxRef.current + 1, trackInfo.path.length - 1);
+      const nextCoord = trackInfo.path[accIdxRef.current];
+      const now = Date.now();
+      const dt = (now - prevTimestamp) / 1000; // 초 단위
+      // 거리 계산 (m)
+      const dKm = haversineDistance(
+        prevCoord.latitude,
+        prevCoord.longitude,
+        nextCoord.latitude,
+        nextCoord.longitude
+      );
+      const dMeters = dKm * 1000;
+      // 속도 계산 (km/h)
+      const speedKmh = dt > 0 ? (dKm / (dt / 3600)) : 0;
+      setCurrentSpeed(speedKmh);
+      // 상태 업데이트 ('timestamp' 포함)
+      setUserLocation({ ...nextCoord, timestamp: now });
+      addToPath({ ...nextCoord, timestamp: now });
+      updateAvatarPosition({ ...nextCoord }, false);
+      prevCoord = nextCoord;
+      prevTimestamp = now;
+    }, 1000) as any;
+  }, [trackInfo, botPace, isActive, isPaused, setUserLocation, addToPath, updateAvatarPosition, setCurrentSpeed]);
 
   // 🧪 러닝 처음 시작할 때만 진행 상태 초기화 + setInterval 시작
   const startFakeTrackMovement = useCallback(() => {

@@ -90,6 +90,7 @@ interface RunningState {
   setUserLocation: (coord: Coord | null) => void;
   startLocationTracking: () => Promise<void>;
   stopLocationTracking: () => Promise<void>;
+  setCurrentSpeed: (speed: number) => void; // <-- 추가
 }
 
 
@@ -592,6 +593,7 @@ const startRunning = (): void => {
         setUserLocation, // 추가
         startLocationTracking, // 추가
         stopLocationTracking, // 추가
+        setCurrentSpeed, // <-- 추가
       }}
     >
       {children}
