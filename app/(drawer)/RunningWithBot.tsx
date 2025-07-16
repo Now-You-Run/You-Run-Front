@@ -16,7 +16,7 @@ import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, BackHandler, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Region } from 'react-native-maps';
 
 function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean, setIsTestMode: (v: boolean) => void }) {
@@ -125,6 +125,9 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
 
   // 러닝 시작 시 시작점 10m 이내 proximity 체크
   const START_BUFFER_METERS = 10;
+  // useRunning에서 setCurrentSpeed, addToPath, startRunning 가져오기 (순서 조정)
+  const { addToPath, startRunning, setCurrentSpeed } = useRunning();
+  // customOnMainPress에서만 트랙 시작점 이동/초기화
   const customOnMainPress = useCallback(async () => {
     if (isActive || isPaused) {
       onMainPress();
@@ -137,12 +140,14 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
     const startPoint = trackInfo.path[0];
 
     if (isTestMode) {
-      // 테스트 모드: 내 위치를 트랙 시작점으로 강제 세팅 후 시작
-      setUserLocation({
-        ...startPoint,
-        timestamp: Date.now(),
-      });
-      onMainPress();
+      // 테스트 모드: 트랙 시작점으로 완전 초기화 후 러닝 시작
+      resetRunning();
+      const startCoord = { ...startPoint, timestamp: Date.now() };
+      setUserLocation(startCoord);
+      addToPath(startCoord);
+      accIdxRef.current = 0;
+      lastCoordRef.current = startCoord;
+      startRunning();
       return;
     }
 
@@ -162,7 +167,7 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
       return;
     }
     onMainPress();
-  }, [isActive, isPaused, onMainPress, trackInfo, userLocation, isTestMode, setUserLocation]);
+  }, [isActive, isPaused, onMainPress, trackInfo, userLocation, isTestMode, setUserLocation, resetRunning, addToPath, startRunning]);
 
   // 트랙 정보 로딩
   useEffect(() => {
@@ -270,31 +275,6 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
     }
   }, [isTestMode, startLocationTracking, stopLocationTracking]);
 
-  // useRunning에서 setCurrentSpeed 가져오기
-  const { addToPath, startRunning, setCurrentSpeed } = useRunning();
-
-  // 1. 테스트 모드 진입 useEffect에서 isActive를 의존성에 추가
-  useEffect(() => {
-    if (isTestMode && trackInfo?.path?.length && !isActive) {
-      accIdxRef.current = 0;
-      lastCoordRef.current = { ...trackInfo.path[0], timestamp: Date.now() };
-      console.log('🧪 테스트모드 진입: 트랙 첫 좌표', lastCoordRef.current);
-    }
-  }, [isTestMode, trackInfo, isActive]);
-
-  // 테스트 모드 진입 시 러닝 상태/경로/위치 모두 트랙 시작점으로 완전 초기화
-  useEffect(() => {
-    if (isTestMode && trackInfo?.path?.length) {
-      resetRunning();
-      const startCoord = { ...trackInfo.path[0], timestamp: Date.now() };
-      setUserLocation(startCoord);
-      addToPath(startCoord);
-      accIdxRef.current = 0;
-      lastCoordRef.current = startCoord;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isTestMode, trackInfo?.path]);
-
   // 도착점 반경(m)
   const FINISH_RADIUS_METERS = 10;
 
@@ -353,18 +333,68 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
     }
   }, [isPaused, isActive, pauseSimulation, resumeSimulation]);
 
-  // 뒤로가기 방지
+  // 뒤로가기(하드웨어/제스처) 방지 및 얼럿 처리
   useEffect(() => {
     const handleBeforeRemove = (e: any) => {
-      if (!isActive && elapsedTime === 0) return;
+      // 정상 종료(완주, 러닝 종료 등) 시에는 얼럿 없이 바로 나감
+      if (!isActive && !isPaused && elapsedTime === 0) {
+        return;
+      }
       e.preventDefault();
-      resetRunning();
-      stopSimulation();
-      navigation.dispatch(e.data.action);
+      Alert.alert(
+        '정말 나가시겠습니까?',
+        '진행 중인 러닝이 종료됩니다.',
+        [
+          { text: '취소', style: 'cancel', onPress: () => {} },
+          {
+            text: '나가기',
+            style: 'destructive',
+            onPress: () => {
+              resetRunning();
+              stopSimulation();
+              setIsFinishModalVisible(false);
+              setIsFinishPressed(false);
+              finishProgressAnimation.setValue(0);
+              scaleAnimation.setValue(1);
+              router.replace('/');
+            },
+          },
+        ]
+      );
     };
     navigation.addListener('beforeRemove', handleBeforeRemove);
-    return () => navigation.removeListener('beforeRemove', handleBeforeRemove);
-  }, [navigation, isActive, elapsedTime, resetRunning, stopSimulation]);
+    // 하드웨어 뒤로가기(Android)도 동일하게 처리
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (!isActive && !isPaused && elapsedTime === 0) {
+        return false; // 정상 종료 시 기본 동작 허용
+      }
+      Alert.alert(
+        '정말 나가시겠습니까?',
+        '진행 중인 러닝이 종료됩니다.',
+        [
+          { text: '취소', style: 'cancel', onPress: () => {} },
+          {
+            text: '나가기',
+            style: 'destructive',
+            onPress: () => {
+              resetRunning();
+              stopSimulation();
+              setIsFinishModalVisible(false);
+              setIsFinishPressed(false);
+              finishProgressAnimation.setValue(0);
+              scaleAnimation.setValue(1);
+              router.replace('/');
+            },
+          },
+        ]
+      );
+      return true; // 뒤로가기 기본 동작 막기
+    });
+    return () => {
+      navigation.removeListener('beforeRemove', handleBeforeRemove);
+      backHandler.remove();
+    };
+  }, [navigation, isActive, isPaused, elapsedTime, resetRunning, stopSimulation, setIsFinishModalVisible, setIsFinishPressed, finishProgressAnimation, scaleAnimation, router]);
 
   // 🧪 테스트 모드 상태
   const fakeLocationIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -497,27 +527,50 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
-        {/* 🧪 테스트 모드 토글 버튼 */}
-        <TouchableOpacity
-          style={[{ marginLeft: 10, paddingVertical: 8, paddingHorizontal: 15, borderRadius: 20, backgroundColor: isTestMode ? '#ff6b6b' : '#4ecdc4' }]}
-          onPress={() => setIsTestMode(!isTestMode)}
-        >
-          <Text style={{ color: 'white', fontSize: 14, fontWeight: 'bold' }}>
-            {isTestMode ? '🧪 테스트 ON' : '🧪 테스트 OFF'}
-          </Text>
-        </TouchableOpacity>
-        {/* 🧪 테스트 속도 조절 UI */}
-        {isTestMode && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 10 }}>
-            <TouchableOpacity onPress={() => setTestSpeedKmh(s => Math.max(1, s - 1))}>
-              <Text style={{ fontSize: 18, marginHorizontal: 8 }}>-</Text>
-            </TouchableOpacity>
-            <Text style={{ fontSize: 16, width: 48, textAlign: 'center' }}>{testSpeedKmh} km/h</Text>
-            <TouchableOpacity onPress={() => setTestSpeedKmh(s => Math.min(30, s + 1))}>
-              <Text style={{ fontSize: 18, marginHorizontal: 8 }}>+</Text>
+        {/* 테스트 모드 UI */}
+        <View style={styles.testModeBox}>
+          <View style={styles.testModeRow}>
+            <Text style={styles.testModeLabel}>🧪 테스트 모드</Text>
+            <TouchableOpacity
+              style={[
+                styles.testModeToggle,
+                { backgroundColor: isTestMode ? '#ff6b6b' : '#4ecdc4' }
+              ]}
+              onPress={() => setIsTestMode(!isTestMode)}
+            >
+              <Text style={styles.testModeToggleText}>
+                {isTestMode ? 'ON' : 'OFF'}
+              </Text>
             </TouchableOpacity>
           </View>
-        )}
+          {isTestMode && (
+            <>
+              <TouchableOpacity
+                style={styles.startPointBtn}
+                onPress={() => {
+                  if (Array.isArray(trackInfo?.path) && trackInfo.path.length > 0) {
+                    const startCoord = { ...trackInfo.path[0], timestamp: Date.now() };
+                    setUserLocation(startCoord);
+                    addToPath(startCoord);
+                    accIdxRef.current = 0;
+                    lastCoordRef.current = startCoord;
+                  }
+                }}
+              >
+                <Text style={styles.startPointBtnText}>🚩 시작점 이동</Text>
+              </TouchableOpacity>
+              <View style={styles.speedControlVertical}>
+                <TouchableOpacity onPress={() => setTestSpeedKmh(s => Math.max(1, s - 1))}>
+                  <Text style={styles.speedBtn}>-</Text>
+                </TouchableOpacity>
+                <Text style={styles.speedValue}>{testSpeedKmh} km/h</Text>
+                <TouchableOpacity onPress={() => setTestSpeedKmh(s => Math.min(30, s + 1))}>
+                  <Text style={styles.speedBtn}>+</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+        </View>
       </View>
 
       <RunningMap
@@ -676,6 +729,68 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
     fontWeight: '500',
+  },
+  testModeBox: {
+    marginLeft: 6,
+    padding: 4,
+    borderRadius: 8,
+    backgroundColor: '#f8f8f8',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    alignItems: 'center',
+    minWidth: undefined,
+    maxWidth: 120,
+  },
+  testModeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  testModeLabel: {
+    fontWeight: 'bold',
+    fontSize: 13,
+    marginRight: 4,
+  },
+  testModeToggle: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  testModeToggleText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  startPointBtn: {
+    backgroundColor: '#888',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    marginVertical: 3,
+    width: 90,
+    alignItems: 'center',
+  },
+  startPointBtnText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 11,
+  },
+  speedControlVertical: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  speedBtn: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    paddingHorizontal: 4,
+  },
+  speedValue: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    marginHorizontal: 4,
   },
 });
 
