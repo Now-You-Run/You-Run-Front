@@ -421,6 +421,13 @@ export default function SummaryScreen() {
             러닝 완료!
           </Animated.Text>
 
+          {parsed.mode === 'MATCH' && (
+            <Animated.View entering={FadeIn.delay(100)}>
+              <Text style={{ fontSize: 20, fontWeight: '600', color: parsed.isWinner ? '#4caf50' : '#d32f2f', marginTop: 4 }}>
+                {parsed.isWinner ? "🎉 상대와의 대결에서 승리!" : "아쉽게도 패배하였습니다."}
+              </Text>
+            </Animated.View>
+          )}
 
           {totalDistanceKm <= 0 ? (
             <Animated.View entering={FadeIn.delay(200)}>
