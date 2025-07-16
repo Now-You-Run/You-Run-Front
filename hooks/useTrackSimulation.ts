@@ -36,7 +36,17 @@ export const useTrackSimulation = ({
   // 봇 시뮬레이션 로직
   useEffect(() => {
     if (!externalPath || externalPath.length === 0) return;
-    if (!isSimulating) return;
+    // 시뮬레이션 중지 시 진행 상태를 저장한 뒤 cleanup
+    if (!isSimulating) {
+      // 1) 현재 progressRef를 savedProgress에 저장
+      setSavedProgress(progressRef.current);
+      // 2) 애니메이션만 정리
+      if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current);
+        animationFrameId.current = null;
+      }
+      return;
+    }
 
     // 일시정지 후 재개 시 저장된 진행 상태에서 시작
     let startIndex = 0;
@@ -65,7 +75,12 @@ export const useTrackSimulation = ({
 
     // 진행 상태 복원
     let initialDistance = startDistance;
-    setCurrentPosition(pausedPosition ?? simPath[0]);
+    setCurrentPosition(pausedPosition    // 1) pausedPosition이 있으면 그 지점에서
+      ? pausedPosition 
+      : savedProgress                // 2) savedProgress가 있으면 그 인덱스 근처에서
+        ? tools.getCoordinateAt(savedProgress.distance)
+        : simPath[0]                // 3) 둘 다 없으면 코스 시작점에서 시작
+      );
     let startTime: number | null = null;
     animationFrameId.current = requestAnimationFrame(function animate(ts) {
       if (!startTime) startTime = ts;

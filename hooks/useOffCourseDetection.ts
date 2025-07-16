@@ -26,7 +26,7 @@ export const useOffCourseDetection = ({
   const offCourseRef = useRef(false);
 
   useEffect(() => {
-    if (!externalPath?.length || !userLocation || !isActive) return;
+    if (!externalPath?.length || !userLocation) return;
 
     // 코스 상의 모든 점과의 최소 거리 계산
     let minDistM = Infinity;
@@ -51,7 +51,7 @@ export const useOffCourseDetection = ({
       offCourseRef.current = false;
       onResume();
     }
-  }, [userLocation, externalPath, isActive, threshold, onPause, onResume, onOffCourse]);
+  }, [userLocation, externalPath,threshold, onPause, onResume, onOffCourse]);
 
   const resetOffCourse = useCallback(() => {
     offCourseRef.current = false;
