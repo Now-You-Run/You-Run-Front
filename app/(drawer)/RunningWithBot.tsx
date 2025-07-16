@@ -285,7 +285,8 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
     if (
       trackInfo &&
       botTrackDistance.userProgress >= (trackInfo.distanceMeters ?? 0) * 0.99 &&
-      isActive
+      isActive &&
+      (totalDistance * 1000) > (trackInfo.distanceMeters ?? 0) // 실제 이동 거리가 트랙 거리보다 커야만 종료
     ) {
       setSummaryData({
         trackPath: trackInfo.path ?? [],
