@@ -498,7 +498,7 @@ locationSubscription.current = await Location.watchPositionAsync(
 
 const startRunning = (): void => {
   // 완전한 상태 초기화
-  setPath([]); // path를 반드시 비움
+  if (!isTestMode) setPath([]); // 테스트 모드면 path를 비우지 않음
   setElapsedTime(0);
   setCurrentSpeed(0);
   setTotalDistance(0);
@@ -513,8 +513,7 @@ const startRunning = (): void => {
   lastCoordRef.current = null;
   // 활성 상태로 변경 (이 시점부터 위치 기록 시작)
   setIsActive(true);
-  // 위치 추적 시작
-  startLocationTracking();
+  if (!isTestMode) startLocationTracking();
 };
 
 
