@@ -164,8 +164,14 @@ TaskManager.defineTask(
 const RunningContext = createContext<RunningState | undefined>(undefined);
 
 
-export const RunningProvider: React.FC<{ children: React.ReactNode }> = ({
+interface RunningProviderProps {
+  children: React.ReactNode;
+  isTestMode?: boolean;
+}
+
+export const RunningProvider: React.FC<RunningProviderProps> = ({
   children,
+  isTestMode = false,
 }) => {
   // 기존 상태들...
   const [isActive, setIsActive] = useState<boolean>(false);
@@ -466,7 +472,27 @@ locationSubscription.current = await Location.watchPositionAsync(
   };
 
   const addToPath = (coords: Coord): void => {
-    setPath((prev: Coord[]) => [...prev, coords]);
+    setPath((prev: Coord[]) => {
+      const newPath = [...prev, coords];
+      
+      // 거리 계산 추가 (테스트 모드용)
+      if (isActiveRef.current && !isPausedRef.current && prev.length > 0) {
+        const lastCoord = prev[prev.length - 1];
+        const distance = haversineDistance(
+          lastCoord.latitude,
+          lastCoord.longitude,
+          coords.latitude,
+          coords.longitude
+        );
+        setTotalDistance(d => {
+          const newTotal = d + distance;
+          console.log('🧪 테스트 모드 거리 계산:', distance.toFixed(3), 'km, 총 거리:', newTotal.toFixed(3), 'km');
+          return newTotal;
+        });
+      }
+      
+      return newPath;
+    });
   };
 
 const startRunning = (): void => {
@@ -475,7 +501,7 @@ const startRunning = (): void => {
   setElapsedTime(0);
   setCurrentSpeed(0);
   setTotalDistance(0);
-  setUserLocation(null); // (선택) 러닝 시작 시점에만 위치 기록 시작
+  if (!isTestMode) setUserLocation(null); // 테스트 모드면 null로 만들지 않음
   setIsPaused(false);
   // 칼만 필터 초기화
   speedFilter.current = new KalmanFilter1D(0.01, 0.1);
@@ -525,7 +551,7 @@ const startRunning = (): void => {
     setPath([]);
     setCurrentSpeed(0);
     setTotalDistance(0);
-    setUserLocation(null);
+    if (!isTestMode) setUserLocation(null); // 테스트 모드면 null로 만들지 않음
   };
 
   // 하버사인 거리 계산 함수 (타입 명시)
