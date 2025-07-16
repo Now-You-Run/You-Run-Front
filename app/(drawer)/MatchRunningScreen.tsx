@@ -23,6 +23,9 @@ interface SummaryData {
   totalDistance: number;
   elapsedTime: number;
   trackId?: string;
+  opponentId?:string;
+  isWinner?: boolean;
+  mode?: string;
 }
 
 const START_BUFFER_METERS = 10;
@@ -151,14 +154,16 @@ useEffect(() => {
 
   // --- 완주(트랙 도착) 처리 ---
   useEffect(() => {
-    if (!trackInfo?.path || path.length === 0 || !userLocation || !isActive) return;
+    const MIN_REQUIRED_METERS = 50;
+    if (!trackInfo?.path || path.length < 2 || !userLocation || !isActive) return;
     const finishPoint = trackInfo.path[trackInfo.path.length - 1];
     const distToFinish = haversineDistance(
       finishPoint.latitude, finishPoint.longitude,
       userLocation.latitude, userLocation.longitude
     ) * 1000;
     const totalRunMeters = calculateTotalDistance(path) * 1000;
-    if (distToFinish <= 10 && totalRunMeters >= (trackInfo?.distanceMeters ?? 0) - 10) {
+    if (distToFinish <= 10 && totalRunMeters >= ((trackInfo?.distanceMeters ?? 0) - 10) &&
+          totalRunMeters >= MIN_REQUIRED_METERS) {
       handleFinish();
     }
   }, [userLocation, path, isActive, trackInfo]);
@@ -201,19 +206,43 @@ useEffect(() => {
     }
   };
 
+  const isFinishingRef = useRef(false);
+
   // --- 러닝 강제 종료/완주 ---
-  const handleFinish = useCallback(() => {
-    Speech.speak('러닝을 완료했습니다!');
+  const handleFinish = useCallback(async () => {
+    if (isFinishingRef.current) return;
+    isFinishingRef.current = true;
+    
+    let isWinner = false;
+    try {
+    const res = await axios.get(`https://yourun.shop/api/record/${recordId}`);
+    const opponentElapsed = res.data.data.elapsedTime;
+    isWinner = elapsedTime <= opponentElapsed;
+  } catch (e) {
+    // 상대 기록을 불러올 수 없음 → 예외 상황 안내
+    Alert.alert('오류', '상대방 기록을 불러올 수 없습니다. 기록은 정상 저장됩니다.');
+    isWinner = false;
+  }
+    if (isWinner) {
+      Speech.speak('러닝을 완료했습니다. 상대방과의 대결에서 승리하였습니다!');
+    } else {
+      Speech.speak('러닝을 완료했습니다. 아쉽게도 상대방과의 대결에서 패배하였습니다.');
+    }
+
     setSummaryData({
+      mode:'MATCH',
       trackPath: trackInfo?.path ?? [],
       userPath: path,
       totalDistance: calculateTotalDistance(path),
       elapsedTime,
       trackId,
+      opponentId : recordId,
+      isWinner,
     });
     setIsFinishModalVisible(true);
     stopRunning();
-  }, [trackInfo, path, elapsedTime, trackId, stopRunning]);
+    setTimeout(()=> {isFinishingRef.current = false;},2000);
+  }, [trackInfo, path, elapsedTime, trackId, recordId, stopRunning]);
 
   // --- 강제 나가기 ---
   const handleForfeit = useCallback(() => {
