@@ -4,12 +4,11 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
-  Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
-  View,
+  View
 } from 'react-native';
 import MapView, { Polyline } from 'react-native-maps';
 import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
@@ -407,7 +406,9 @@ export default function SummaryScreen() {
   const calories = Math.round(totalDistanceKm * 60);
 
   return (
-    <SafeAreaView style={styles.container} edges={["bottom","left","right"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={["bottom","left","right"]}>
+      <View style={styles.dragIndicator} />
+      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: 0 }}>
       {/* 상단 안내 메시지 */}
       {isPathTooShort && (
         <View style={styles.warningBanner}>
@@ -428,6 +429,9 @@ export default function SummaryScreen() {
               </Text>
             </Animated.View>
           )}
+          <View style={styles.scrollHintContainer}>
+            <Text style={styles.scrollHintText}>아래로 스크롤하여 기록을 확인하세요 ↓</Text>
+          </View>
 
           {totalDistanceKm <= 0 ? (
             <Animated.View entering={FadeIn.delay(200)}>
@@ -489,55 +493,18 @@ export default function SummaryScreen() {
             <Text style={styles.statValue}>{calories}</Text>
           </View>
         </View>
+        <View style={{ flex: 1 }} />
       </View>
-
-      {/* 저장 버튼을 summaryContainer 아래로 이동 */}
+      <View style={styles.scrollHintContainer}>
+        <Text style={styles.scrollHintText}>아래로 스크롤하여 기록을 확인하세요 ↓</Text>
+      </View>
+      <View style={{ height: 20 }} />
       <Pressable style={styles.completeButton} onPress={handleCompletePress}>
         <Text style={styles.completeIcon}>🏁</Text>
         <Text style={styles.completeButtonText}>저장하고 완료</Text>
       </Pressable>
-
-      {/* 하단 안내 메시지 */}
-      {isPathTooShort && (
-        <View style={styles.warningBannerBottom}>
-          <Text style={styles.warningText}>경로가 짧아 기록하지 못했습니다.</Text>
-        </View>
-      )}
-      {/* --- 모달들은 기존과 동일 --- */}
-      <Modal visible={modalType === 'saveNewTrack'} transparent animationType="fade" onRequestClose={() => setModalType(null)}>
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>새로운 트랙 저장</Text>
-            <Text style={styles.modalText}>방금 달린 경로를 새로운 트랙으로 저장합니다. 트랙의 이름을 입력해주세요.</Text>
-            <TextInput style={styles.input} placeholder="예: 우리집 산책로" value={newTrackName} onChangeText={setNewTrackName} />
-            <View style={styles.modalButtonContainer}>
-              <Pressable style={[styles.modalButton, { backgroundColor: '#ccc' }]} onPress={handleSaveRecordOnly} disabled={isSaving}>
-                {isSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalButtonText}>기록만 저장</Text>}
-              </Pressable>
-              <Pressable style={[styles.modalButton, { backgroundColor: '#007aff' }]} onPress={handleSaveNewTrackAndRecord} disabled={isSaving}>
-                {isSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalButtonText}>저장</Text>}
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal visible={modalType === 'confirmSaveRecord'} transparent animationType="fade" onRequestClose={() => setModalType(null)}>
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>기록 저장</Text>
-            <Text style={styles.modalText}>현재 러닝 기록을 저장하시겠습니까?</Text>
-            <View style={styles.modalButtonContainer}>
-              <Pressable style={[styles.modalButton, { backgroundColor: '#ccc' }]} onPress={() => setModalType(null)}>
-                <Text style={styles.modalButtonText}>취소</Text>
-              </Pressable>
-              <Pressable style={[styles.modalButton, { backgroundColor: '#007aff' }]} onPress={handleSaveRecordOnly} disabled={isSaving}>
-                {isSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalButtonText}>저장</Text>}
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <View style={{ height: 20 }} />
+    </ScrollView>
     </SafeAreaView>
   );
 }
@@ -556,17 +523,13 @@ const styles = StyleSheet.create({
   gradeUpText: { fontSize: 22, fontWeight: 'bold', color: '#ff9800' },
   gradeChangeContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
   arrowText: { fontSize: 20, marginHorizontal: 15 },
-  summaryContainer: { alignItems: 'center', paddingTop: 10, marginBottom: 140, width: '100%' },
+  summaryContainer: { alignItems: 'center', paddingTop: 10, marginBottom: 0, width: '100%', backgroundColor: 'transparent' },
   distance: { fontSize: 56, fontWeight: '800', marginVertical: 15 },
   statsRow: { flexDirection: 'row', justifyContent: 'space-around', width: '90%', marginBottom: 0 },
   statBox: { alignItems: 'center', flex: 1 },
   statLabel: { fontSize: 14, color: '#888' },
   statValue: { fontSize: 20, fontWeight: '600', marginTop: 4 },
   completeButton: { 
-    position: 'absolute',
-    left: 20,
-    right: 20,
-    bottom: 20,
     paddingVertical: 10, 
     borderRadius: 15, 
     backgroundColor: '#007aff', 
@@ -621,4 +584,15 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 15,
   },
+  dragIndicator: {
+    alignSelf: 'center',
+    width: 40,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#e0e0e0',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  scrollHintContainer: { alignItems: 'center', marginVertical: 8 },
+  scrollHintText: { color: '#aaa', fontSize: 13 },
 });
