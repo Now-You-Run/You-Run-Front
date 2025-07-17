@@ -6,6 +6,7 @@ import React, { useEffect, useState } from 'react';
 import {
   Dimensions,
   Image,
+  Platform,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -15,6 +16,7 @@ import {
   View,
 } from 'react-native';
 import { SourceType } from './TrackDetailScreen';
+
 
 const { width, height } = Dimensions.get('window');
 const PICKER_HEIGHT = Math.max(100, Math.min(height * 0.1, 110));
@@ -84,6 +86,7 @@ const FacePaceScreen: React.FC = () => {
                 selectedValue={idx === 0 ? minutes : seconds}
                 style={styles.picker}
                 onValueChange={v => idx === 0 ? setMinutes(v) : setSeconds(v)}
+                mode={Platform.OS === 'android' ? 'dropdown' : 'dialog'}
               >
                 {Array.from({ length: 60 }, (_, i) => (
                   <Picker.Item key={i} label={fmt(i)} value={i} />
@@ -172,8 +175,8 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   botImg: {
-    width: 140,
-    height: 140,
+    width: 180,
+    height: 180,
   },
   tooltip: {
     position: 'absolute',
@@ -218,7 +221,7 @@ const styles = StyleSheet.create({
   },
   pickerWrap: {
     width: width * 0.3,
-    height: PICKER_HEIGHT + 80,       // 카드 높이 좀 더
+    height: Platform.OS === 'android' ? 10 : PICKER_HEIGHT + 80,    // 카드 높이 좀 더
     backgroundColor: '#ffffff',
     borderRadius: 20,                // 좀 더 둥글게
     borderWidth: 1,
@@ -230,12 +233,13 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
     overflow: 'hidden',
-    paddingBottom: 150
+    paddingBottom: 50
   },
   picker: {
     width: '100%',
-    height: '100%',
-    transform: [{ scaleY: 0.85 }],
+    height: Platform.OS === 'android' ? 200 : '100%',
+    marginTop: Platform.OS === 'android' ? 50 : 0, // 숫자가 중심에 오도록
+    transform: Platform.OS === 'android' ? [] : [{ scaleY: 0.85 }],
   },
 
   presets: {
