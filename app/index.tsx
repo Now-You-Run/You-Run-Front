@@ -10,6 +10,7 @@ import {
 } from '@/utils/WeatherUtils';
 import { useFonts } from 'expo-font';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import LottieView from 'lottie-react-native';
@@ -49,6 +50,20 @@ interface Avatar {
 }
 
 export default function HomeScreen() {
+  useEffect(() => {
+    const subscription = Notifications.addNotificationReceivedListener(
+      (notification) => {
+        console.log('알림 수신:', notification);
+        Alert.alert(
+          '알림 도착',
+          notification.request.content.body ?? '새 알림이 도착했습니다.'
+        );
+      }
+    );
+
+    return () => subscription.remove();
+  }, []);
+
   // Animation sources and styles
   const animationSources: Record<WeatherAnimationKey, any> = {
     rain: require('@/assets/animations/rain.json'),

@@ -120,35 +120,25 @@ export default function Social() {
         const pushToken = tokenData.data;
         console.log('받은 푸시 토큰:', pushToken);
 
-        if (!SERVER_API_URL) {
-          console.error('서버 URL이 설정되어 있지 않습니다.');
-          return;
-        }
-
-        // 서버에 userId와 함께 pushToken 전송
         const response = await fetch(
           `${SERVER_API_URL}/api/push-token/register`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: MY_USER_ID,
-              pushToken: pushToken,
-            }),
+            body: JSON.stringify({ userId: MY_USER_ID, pushToken }),
           }
         );
 
+        const json = await response.json();
         if (!response.ok) {
-          const json = await response.json();
           console.error('푸시 토큰 등록 실패:', json);
           Alert.alert('푸시 토큰 등록 실패', json.message ?? '알 수 없는 오류');
           return;
         }
 
-        const json = await response.json();
         console.log('✅ 푸시 토큰 등록 완료', json);
       } catch (error) {
-        console.error('푸시 토큰 등록 중 오류:', error);
+        console.error('푸시 토큰 등록 오류:', error);
         Alert.alert(
           '푸시 토큰 등록 오류',
           '푸시 토큰 등록 중 문제가 발생했습니다.'
@@ -157,6 +147,21 @@ export default function Social() {
     };
 
     registerPushToken();
+  }, []);
+
+  //알림 받기 기능 추가
+  useEffect(() => {
+    const subscription = Notifications.addNotificationReceivedListener(
+      (notification) => {
+        console.log('알림 수신:', notification);
+        Alert.alert(
+          '알림 도착',
+          notification.request.content.body ?? '새 알림이 도착했습니다.'
+        );
+      }
+    );
+
+    return () => subscription.remove();
   }, []);
 
   // 포인트 보내기
