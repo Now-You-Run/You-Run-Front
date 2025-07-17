@@ -15,6 +15,7 @@ import { calculateTrackDistance, haversineDistance } from '@/utils/RunningUtils'
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import * as Speech from 'expo-speech';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, BackHandler, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Region } from 'react-native-maps';
@@ -27,25 +28,9 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
   const navigation = useNavigation();
   const { trackId, botMin, botSec, source } = useLocalSearchParams<{ trackId?: string; botMin?: string; botSec?: string; source: string }>();
 
-  // 러닝 로직
-  const {
-    isActive,
-    isPaused,
-    elapsedTime,
-    path,
-    totalDistance,
-    displaySpeed,
-    onMainPress,
-    handleFinish,
-    userLocation,
-    resetRunning,
-    setUserLocation,
-    pauseRunning,
-    resumeRunning,
-  } = useRunningLogic();
-
-  // 위치 구독 함수는 useRunning에서 직접 가져온다
-  const { startLocationTracking, stopLocationTracking } = useRunning();
+  // useRunning에서 path 등 필요한 값 먼저 가져오기
+  const runningContext = useRunning();
+  const { path, startLocationTracking, stopLocationTracking, addToPath, startRunning, setCurrentSpeed } = runningContext;
 
   // 트랙 정보
   const [trackInfo, setTrackInfo] = useState<TrackInfo | null>(null);
@@ -62,7 +47,7 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
     minutes: botMin ? parseInt(botMin, 10) : 0,
     seconds: botSec ? parseInt(botSec, 10) : 0
   }), [botMin, botSec]);
-  const isSimulating = isActive && !!trackInfo && !!mapRegion && !!userLocation;
+  const isSimulating = runningContext?.isActive && !!trackInfo && !!mapRegion && !!runningContext?.userLocation;
   const {
     currentPosition,
     startCoursePosition,
@@ -85,8 +70,27 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
     return calculateTrackDistance(currentPosition, userPos, trackInfo.path);
   }, [currentPosition, path, trackInfo?.path]);
 
-  // 러닝 로직에 봇 거리 정보 전달
-  useRunningLogic(botTrackDistance.distanceMeters, botTrackDistance.isAhead);
+  // 러닝 로직 (botTrackDistance를 인자로 넘기고 한 번만 호출)
+  const runningLogic = useRunningLogic(
+    botTrackDistance.distanceMeters,
+    botTrackDistance.isAhead,
+    trackInfo?.distanceMeters ? trackInfo.distanceMeters / 1000 : undefined,
+    'track' // 트랙 모드임을 명시
+  );
+  const {
+    isActive,
+    isPaused,
+    elapsedTime,
+    totalDistance,
+    displaySpeed,
+    onMainPress,
+    handleFinish,
+    userLocation,
+    resetRunning,
+    setUserLocation,
+    pauseRunning,
+    resumeRunning,
+  } = runningLogic;
 
   // 종료 버튼 관련 상태/애니메이션
   const [isFinishPressed, setIsFinishPressed] = useState(false);
@@ -105,6 +109,8 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
     }).start();
     finishTimeoutRef.current = setTimeout(() => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Speech.stop(); // 모든 음성 안내 중단
+      Speech.speak('러닝이 종료되었습니다.');
       resetRunning();
       stopSimulation();
       setIsFinishModalVisible(false);
@@ -125,8 +131,6 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
 
   // 러닝 시작 시 시작점 10m 이내 proximity 체크
   const START_BUFFER_METERS = 10;
-  // useRunning에서 setCurrentSpeed, addToPath, startRunning 가져오기 (순서 조정)
-  const { addToPath, startRunning, setCurrentSpeed } = useRunning();
   // customOnMainPress에서만 트랙 시작점 이동/초기화
   const customOnMainPress = useCallback(async () => {
     if (isActive || isPaused) {
@@ -147,6 +151,8 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
       addToPath(startCoord);
       accIdxRef.current = 0;
       lastCoordRef.current = startCoord;
+      Speech.speak("러닝을 시작합니다.");
+      Speech.speak("웜업 구간입니다. 속도를 조절해주세요.");
       startRunning();
       return;
     }
@@ -276,7 +282,7 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
   }, [isTestMode, startLocationTracking, stopLocationTracking]);
 
   // 도착점 반경(m)
-  const FINISH_RADIUS_METERS = 10;
+  const FINISH_RADIUS_METERS = 15;
 
   // 기존 useFinishDetection, 진행률 기반 자동 완주 useEffect 제거 후 아래로 통합
   useEffect(() => {
@@ -288,6 +294,7 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
     ) * 1000;
     const totalRunMeters = totalDistance * 1000;
     if (distToFinish <= FINISH_RADIUS_METERS && totalRunMeters >= (trackInfo.distanceMeters ?? 0)) {
+      Speech.stop(); // 도착점 도달 시 모든 음성 안내 중단
       setSummaryData({
         trackPath: trackInfo.path ?? [],
         userPath: path,
@@ -523,10 +530,11 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerBar}>
+      <View style={styles.headerBarRow}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
+        <View style={styles.headerSpacer} />
         {/* 테스트 모드 UI */}
         <View style={styles.testModeBox}>
           <View style={styles.testModeRow}>
@@ -655,6 +663,8 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
         visible={isFinishModalVisible}
         summaryData={summaryData}
         onClose={() => {
+          Speech.stop(); // 모든 음성 안내 중단
+          Speech.speak('러닝이 종료되었습니다.');
           resetRunning();
           stopSimulation();
           setIsFinishModalVisible(false);
@@ -662,6 +672,8 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
         }}
         onConfirm={() => {
           if (summaryData) {
+            Speech.stop(); // 모든 음성 안내 중단
+            Speech.speak('러닝이 종료되었습니다.');
             resetRunning();
             stopSimulation();
             router.replace({
@@ -678,13 +690,19 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
-  headerBar: {
+  headerBarRow: {
     position: 'absolute',
     top: 50,
     left: 20,
+    right: 20,
     zIndex: 10,
-    backgroundColor: 'rgba(255,255,255,0.8)',
-    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 0, // 배경이 없으니 패딩 최소화
+    minHeight: 60,
+    backgroundColor: 'transparent', // 배경 제거
+    borderRadius: 0, // 카드 느낌 제거
   },
   backButton: {
     width: 40,
@@ -693,6 +711,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backButtonText: { fontSize: 24, color: '#333' },
+  headerSpacer: {
+    flex: 1,
+  },
   overlay: {
     position: 'absolute',
     bottom: 0,
@@ -732,14 +753,19 @@ const styles = StyleSheet.create({
   },
   testModeBox: {
     marginLeft: 6,
-    padding: 4,
-    borderRadius: 8,
-    backgroundColor: '#f8f8f8',
+    padding: 8,
+    borderRadius: 12,
+    backgroundColor: '#fff', // 더 진한 흰색
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#eee',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3, // 안드로이드 그림자
     alignItems: 'center',
-    minWidth: undefined,
-    maxWidth: 120,
+    minWidth: 110,
+    maxWidth: 140,
   },
   testModeRow: {
     flexDirection: 'row',

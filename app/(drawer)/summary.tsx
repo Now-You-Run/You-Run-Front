@@ -396,7 +396,7 @@ export default function SummaryScreen() {
           {
             text: '취소',
             style: 'cancel',
-            onPress: () => setModalType(null),
+            onPress: () => router.replace('/'),
           },
           {
             text: '저장',

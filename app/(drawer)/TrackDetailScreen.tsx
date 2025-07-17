@@ -199,7 +199,7 @@ export default function TrackDetailScreen() {
             router.push({ pathname: './BotPace', params: { trackId: track.id , source: source,} });
           }}
         >
-          <Text style={styles.botButtonText}>코칭 봇과의 대결</Text>
+          <Text style={styles.botButtonText}>코칭 봇과 함께 달리기</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

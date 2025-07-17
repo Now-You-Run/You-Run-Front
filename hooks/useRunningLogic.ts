@@ -5,15 +5,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 export const useRunningLogic = (
   botDistanceMeters?: number,
-  isAhead?: boolean
+  isAhead?: boolean,
+  externalTrackKm?: number,
+  externalMode?: string
 ) => {
-  const { mode, trackDistance, trackId } = useLocalSearchParams<{
+  const { mode: paramMode, trackDistance, trackId } = useLocalSearchParams<{
     mode?: string;
     trackDistance?: string;
     trackId?: string;
   }>();
 
-  const trackKm = mode === 'track' && trackDistance ? parseFloat(trackDistance) : undefined;
+  const mode = externalMode ?? paramMode;
+  const trackKm = externalTrackKm ?? (mode === 'track' && trackDistance ? parseFloat(trackDistance) : undefined);
 
   const {
     isActive,
@@ -107,12 +110,18 @@ export const useRunningLogic = (
 
   // ✅ 음성 안내 로직 - 최소 의존성
   useEffect(() => {
+    console.log('trackKm:', trackKm, 'sections:', sections, 'sectionIndex:', sectionIndex, 'totalDistance:', totalDistance, 'mode:', mode);
     if (!isActive) return;
     
     if (mode === 'track' && sectionIndex < sections.length) {
       const sec = sections[sectionIndex];
       if (totalDistance >= sec.end) {
         Speech.speak(`${sec.name}입니다. 속도를 조절해주세요.`);
+        // 구간 안내와 함께 추월 안내도 추가
+        if (typeof isAhead === 'boolean') {
+          const aheadText = isAhead ? '봇이 앞서고 있습니다.' : '당신이 앞서고 있습니다.';
+          Speech.speak(aheadText);
+        }
         setSectionIndex((prev) => prev + 1);
       }
     } else if (mode !== 'track' && totalDistance >= nextAnnounceKm) {
@@ -120,43 +129,39 @@ export const useRunningLogic = (
       Speech.speak(`${meters}미터 지점에 도달했습니다.`);
       setNextAnnounceKm((prev) => prev + 0.1);
     }
-  }, [totalDistance, isActive, mode, sectionIndex, sections.length, nextAnnounceKm]);
+  }, [totalDistance, isActive, mode, sectionIndex, sections.length, nextAnnounceKm, isAhead]);
 
   // 봇 거리 음성 안내 관련 상태
   const lastBotAnnounceStep = useRef<number | null>(null);
+  const lastIsAhead = useRef<boolean | null>(null);
 
   // 러닝이 비활성화될 때 봇 안내 상태 초기화
   useEffect(() => {
     if (!isActive) {
       lastBotAnnounceStep.current = null;
+      lastIsAhead.current = null;
     }
   }, [isActive]);
 
+  // 100m마다 거리만 안내 (추월 안내는 구간 안내에서만)
+  const announcedSteps = useRef<Set<number>>(new Set());
   useEffect(() => {
+    if (!isActive) {
+      announcedSteps.current.clear();
+      return; // 러닝 종료 시 안내 로직 실행하지 않음
+    }
     if (
       typeof botDistanceMeters === 'number' &&
-      isActive &&
-      botDistanceMeters >= 0
+      botDistanceMeters >= 0 &&
+      totalDistance > 0.1 // 100m 이상 이동한 경우에만 안내
     ) {
-      // 100m 단위로 안내 (경계 근처에서 한 번만 안내)
-      const currentStep = Math.round(botDistanceMeters / 100);
-      const targetMeter = currentStep * 100;
-      const aheadText = isAhead ? '봇이 앞서고 있습니다.' : '당신이 앞서고 있습니다.';
-      if (
-        lastBotAnnounceStep.current === null ||
-        (Math.abs(botDistanceMeters - targetMeter) < 5 && currentStep !== lastBotAnnounceStep.current)
-      ) {
-        Speech.speak(
-          `봇과의 거리는 약 ${Math.round(botDistanceMeters)}미터. ${aheadText}`
-        );
-        lastBotAnnounceStep.current = currentStep;
+      const currentStep = Math.floor(botDistanceMeters / 100);
+      if (!announcedSteps.current.has(currentStep)) {
+        Speech.speak(`봇과의 거리는 약 ${Math.round(botDistanceMeters)}미터.`);
+        announcedSteps.current.add(currentStep);
       }
     }
-    // 러닝이 종료되면 안내 상태 초기화
-    if (!isActive) {
-      lastBotAnnounceStep.current = null;
-    }
-  }, [botDistanceMeters, isActive]);
+  }, [botDistanceMeters, isActive, totalDistance]);
 
   return {
     isActive,
