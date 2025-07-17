@@ -1,6 +1,6 @@
 // /components/track-list/TrackListHeader.tsx
 
-import { DISTANCE_SORT_OPTIONS, DistanceSortType } from '@/hooks/useTrackList';
+import { DISTANCE_SORT_OPTIONS, DistanceSortType, SortOrder } from '@/hooks/useTrackList';
 import { Picker } from '@react-native-picker/picker';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -10,11 +10,13 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 interface Props {
   tab: 'my' | 'server';
   distanceSortOption: DistanceSortType;
+  sortOrder: SortOrder;
   onTabChange: (tab: 'my' | 'server') => void;
   onSortChange: (sort: DistanceSortType) => void;
+  onOrderChange: (order: SortOrder) => void;
 }
 
-export function TrackListHeader({ tab, distanceSortOption, onTabChange, onSortChange }: Props) {
+export function TrackListHeader({ tab, distanceSortOption, sortOrder, onTabChange, onSortChange, onOrderChange }: Props) {
   const router = useRouter();
 
   return (
@@ -34,18 +36,30 @@ export function TrackListHeader({ tab, distanceSortOption, onTabChange, onSortCh
         </TouchableOpacity>
       </View>
       <View style={styles.pickerContainer}>
-        <View style={styles.pickerWrapper}>
-          <Picker
-            selectedValue={distanceSortOption}
-            onValueChange={onSortChange}
-            mode="dropdown"
-            style={styles.picker}
-            dropdownIconColor="#4a90e2"
-          >
-            {DISTANCE_SORT_OPTIONS.map(opt => (
-              <Picker.Item key={opt.value} label={opt.label} value={opt.value} style={styles.pickerItem} />
-            ))}
-          </Picker>
+        <View style={{ alignItems: 'flex-end', width: '100%' }}>
+          <View style={styles.pickerWrapper}>
+            <Picker
+              selectedValue={distanceSortOption}
+              onValueChange={onSortChange}
+              mode="dropdown"
+              style={styles.picker}
+              dropdownIconColor="#4a90e2"
+            >
+              {DISTANCE_SORT_OPTIONS.map(opt => (
+                <Picker.Item key={opt.value} label={opt.label} value={opt.value} style={styles.pickerItem} />
+              ))}
+            </Picker>
+          </View>
+          {distanceSortOption === 'trackDistance' && (
+            <TouchableOpacity
+              style={styles.orderToggle}
+              onPress={() => onOrderChange(sortOrder === 'asc' ? 'desc' : 'asc')}
+            >
+              <Text style={styles.orderToggleText}>
+                {sortOrder === 'asc' ? '⬆️ 오름차순' : '⬇️ 내림차순'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </>
@@ -62,7 +76,7 @@ const styles = StyleSheet.create({
   tabButtonActive: { backgroundColor: '#4a90e2', borderColor: '#4a90e2' },
   tabButtonText: { fontSize: 16, fontWeight: '600', color: '#333' },
   tabButtonTextActive: { color: '#fff' },
-  pickerContainer: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10, marginRight: 10 },
+  pickerContainer: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'flex-start', marginBottom: 10, marginRight: 10 },
   pickerWrapper: { borderWidth: 1, borderColor: '#4a90e2', borderRadius: 20, overflow: 'hidden', width: 170 },
   picker: {
     height: 50,
@@ -70,5 +84,20 @@ const styles = StyleSheet.create({
   pickerItem: {
     color: '#4a90e2',
     fontSize: 16,
+  },
+  orderToggle: {
+    marginTop: 6,
+    alignSelf: 'flex-end',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    backgroundColor: '#f0f0f0',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  orderToggleText: {
+    color: '#4a90e2',
+    fontWeight: '600',
+    fontSize: 14,
   },
 });

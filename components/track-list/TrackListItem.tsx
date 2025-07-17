@@ -12,120 +12,109 @@ interface Props {
 
 export function TrackListItem({ item, sourceTab }: Props) {
   const router = useRouter();
-  const [isImageLoading, setIsImageLoading] = useState<boolean>(true);
-  const [imageError, setImageError] = useState<boolean>(false);
-
-  const handleImageLoad = () => {
-    setIsImageLoading(false);
-  };
-
-  const handleImageError = () => {
-    setIsImageLoading(false);
-    setImageError(true);
-  };
+  const [isImageLoading, setIsImageLoading] = useState(true);
+  const [imageError, setImageError] = useState(false);
 
   return (
-    <View style={styles.trackItem}>
-      <View style={styles.mapContainer}>
-        {isImageLoading && (
-          <ActivityIndicator style={StyleSheet.absoluteFill} color="#4a90e2" />
-        )}
-        
+    <TouchableOpacity
+      style={styles.card}
+      activeOpacity={0.85}
+      onPress={() =>
+        router.push({
+          pathname: '/TrackDetailScreen',
+          params: { trackId: item.id, source: sourceTab },
+        })
+      }
+    >
+      <View style={styles.imageWrapper}>
         {item.thumbnailUrl && !imageError ? (
           <Image
             source={{ uri: item.thumbnailUrl }}
-            style={styles.mapThumbnail}
-            onLoad={handleImageLoad}
-            onError={handleImageError}
+            style={styles.image}
+            onLoad={() => setIsImageLoading(false)}
+            onError={() => {
+              setIsImageLoading(false);
+              setImageError(true);
+            }}
             resizeMode="cover"
           />
         ) : (
-          <View style={styles.placeholderContainer}>
-            <Text style={styles.placeholderText}>
-              {imageError ? '이미지 로드 실패' : '이미지 없음'}
-            </Text>
+          <View style={styles.placeholder}>
+            <Text style={styles.placeholderText}>🏞️</Text>
           </View>
         )}
-        
-        <TouchableOpacity
-          style={StyleSheet.absoluteFill}
-          onPress={() =>
-            router.push({
-              pathname: '/TrackDetailScreen',
-              params: { trackId: item.id, source: sourceTab },
-            })
-          }
-        />
+        {isImageLoading && (
+          <ActivityIndicator style={StyleSheet.absoluteFill} color="#4a90e2" />
+        )}
       </View>
-      
-      <View style={styles.trackNameButton}>
-        <Text style={styles.trackNameButtonText}>{item.name}</Text>
+      <View style={styles.infoRow}>
+        <Text style={styles.trackName} numberOfLines={1}>
+          {item.name}
+        </Text>
         {item.distance != null && (
-          <Text style={styles.trackMeta}>
-            거리: {(item.distance / 1000).toFixed(2)} km
+          <Text style={styles.distance}>
+            {(item.distance / 1000).toFixed(2)} km
           </Text>
         )}
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  trackItem: { 
-    width: '48%', 
-    aspectRatio: 1, 
-    marginBottom: 14, 
-    borderRadius: 12, 
-    overflow: 'hidden', 
-    backgroundColor: '#f9f9f9', 
-    shadowColor: '#000', 
-    shadowOpacity: 0.07, 
-    shadowRadius: 3, 
-    elevation: 2, 
-    alignItems: 'center' 
+  card: {
+    width: '48%',
+    aspectRatio: 1,
+    marginBottom: 14,
+    borderRadius: 14,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ececec',
+    overflow: 'hidden',
+    elevation: 1,
   },
-  mapContainer: { 
-    position: 'relative', 
-    width: '100%', 
-    height: '78%', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    backgroundColor: '#f0f0f0' 
+  imageWrapper: {
+    width: '100%',
+    height: '70%',
+    backgroundColor: '#f5f6fa',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  mapThumbnail: { 
-    ...StyleSheet.absoluteFillObject, 
-    borderTopLeftRadius: 12, 
-    borderTopRightRadius: 12 
+  image: {
+    ...StyleSheet.absoluteFillObject,
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
   },
-  placeholderContainer: {
+  placeholder: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#e0e0e0',
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
+    backgroundColor: '#f0f1f3',
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
   },
   placeholderText: {
-    color: '#666',
-    fontSize: 12,
-    textAlign: 'center',
+    fontSize: 28,
+    color: '#b0b0b0',
   },
-  trackNameButton: { 
-    marginTop: -5, 
-    backgroundColor: '#4a90e2', 
-    paddingVertical: 6, 
-    paddingHorizontal: 12, 
-    borderRadius: 8, 
-    alignSelf: 'center' 
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#fff',
   },
-  trackNameButtonText: { 
-    color: '#fff', 
-    fontWeight: '700', 
-    fontSize: 14 
+  trackName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#222',
+    flex: 1,
+    marginRight: 8,
   },
-  trackMeta: { 
-    fontSize: 12, 
-    color: '#666', 
-    marginTop: 4 
+  distance: {
+    fontSize: 13,
+    color: '#4a90e2',
+    fontWeight: '500',
   },
 });

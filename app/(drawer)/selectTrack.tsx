@@ -18,6 +18,8 @@ export default function TrackListScreen() {
     setDistanceSortOption,
     handleRefresh,
     handleEndReached,
+    sortOrder,
+    setSortOrder,
   } = useTrackList();
 
   // [핵심] `isLoading`이 true이고 `tracks`가 비어있을 때만 전체 로딩 화면을 보여줍니다.
@@ -30,6 +32,8 @@ export default function TrackListScreen() {
             distanceSortOption={distanceSortOption}
             onTabChange={setTab}
             onSortChange={setDistanceSortOption}
+            sortOrder={sortOrder}
+            onOrderChange={setSortOrder}
         />
         <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#4a90e2" />
@@ -46,6 +50,8 @@ export default function TrackListScreen() {
         distanceSortOption={distanceSortOption}
         onTabChange={setTab}
         onSortChange={setDistanceSortOption}
+        sortOrder={sortOrder}
+        onOrderChange={setSortOrder}
       />
       
       <FlatList
@@ -53,7 +59,7 @@ export default function TrackListScreen() {
         renderItem={({ item }: { item: Track }) => (
           <TrackListItem item={item} sourceTab={tab} />
         )}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item) => item.id}
         numColumns={2}
         columnWrapperStyle={styles.columnWrapper}
         showsVerticalScrollIndicator={false}
@@ -63,6 +69,11 @@ export default function TrackListScreen() {
         onRefresh={handleRefresh}
         ListFooterComponent={isLoading && tracks.length > 0 ? <ActivityIndicator style={{ margin: 20 }} /> : null}
       />
+      {isLoading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#4a90e2" />
+        </View>
+      )}
     </View>
   );
 }
@@ -72,4 +83,11 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { marginTop: 10, fontSize: 16, color: '#666' },
   columnWrapper: { justifyContent: 'space-between', marginBottom: 10 },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
 });
