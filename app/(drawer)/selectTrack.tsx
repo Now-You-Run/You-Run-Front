@@ -22,27 +22,6 @@ export default function TrackListScreen() {
     setSortOrder,
   } = useTrackList();
 
-  // [핵심] `isLoading`이 true이고 `tracks`가 비어있을 때만 전체 로딩 화면을 보여줍니다.
-  // 이 조건은 이제 탭 전환 시 항상 만족됩니다.
-  if (isLoading && tracks.length === 0) {
-    return (
-      <View style={styles.container}>
-        <TrackListHeader
-            tab={tab}
-            distanceSortOption={distanceSortOption}
-            onTabChange={setTab}
-            onSortChange={setDistanceSortOption}
-            sortOrder={sortOrder}
-            onOrderChange={setSortOrder}
-        />
-        <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#4a90e2" />
-            <Text style={styles.loadingText}>트랙 정보를 불러오는 중...</Text>
-        </View>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
       <TrackListHeader
