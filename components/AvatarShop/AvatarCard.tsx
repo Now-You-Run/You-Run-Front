@@ -3,7 +3,7 @@ import React from 'react';
 import { Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const { width } = Dimensions.get('window');
-const CARD_WIDTH = Math.min(width * 0.85, 340);
+const CARD_WIDTH = Math.min(width * 0.85 * 1.1, 340 * 1.1); // 10% 증가
 const CARD_HEIGHT = CARD_WIDTH * 1.25;
 
 interface Avatar {
@@ -24,7 +24,7 @@ export default function AvatarCard({ avatar, onSelect, onBuy, buyLoading }: { av
   const safeImageUrl = avatar.imageUrl ? avatar.imageUrl.trim() : '';
   return (
     <View style={styles.container}>
-      <View style={[styles.lottieBgWrap, { width: CARD_WIDTH, height: CARD_HEIGHT }]}> 
+      <View style={[styles.lottieBgWrap, { width: CARD_WIDTH, height: CARD_HEIGHT }]} pointerEvents="none"> 
         <LottieView
           source={avatar.owned ? require('@/assets/lottie/Owned.json') : require('@/assets/lottie/NotOwned.json')}
           autoPlay
@@ -51,23 +51,31 @@ export default function AvatarCard({ avatar, onSelect, onBuy, buyLoading }: { av
           />
         )}
       </View>
+      {/* 아바타 가격 표시 */}
+      <View style={styles.priceTagBottom}>
+        <Image source={require('@/assets/icons/coin.png')} style={styles.coinIcon} />
+        <Text style={styles.priceText}>
+          {formatPrice(avatar.price)}
+        </Text>
+      </View>
       <View style={styles.statusArea}>
         {avatar.owned ? (
-          <TouchableOpacity
-            style={avatar.selected ? styles.selectedCircle : styles.selectCircle}
-            onPress={() => {
-              console.log('AvatarCard onSelect 클릭됨');
-              if (onSelect) onSelect();
-            }}
-            activeOpacity={0.7}
-            disabled={avatar.selected}
-          >
-            {avatar.selected ? (
-              <Image source={require('@/assets/icons/check.png')} style={styles.checkIcon} />
-            ) : (
+          avatar.selected ? (
+            <View style={styles.selectCircle}>
+              <Image source={require('@/assets/icons/check.png')} style={{ width: 100, height: 100 }} />
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.selectCircle}
+              onPress={() => {
+                console.log('AvatarCard onSelect 클릭됨');
+                if (onSelect) onSelect();
+              }}
+              activeOpacity={0.7}
+            >
               <Text style={styles.selectText}>선택</Text>
-            )}
-          </TouchableOpacity>
+            </TouchableOpacity>
+          )
         ) : (
           <TouchableOpacity
             style={styles.lockCircle}
@@ -88,7 +96,7 @@ export default function AvatarCard({ avatar, onSelect, onBuy, buyLoading }: { av
 
 const styles = StyleSheet.create({
   container: { alignItems: 'center', justifyContent: 'center' },
-  lottieBgWrap: { justifyContent: 'center', alignItems: 'center', alignSelf: 'center' },
+  lottieBgWrap: { justifyContent: 'center', alignItems: 'center', alignSelf: 'center', marginTop: 24 },
   lottieBg: { position: 'absolute' },
   avatarImg: { resizeMode: 'contain' },
   successLottie: { zIndex: 10 },
@@ -100,16 +108,16 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 4,
-    marginTop: 10,
+    marginTop: 32,
     alignSelf: 'center',
     zIndex: 20,
     minHeight: 26,
   },
   statusArea: {
     alignItems: 'center',
-    marginTop: 18,
     minHeight: 70,
     justifyContent: 'flex-end',
+    paddingTop: 56, // 버튼만 아래로 내리기 위해 추가
   },
   selectedCircle: {
     width: 64,
@@ -132,16 +140,17 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   selectCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     backgroundColor: '#A7F3D0',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 6,
+    marginBottom: 16, // 기존 66 → 16
+    zIndex: 1000,
   },
   selectText: {
-    color: '#10B981',
+    color: '#000',
     fontSize: 20,
     fontWeight: 'bold',
   },
@@ -152,13 +161,14 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   lockCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     backgroundColor: '#E5E7EB',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 6,
+    marginBottom: 16, // 기존 66 → 16
+    zIndex: 1000,
   },
   lockIcon: {
     width: 32,
