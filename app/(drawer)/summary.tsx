@@ -4,10 +4,13 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
+  TouchableOpacity,
   View
 } from 'react-native';
 import MapView, { Polyline } from 'react-native-maps';
@@ -44,6 +47,8 @@ export default function SummaryScreen() {
   const [modalType, setModalType] = useState<'saveNewTrack' | 'confirmSaveRecord' | null>(null);
   const [newTrackName, setNewTrackName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [showTrackNameModal, setShowTrackNameModal] = useState(false);
+  const [tempTrackName, setTempTrackName] = useState('');
 
   // --- 애니메이션을 위한 상태 ---
   const userProfile = useUserStore((state) => state.profile);
@@ -300,8 +305,9 @@ export default function SummaryScreen() {
     }
   };
 
-  const handleSaveNewTrackAndRecord = async () => {
-    if (newTrackName.trim() === '') {
+  const handleSaveNewTrackAndRecord = async (trackName?: string) => {
+    const nameToUse = (trackName ?? newTrackName).trim();
+    if (nameToUse === '') {
       Alert.alert('입력 필요', '저장할 트랙의 이름을 입력해주세요.');
       return;
     }
@@ -314,7 +320,7 @@ export default function SummaryScreen() {
     try {
       // 1. 새로운 트랙 생성을 서버에 요청
       const newUserTrack: RunningTrackPayload = {
-        name: newTrackName.trim(),
+        name: nameToUse,
         totalDistance: Math.round(totalDistanceKm * 1000),
         path: userPath,
         rate: 0,
@@ -368,21 +374,40 @@ export default function SummaryScreen() {
     }
   };
 
+  // 완료 버튼 핸들러
   const handleCompletePress = () => {
-    if (totalDistanceKm <= 0) {
-      Alert.alert(
-        '저장 불가',
-        '달린 거리가 없어 기록을 저장할 수 없습니다.',
-        [{ text: '확인', onPress: () => router.replace('/') }] // 확인 시 홈으로 이동
-      );
-      return;
-    }
     if (isTrackMode) {
       setModalType('confirmSaveRecord');
     } else {
       setModalType('saveNewTrack');
     }
   };
+
+  useEffect(() => {
+    if (modalType === 'saveNewTrack') {
+      // setTimeout으로 모달 오픈을 defer하여 race condition 방지
+      setTimeout(() => setShowTrackNameModal(true), 0);
+      setModalType(null);
+    } else if (modalType === 'confirmSaveRecord') {
+      Alert.alert(
+        '기록 저장',
+        '이 기록을 저장하시겠습니까?',
+        [
+          {
+            text: '취소',
+            style: 'cancel',
+            onPress: () => setModalType(null),
+          },
+          {
+            text: '저장',
+            onPress: handleSaveRecordOnly,
+          },
+        ],
+        { cancelable: true }
+      );
+      setModalType(null);
+    }
+  }, [modalType]);
 
   if (!Array.isArray(userPath) || userPath.length === 0) {
     return (
@@ -408,7 +433,10 @@ export default function SummaryScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={["bottom","left","right"]}>
       <View style={styles.dragIndicator} />
-      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: 0 }}>
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }}
+        keyboardShouldPersistTaps="handled"
+      >
       {/* 상단 안내 메시지 */}
       {isPathTooShort && (
         <View style={styles.warningBanner}>
@@ -495,15 +523,68 @@ export default function SummaryScreen() {
         </View>
         <View style={{ flex: 1 }} />
       </View>
-      <View style={styles.scrollHintContainer}>
-        <Text style={styles.scrollHintText}>아래로 스크롤하여 기록을 확인하세요 ↓</Text>
-      </View>
       <View style={{ height: 20 }} />
-      <Pressable style={styles.completeButton} onPress={handleCompletePress}>
+      <Pressable
+        style={[styles.completeButton, { backgroundColor: '#007aff', alignSelf: 'center', marginBottom: 20 }]}
+        onPress={() => {
+          console.log('저장하고 완료 버튼 클릭됨');
+          handleCompletePress();
+        }}
+      >
         <Text style={styles.completeIcon}>🏁</Text>
         <Text style={styles.completeButtonText}>저장하고 완료</Text>
       </Pressable>
       <View style={{ height: 20 }} />
+      {/* 커스텀 트랙 이름 입력 모달 */}
+      {showTrackNameModal && (
+        <Modal transparent visible={showTrackNameModal} animationType="fade">
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+            <View style={{ backgroundColor: 'white', padding: 28, borderRadius: 16, width: '85%', alignItems: 'center' }}>
+              <Text style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 8 }}>트랙 이름 입력</Text>
+              <Text style={{ fontSize: 14, color: '#666', marginBottom: 16, textAlign: 'center' }}>
+                저장할 트랙의 이름을 입력해 주세요.
+              </Text>
+              <TextInput
+                value={tempTrackName}
+                onChangeText={setTempTrackName}
+                placeholder="예: 한강공원 5K"
+                style={{ borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 12, marginBottom: 18, width: '100%', fontSize: 16 }}
+                maxLength={30}
+                autoFocus
+              />
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', width: '100%' }}>
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowTrackNameModal(false);
+                    setTempTrackName('');
+                    router.replace('/');
+                  }}
+                  style={{ paddingVertical: 10, paddingHorizontal: 18, borderRadius: 8, backgroundColor: '#eee', marginRight: 10 }}
+                >
+                  <Text style={{ color: '#333', fontWeight: 'bold', fontSize: 15 }}>기록만 저장</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    setNewTrackName(tempTrackName);
+                    setShowTrackNameModal(false);
+                    setTempTrackName('');
+                    handleSaveNewTrackAndRecord(tempTrackName);
+                  }}
+                  style={{
+                    paddingVertical: 10,
+                    paddingHorizontal: 18,
+                    borderRadius: 8,
+                    backgroundColor: tempTrackName.trim() ? '#007aff' : '#b0c4de',
+                  }}
+                  disabled={!tempTrackName.trim()}
+                >
+                  <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 15 }}>저장</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
     </ScrollView>
     </SafeAreaView>
   );
