@@ -241,7 +241,15 @@ export default function RecordDetailScreen() {
         <View style={styles.infoRow}>
           <Text style={styles.label}>평균 페이스</Text>
           <Text style={styles.value}>
-            {Math.floor(avgPace / 60)}′{String(Math.round(avgPace % 60)).padStart(2, '0')}″/km
+            {(() => {
+                const min = Math.floor(avgPace);                 // 분
+                const sec = Math.round((avgPace - min) * 60);     // 초
+                return (
+                  <Text style={styles.value}>
+                    {min}′{String(sec).padStart(2, '0')}″/km
+                  </Text>
+                );
+              })()}
           </Text>
         </View>
         <View style={styles.infoRow}>

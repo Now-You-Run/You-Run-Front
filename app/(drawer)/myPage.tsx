@@ -77,7 +77,8 @@ export default function MyPageScreen() {
   type Mode = 'track' | 'free';
   const [mode, setMode] = useState<Mode>('track');
 
-  const [records, setRecords] = useState<ScreenRecord[]>([]);
+  const [rawRecords, setRawRecords] = useState<ScreenRecord[]>([])     // ← 전체 기록
+  const [records, setRecords]     = useState<ScreenRecord[]>([])     // ← 화면에 보이는 기록
   const [loading, setLoading] = useState(false);
 
   const fetchRecords = async () => {
@@ -107,18 +108,17 @@ export default function MyPageScreen() {
         trackName: item.trackInfoDto?.name,
       }));
 
-      if (mode === 'track') {
-        serverRecs = serverRecs.filter(
-          (r) => r.mode === 'BOT' || r.mode === 'MATCH'
-        );
-      } else {
-        serverRecs = serverRecs.filter((r) => r.mode === 'FREE');
-      }
+      setRawRecords(serverRecs)        // ← 전체 기록으로 보관
+
+      // ② 화면에 보일 records 만 모드별로 필터
+      const filtered =
+        mode === 'track'
+          ? serverRecs.filter(r => r.mode === 'BOT' || r.mode === 'MATCH')
+          : serverRecs.filter(r => r.mode === 'FREE');
 
       setRecords(
-        serverRecs.sort(
-          (a, b) =>
-            new Date(b.finishedAt).getTime() - new Date(a.finishedAt).getTime()
+        filtered.sort(
+          (a,b) => new Date(b.finishedAt).getTime() - new Date(a.finishedAt).getTime()
         )
       );
     } catch (e: any) {
@@ -154,14 +154,51 @@ export default function MyPageScreen() {
       label: '평균 페이스',
       value:
         runCount > 0
-          ? `${Math.floor(avgPaceSec / 60)}'${String(
-              Math.round(avgPaceSec % 60)
-            ).padStart(2, '0')}"`
-          : '-',
+         ? (() => {
+          const min = Math.floor(avgPaceSec);
+          const sec = Math.round((avgPaceSec - min) * 60);
+          return `${min}'${String(sec).padStart(2, '0')}"`;
+        })()
+      : '-',
     },
     { label: '달린 거리', value: `${weeklyDistance.toFixed(2)}km` },
     { label: '횟수', value: `${runCount}회` },
   ];
+
+   // ─── 모드별 평균 페이스 계산 (rawRecords 기준) ────────────────────
+  const trackRecsAll = rawRecords.filter(r => r.mode === 'BOT' || r.mode === 'MATCH');
+  const freeRecsAll  = rawRecords.filter(r => r.mode === 'FREE');
+
+  const trackAvgPace =
+    trackRecsAll.length
+      ? trackRecsAll.reduce((sum,r) => sum + r.averagePace, 0) / trackRecsAll.length
+      : 0;
+
+  const freeAvgPace =
+    freeRecsAll.length
+      ? freeRecsAll.reduce((sum,r) => sum + r.averagePace, 0) / freeRecsAll.length
+      : 0;
+
+  // 두 모드 평균의 평균
+  const userAvgPace = (trackAvgPace + freeAvgPace) / 2;
+
+  // ─── 서버에 PATCH 요청하여 유저 평균 페이스 업데이트 ─────────────────────
+  useEffect(() => {
+   if (trackRecsAll.length + freeRecsAll.length === 0) return;
+
+   (async () => {
+     const userId = await AuthAsyncStorage.getUserId();
+     if (!userId) return;
+     const rounded = Math.round(userAvgPace * 100) / 100;
+     await fetch(`${API_BASE}/api/user/average-pace?userId=${userId}`, {
+       method: 'PATCH',
+       headers: { 'Content-Type': 'application/json' },
+       body: JSON.stringify({ averagePace: rounded }),
+     });
+     const updated = await fetchUserProfile();
+     setProfile(updated);
+   })();
+ }, [trackAvgPace, freeAvgPace]); 
 
   // ─── 최근 달리기 리스트 ────────────────────────────────────
   const recent: RecentRun[] = weekRecs.map((r) => ({
