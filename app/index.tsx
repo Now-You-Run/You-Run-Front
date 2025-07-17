@@ -35,21 +35,6 @@ import { AvatarService } from '@/services/AvatarService';
 const SERVER_API_URL = process.env.EXPO_PUBLIC_SERVER_API_URL;
 const MY_USER_ID = 1; // 유저 1로 하드코딩
 
-const fetchUserName = async (userId: number) => {
-  try {
-    const response = await fetch(
-      `${SERVER_API_URL}/api/user?userId=${MY_USER_ID}`
-    );
-    if (!response.ok) {
-      throw new Error('네트워크 오류');
-    }
-    const json = await response.json();
-    return json.data.name as string;
-  } catch (error) {
-    console.error('유저 이름 불러오기 실패:', error);
-    return '이름 없음';
-  }
-};
 
 // Splash screen for font loading
 SplashScreen.preventAutoHideAsync();
@@ -133,6 +118,8 @@ export default function HomeScreen() {
   );
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [userName, setUserName] = useState<string>(''); // 초기 공백
+  const [averagePace, setAveragePace] = useState<number>(0);
+
 
   // ReadyPlayerMe state
   const [showAvatarCreator, setShowAvatarCreator] = useState(false);
@@ -145,6 +132,28 @@ export default function HomeScreen() {
 
   const { isMenuVisible, closeMenu } = useDrawer();
   const router = useRouter();
+
+  const fetchUserProfile = async (userId: number) => {
+  try {
+    const response = await fetch(
+      `${SERVER_API_URL}/api/user?userId=${MY_USER_ID}`
+    );
+    if (!response.ok) {
+      throw new Error('네트워크 오류');
+    }
+    const json = await response.json();
+    const { name, averagePace } = json.data;
+    console.log('✅ user profile response:', json.data);
+
+      setUserName(name);
+      setAveragePace(averagePace ?? 0);
+    } catch (e) {
+      console.error('유저 프로필 로드 실패:', e);
+      setUserName('이름 없음');
+      setAveragePace(0);
+    }
+  };
+
 
   // Font loading
   const [fontsLoaded] = useFonts({
@@ -278,7 +287,8 @@ export default function HomeScreen() {
       loadDefaultAvatar();
 
       // ✅ 유저 이름 불러오기 연동
-      fetchUserName(MY_USER_ID).then(setUserName);
+      //fetchUserName(MY_USER_ID).then(setUserName);
+      fetchUserProfile(MY_USER_ID)
     }
   }, [fontsLoaded]);
 
@@ -334,7 +344,10 @@ export default function HomeScreen() {
         {/* Main content */}
         <View style={styles.content}>
           <ProfileIcons />
-          <CharacterSection userName={userName} />
+          <CharacterSection
+            userName={userName}
+            averagePace={averagePace}
+        />
         </View>
 
         {/* Bottom buttons */}

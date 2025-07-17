@@ -1,7 +1,21 @@
 import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 
-export default function CharacterSection({ userName }: { userName: string }) {
+interface CharacterSectionProps {
+  userName: string;
+  /** 초 단위 평균 페이스 */
+  averagePace: number;
+}
+
+function formatPace(min: number): string {
+  // 분 단위 실수 → 전체 초
+  const totalSec = Math.round(min * 60);
+  const m = Math.floor(totalSec / 60);
+  const s = (totalSec % 60).toString().padStart(2, '0');
+  return `${m}'${s}"`;
+}
+
+export default function CharacterSection({ userName, averagePace, }:  CharacterSectionProps) {
   return (
     <View style={styles.characterSection}>
       <View style={styles.nameContainer}>
@@ -13,7 +27,9 @@ export default function CharacterSection({ userName }: { userName: string }) {
       </View>
       <View style={styles.characterContainer}>
         <View style={styles.paceContainer}>
-          <Text style={styles.paceText}>6'00"</Text>
+          <Text style={styles.paceText}>
+            {formatPace(averagePace)}
+          </Text>
         </View>
         <Image
           source={require('@/assets/images/character.png')}
