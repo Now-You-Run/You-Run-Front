@@ -91,6 +91,7 @@ interface RunningState {
   startLocationTracking: () => Promise<void>;
   stopLocationTracking: () => Promise<void>;
   setCurrentSpeed: (speed: number) => void; // <-- 추가
+  clearPath: () => void; // <-- 추가
 }
 
 
@@ -496,6 +497,9 @@ locationSubscription.current = await Location.watchPositionAsync(
     });
   };
 
+  // path를 완전히 비우는 함수 (테스트 모드 등에서 사용)
+  const clearPath = () => setPath([]);
+
 const startRunning = (): void => {
   // 완전한 상태 초기화
   if (!isTestMode) setPath([]); // 테스트 모드면 path를 비우지 않음
@@ -593,6 +597,7 @@ const startRunning = (): void => {
         startLocationTracking, // 추가
         stopLocationTracking, // 추가
         setCurrentSpeed, // <-- 추가
+        clearPath, // <-- 추가
       }}
     >
       {children}

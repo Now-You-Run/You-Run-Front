@@ -495,9 +495,6 @@ export default function SummaryScreen() {
         </View>
         <View style={{ flex: 1 }} />
       </View>
-      <View style={styles.scrollHintContainer}>
-        <Text style={styles.scrollHintText}>아래로 스크롤하여 기록을 확인하세요 ↓</Text>
-      </View>
       <View style={{ height: 20 }} />
       <Pressable style={styles.completeButton} onPress={handleCompletePress}>
         <Text style={styles.completeIcon}>🏁</Text>
