@@ -358,15 +358,22 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
   const handleMatchFinish = useCallback(async () => {
     let isWinner = false;
     try {
+      console.log('recordId:', recordId);
       const res = await axios.get(`https://yourun.shop/api/record/${recordId}`);
-      const opponentElapsed = res.data.data.elapsedTime;
-      // 내가 더 빨리 들어오면 승리 (elapsedTime가 더 작으면 승리)
-      isWinner = elapsedTime < opponentElapsed;
+      const opponentElapsed = res.data.data.record.resultTime;
+      if (typeof opponentElapsed === 'number' && !isNaN(opponentElapsed)) {
+        isWinner = elapsedTime < opponentElapsed;
+      } else {
+        Alert.alert('오류', '상대방 기록을 불러올 수 없습니다. 기록은 정상 저장됩니다.');
+        isWinner = false;
+      }
+      // 로그로 확인
+      console.log('내 기록:', elapsedTime, '상대 기록:', opponentElapsed, 'isWinner:', isWinner);
     } catch (e) {
       Alert.alert('오류', '상대방 기록을 불러올 수 없습니다. 기록은 정상 저장됩니다.');
       isWinner = false;
     }
-    
+
     if (isWinner) {
       Speech.speak('러닝을 완료했습니다. 상대방과의 대결에서 승리하였습니다!');
     } else {
@@ -536,9 +543,12 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
                   const startCoord = { ...trackInfo.path[0], timestamp: Date.now() };
                   runningCtx.clearPath();
                   setUserLocation(startCoord);
-                  addToPath(startCoord);
                   accIdxRef.current = 0;
                   lastCoordRef.current = startCoord;
+                  // path가 완전히 비워진 뒤에 addToPath 실행
+                  setTimeout(() => {
+                    addToPath(startCoord);
+                  }, 0);
                 }
               }}
             >
