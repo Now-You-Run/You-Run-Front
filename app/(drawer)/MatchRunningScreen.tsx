@@ -74,6 +74,14 @@ function MatchRunningScreenInner() {
   const scaleAnimation = useRef(new Animated.Value(1)).current;
   const finishTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // --- 테스트 모드 상태 및 참조 ---
+  const [isTestMode, setIsTestMode] = useState(false);
+  const [testSpeedKmh, setTestSpeedKmh] = useState(10); // 기본 10km/h
+  const fakeLocationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const accIdxRef = useRef(0);
+  const lastCoordRef = useRef<any>(null);
+  const prevActiveRef = useRef(isActive);
+
   // --- 상대방 기록 불러오기 ---
   useEffect(() => {
     if (!recordId) return;
@@ -150,18 +158,20 @@ function MatchRunningScreenInner() {
     }
   }, [mapRegion]);
 
-  // --- 위치 구독 시작 ---
+  // --- 위치 구독 시작 (테스트 모드 아닐 때만) ---
   useEffect(() => {
+    if (isTestMode) return;
     if (startLocationTracking && stopLocationTracking) {
       startLocationTracking();
       return () => {
         stopLocationTracking();
       };
     }
-  }, [startLocationTracking, stopLocationTracking]);
+  }, [isTestMode, startLocationTracking, stopLocationTracking]);
 
-  // --- 최초 GPS 위치 수신 ---
+  // --- 최초 GPS 위치 수신 (테스트 모드 아닐 때만) ---
   useEffect(() => {
+    if (isTestMode) return;
     if (!userLocation) {
       (async () => {
         const { status } = await Location.requestForegroundPermissionsAsync();
@@ -175,7 +185,88 @@ function MatchRunningScreenInner() {
         }
       })();
     }
-  }, [userLocation, setUserLocation]);
+  }, [isTestMode, userLocation, setUserLocation]);
+
+  // --- 테스트 모드: 트랙 path 자동 이동 setInterval만 시작 (진행 상태는 건드리지 않음) ---
+  const { addToPath, startRunning, setCurrentSpeed } = useRunning();
+  const startFakeTrackInterval = useCallback(() => {
+    if (!trackInfo?.path || trackInfo.path.length < 2) return;
+    if (fakeLocationIntervalRef.current) clearInterval(fakeLocationIntervalRef.current);
+    const speedMps = testSpeedKmh / 3.6;
+    let prevCoord = lastCoordRef.current || { ...trackInfo.path[0], timestamp: Date.now() };
+    let idx = accIdxRef.current;
+    fakeLocationIntervalRef.current = setInterval(() => {
+      if (!isActive || isPaused) return;
+      let remainDist = speedMps;
+      while (remainDist > 0 && idx < trackInfo.path.length - 1) {
+        const nextCoord = trackInfo.path[idx + 1];
+        const dKm = haversineDistance(
+          prevCoord.latitude,
+          prevCoord.longitude,
+          nextCoord.latitude,
+          nextCoord.longitude
+        );
+        const dMeters = dKm * 1000;
+        if (dMeters <= remainDist) {
+          remainDist -= dMeters;
+          prevCoord = { ...nextCoord, timestamp: Date.now() };
+          idx++;
+        } else {
+          const ratio = remainDist / dMeters;
+          const lat = prevCoord.latitude + (nextCoord.latitude - prevCoord.latitude) * ratio;
+          const lng = prevCoord.longitude + (nextCoord.longitude - prevCoord.longitude) * ratio;
+          prevCoord = { latitude: lat, longitude: lng, timestamp: Date.now() };
+          remainDist = 0;
+        }
+      }
+      accIdxRef.current = idx;
+      lastCoordRef.current = prevCoord;
+      setUserLocation(prevCoord);
+      addToPath(prevCoord);
+      setCurrentSpeed(testSpeedKmh);
+    }, 1000) as any;
+  }, [trackInfo, isActive, isPaused, setUserLocation, addToPath, setCurrentSpeed, testSpeedKmh]);
+
+  // --- 러닝 처음 시작할 때만 진행 상태 초기화 + setInterval 시작 ---
+  const startFakeTrackMovement = useCallback(() => {
+    if (!trackInfo?.path || trackInfo.path.length < 2) return;
+    if (accIdxRef.current === 0 && lastCoordRef.current && lastCoordRef.current.latitude === trackInfo.path[0].latitude && lastCoordRef.current.longitude === trackInfo.path[0].longitude) {
+      startRunning();
+      startFakeTrackInterval();
+      return;
+    }
+    accIdxRef.current = 0;
+    lastCoordRef.current = { ...trackInfo.path[0], timestamp: Date.now() };
+    setUserLocation(lastCoordRef.current);
+    addToPath(lastCoordRef.current);
+    startRunning();
+    startFakeTrackInterval();
+  }, [trackInfo, setUserLocation, startFakeTrackInterval, addToPath, startRunning]);
+
+  // --- 테스트 모드 이동 제어 ---
+  useEffect(() => {
+    if (isTestMode && isActive && !prevActiveRef.current && accIdxRef.current === 0) {
+      startFakeTrackMovement();
+    }
+    prevActiveRef.current = isActive;
+    if ((!isTestMode || !isActive || isPaused) && fakeLocationIntervalRef.current) {
+      clearInterval(fakeLocationIntervalRef.current);
+      fakeLocationIntervalRef.current = null;
+    }
+    if (isTestMode && isActive && !isPaused && !fakeLocationIntervalRef.current && accIdxRef.current > 0) {
+      startFakeTrackInterval();
+    }
+  }, [isTestMode, isActive, isPaused, startFakeTrackMovement, startFakeTrackInterval]);
+
+  // --- 컴포넌트 언마운트 시 인터벌 정리 ---
+  useEffect(() => {
+    return () => {
+      if (fakeLocationIntervalRef.current) {
+        clearInterval(fakeLocationIntervalRef.current);
+        fakeLocationIntervalRef.current = null;
+      }
+    };
+  }, []);
 
   // --- 러닝 시작 ---
   const customOnMainPress = useCallback(async () => {
@@ -188,6 +279,17 @@ function MatchRunningScreenInner() {
       return;
     }
     const startPoint = trackInfo.path[0];
+    if (isTestMode) {
+      resetRunning();
+      const startCoord = { ...startPoint, timestamp: Date.now() };
+      setUserLocation(startCoord);
+      addToPath(startCoord);
+      accIdxRef.current = 0;
+      lastCoordRef.current = startCoord;
+      startRunning();
+      startFakeTrackInterval();
+      return;
+    }
     if (!userLocation) {
       Alert.alert('GPS 위치를 받아오는 중입니다.');
       return;
@@ -204,7 +306,7 @@ function MatchRunningScreenInner() {
     }
     Speech.speak('러닝 대결을 시작합니다. 파이팅!');
     onMainPress();
-  }, [isActive, isPaused, onMainPress, trackInfo, userLocation]);
+  }, [isActive, isPaused, onMainPress, trackInfo, userLocation, isTestMode, resetRunning, setUserLocation, addToPath, startRunning, startFakeTrackInterval]);
 
   // --- 완주(트랙 도착) 처리 ---
   useEffect(() => {
@@ -369,6 +471,50 @@ function MatchRunningScreenInner() {
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
       </View>
+      <View style={styles.testModeBox}>
+        {/* 테스트 모드 UI */}
+        <View style={styles.testModeRow}>
+          <Text style={styles.testModeLabel}>🧪 테스트 모드</Text>
+          <TouchableOpacity
+            style={[
+              styles.testModeToggle,
+              { backgroundColor: isTestMode ? '#ff6b6b' : '#4ecdc4' }
+            ]}
+            onPress={() => setIsTestMode(!isTestMode)}
+          >
+            <Text style={styles.testModeToggleText}>
+              {isTestMode ? 'ON' : 'OFF'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        {isTestMode && (
+          <>
+            <TouchableOpacity
+              style={styles.startPointBtn}
+              onPress={() => {
+                if (Array.isArray(trackInfo?.path) && trackInfo.path.length > 0) {
+                  const startCoord = { ...trackInfo.path[0], timestamp: Date.now() };
+                  setUserLocation(startCoord);
+                  addToPath(startCoord);
+                  accIdxRef.current = 0;
+                  lastCoordRef.current = startCoord;
+                }
+              }}
+            >
+              <Text style={styles.startPointBtnText}>🚩 시작점 이동</Text>
+            </TouchableOpacity>
+            <View style={styles.speedControlVertical}>
+              <TouchableOpacity onPress={() => setTestSpeedKmh(s => Math.max(1, s - 1))}>
+                <Text style={styles.speedBtn}>-</Text>
+              </TouchableOpacity>
+              <Text style={styles.speedValue}>{testSpeedKmh} km/h</Text>
+              <TouchableOpacity onPress={() => setTestSpeedKmh(s => Math.min(30, s + 1))}>
+                <Text style={styles.speedBtn}>+</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+      </View>
 
       {/* 지도/러닝 경로 */}
       <RunningMap
@@ -500,6 +646,82 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
     fontWeight: '500',
+  },
+  // --- 테스트 모드 UI 스타일 (더 작고 오른쪽 상단에 위치) ---
+  testModeBox: {
+    position: 'absolute',
+    top: 50,
+    right: 8,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 12,
+    padding: 6,
+    minWidth: 110,
+    maxWidth: 140,
+    alignItems: 'center',
+    zIndex: 20,
+    // 그림자 효과를 원하면 아래 추가
+    // shadowColor: '#000',
+    // shadowOffset: { width: 0, height: 2 },
+    // shadowOpacity: 0.15,
+    // shadowRadius: 4,
+    // elevation: 4,
+  },
+  testModeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 2,
+    width: '100%',
+  },
+  testModeLabel: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  testModeToggle: {
+    width: 36,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 2,
+  },
+  testModeToggleText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  startPointBtn: {
+    backgroundColor: '#4ecdc4',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    marginTop: 6,
+    alignSelf: 'center',
+  },
+  startPointBtnText: {
+    color: 'white',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  speedControlVertical: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    marginTop: 4,
+    width: '100%',
+  },
+  speedBtn: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    paddingHorizontal: 4,
+  },
+  speedValue: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#333',
+    marginHorizontal: 4,
   },
 });
 
