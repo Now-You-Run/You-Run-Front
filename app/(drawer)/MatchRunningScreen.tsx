@@ -8,6 +8,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, BackHandler, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Region } from 'react-native-maps';
 
+import { BotDistanceDisplay } from '@/components/running/BotDistanceDisplay';
 import { FinishModal } from '@/components/running/FinishModal';
 import { RunningControls } from '@/components/running/RunningControls';
 import { RunningMap } from '@/components/running/RunningMap';
@@ -16,7 +17,7 @@ import { RunningProvider, useRunning } from '@/context/RunningContext';
 import { useRunningLogic } from '@/hooks/useRunningLogic';
 import { loadTrackInfo, TrackInfo } from '@/repositories/appStorage';
 import { Coordinate } from '@/types/TrackDto';
-import { getOpponentPathAndGhost, haversineDistance } from '@/utils/RunningUtils';
+import { calculateTrackDistance, getOpponentPathAndGhost, haversineDistance } from '@/utils/RunningUtils';
 
 interface SummaryData {
   trackPath: Coordinate[];
@@ -332,6 +333,22 @@ function MatchRunningScreenInner() {
   // --- 최종 준비 여부 ---
   const isMapReady = !!(trackInfo && mapRegion);
 
+  // --- 진행률/거리 계산 (user vs opponent) ---
+  const userVsOpponent = React.useMemo(() => {
+    if (!trackInfo?.path || path.length === 0 || !opponentLivePath || opponentLivePath.length === 0) {
+      return { distanceMeters: 0, isAhead: false, userProgress: 0, totalDistance: trackInfo?.distanceMeters ?? 0 };
+    }
+    const userPos = path[path.length - 1];
+    const opponentPos = opponentLivePath[opponentLivePath.length - 1];
+    const result = calculateTrackDistance(opponentPos, userPos, trackInfo.path);
+    return {
+      distanceMeters: result.distanceMeters,
+      isAhead: !result.isAhead, // true면 내가 앞섬
+      userProgress: result.userProgress,
+      totalDistance: trackInfo.distanceMeters ?? 0,
+    };
+  }, [trackInfo?.path, path, opponentLivePath, trackInfo?.distanceMeters]);
+
   // --- 렌더 ---
   if (trackError) {
     return (
@@ -370,6 +387,12 @@ function MatchRunningScreenInner() {
 
       {/* 하단 오버레이 */}
       <View style={styles.overlay}>
+        <BotDistanceDisplay
+          distanceMeters={userVsOpponent.distanceMeters}
+          isAhead={userVsOpponent.isAhead}
+          userProgress={userVsOpponent.userProgress}
+          totalDistance={userVsOpponent.totalDistance}
+        />
         <RunningStats 
           totalDistance={totalDistance} 
           displaySpeed={displaySpeed} 
