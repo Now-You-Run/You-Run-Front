@@ -16,11 +16,10 @@ interface Props {
   onOrderChange: (order: SortOrder) => void;
   deleteMode: boolean;
   onDeleteModeToggle: () => void;
-  onDeleteSelected: () => void;
   selectedCount: number;
 }
 
-export function TrackListHeader({ tab, distanceSortOption, sortOrder, onTabChange, onSortChange, onOrderChange, deleteMode, onDeleteModeToggle, onDeleteSelected, selectedCount }: Props) {
+export function TrackListHeader({ tab, distanceSortOption, sortOrder, onTabChange, onSortChange, onOrderChange, deleteMode, onDeleteModeToggle, selectedCount }: Props) {
   const router = useRouter();
 
   return (
@@ -32,11 +31,6 @@ export function TrackListHeader({ tab, distanceSortOption, sortOrder, onTabChang
         <TouchableOpacity style={styles.deleteModeButton} onPress={onDeleteModeToggle}>
           <Text style={styles.deleteModeButtonText}>{deleteMode ? '취소' : '삭제 모드'}</Text>
         </TouchableOpacity>
-        {deleteMode && (
-          <TouchableOpacity style={styles.deleteSelectedButton} onPress={onDeleteSelected} disabled={selectedCount === 0}>
-            <Text style={[styles.deleteSelectedButtonText, selectedCount === 0 && { color: '#aaa' }]}>선택 삭제 ({selectedCount})</Text>
-          </TouchableOpacity>
-        )}
       </View>
       <View style={styles.tabContainer}>
         {/* [수정] '내 트랙' 탭의 활성화 조건과 이벤트 핸들러 값 변경 */}

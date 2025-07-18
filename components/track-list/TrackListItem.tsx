@@ -3,7 +3,7 @@
 import { Track } from '@/types/response/RunningTrackResponse';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Image, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface Props {
   item: Track;
@@ -18,25 +18,25 @@ export function TrackListItem({ item, sourceTab, deleteMode = false, checked = f
   const [isImageLoading, setIsImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
 
+  // 카드 전체를 탭하면 선택/해제 (삭제 모드일 때만)
+  const handlePress = () => {
+    if (deleteMode && onCheckChange) {
+      onCheckChange(!checked);
+    } else if (!deleteMode) {
+      router.push({
+        pathname: '/TrackDetailScreen',
+        params: { trackId: item.id, source: sourceTab },
+      });
+    }
+  };
+
   return (
-    <View key={item.id} style={{ flexDirection: 'row', alignItems: 'center', width: '48%' }}>
-      {deleteMode && (
-        <Switch
-          value={checked}
-          onValueChange={onCheckChange}
-          style={{ marginRight: 6 }}
-        />
-      )}
+    <View key={item.id} style={{ width: '48%', marginBottom: 14 }}>
       <TouchableOpacity
-        style={[styles.card, { flex: 1 }]}
+        style={[styles.card, checked && deleteMode ? styles.cardSelected : null]}
         activeOpacity={0.85}
-        onPress={() =>
-          !deleteMode && router.push({
-            pathname: '/TrackDetailScreen',
-            params: { trackId: item.id, source: sourceTab },
-          })
-        }
-        disabled={deleteMode}
+        onPress={handlePress}
+        disabled={false}
       >
         <View style={styles.imageWrapper}>
           {item.thumbnailUrl && !imageError ? (
@@ -58,6 +58,12 @@ export function TrackListItem({ item, sourceTab, deleteMode = false, checked = f
           {isImageLoading && (
             <ActivityIndicator style={StyleSheet.absoluteFill} color="#4a90e2" />
           )}
+          {/* 선택 시 오버레이와 체크마크 */}
+          {deleteMode && checked && (
+            <View style={styles.overlay}>
+              <Text style={styles.checkIcon}>✔️</Text>
+            </View>
+          )}
         </View>
         <View style={styles.infoRow}>
           <Text style={styles.trackName} numberOfLines={1}>
@@ -76,15 +82,32 @@ export function TrackListItem({ item, sourceTab, deleteMode = false, checked = f
 
 const styles = StyleSheet.create({
   card: {
-    width: '48%',
+    width: '100%',
     aspectRatio: 1,
-    marginBottom: 14,
     borderRadius: 14,
     backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: '#ececec',
     overflow: 'hidden',
     elevation: 1,
+  },
+  cardSelected: {
+    borderColor: '#4a90e2',
+    backgroundColor: 'rgba(74,144,226,0.08)',
+  },
+  overlay: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(74,144,226,0.85)',
+    borderRadius: 16,
+    padding: 2,
+    zIndex: 10,
+  },
+  checkIcon: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   imageWrapper: {
     width: '100%',

@@ -5,7 +5,7 @@ import { TrackListItem } from '@/components/track-list/TrackListItem';
 import { useTrackList } from '@/hooks/useTrackList';
 import { Track } from '@/types/response/RunningTrackResponse';
 import React from 'react';
-import { ActivityIndicator, Alert, FlatList, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function TrackListScreen() {
   const {
@@ -69,7 +69,6 @@ export default function TrackListScreen() {
         onOrderChange={setSortOrder}
         deleteMode={deleteMode}
         onDeleteModeToggle={handleDeleteModeToggle}
-        onDeleteSelected={handleDeleteSelected}
         selectedCount={selectedTrackIds.length}
       />
       <FlatList
@@ -94,6 +93,18 @@ export default function TrackListScreen() {
         ListFooterComponent={isLoading && tracks.length > 0 ? <ActivityIndicator style={{ margin: 20 }} /> : null}
         extraData={{ deleteMode, selectedTrackIds }}
       />
+      {/* 삭제 모드일 때만 하단 플로팅 삭제 버튼 */}
+      {deleteMode && (
+        <View style={styles.fabContainer}>
+          <TouchableOpacity
+            style={[styles.fab, selectedTrackIds.length === 0 && styles.fabDisabled]}
+            onPress={handleDeleteSelected}
+            disabled={selectedTrackIds.length === 0}
+          >
+            <Text style={styles.fabText}>선택 삭제 ({selectedTrackIds.length})</Text>
+          </TouchableOpacity>
+        </View>
+      )}
       {isLoading && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#4a90e2" />
@@ -114,5 +125,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
+  },
+  fabContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 30,
+    alignItems: 'center',
+    zIndex: 20,
+  },
+  fab: {
+    backgroundColor: '#e74c3c',
+    borderRadius: 24,
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    elevation: 3,
+  },
+  fabDisabled: {
+    backgroundColor: '#ccc',
+  },
+  fabText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });
