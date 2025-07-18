@@ -14,6 +14,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import ConfettiCannon from 'react-native-confetti-cannon';
+// STOMP 클라이언트 임포트
+import { Client, IMessage } from '@stomp/stompjs';
 
 interface FriendRequest {
   id: number | string;
@@ -52,51 +55,108 @@ export default function Social() {
   const [friendPointHistories, setFriendPointHistories] = useState<
     Map<string, number>
   >(new Map());
-  const wsRef = useRef<WebSocket | null>(null);
+  const confettiRef = useRef<ConfettiCannon | null>(null);
 
-  // 친구 요청 소켓
+  const stompClientRef = useRef<Client | null>(null);
+
+  const getWsUrl = (baseUrl: string | undefined): string | undefined => {
+    if (!baseUrl) return undefined;
+
+    let protocol: string;
+    let cleanBaseUrl: string;
+
+    // HTTPS -> WSS, HTTP -> WS 로 변경
+    if (baseUrl.startsWith('https://')) {
+      protocol = 'wss://'; // 보안 웹소켓 프로토콜
+      cleanBaseUrl = baseUrl.substring(8); // 'https://' 제거
+    } else if (baseUrl.startsWith('http://')) {
+      protocol = 'ws://'; // 일반 웹소켓 프로토콜
+      cleanBaseUrl = baseUrl.substring(7); // 'http://' 제거
+    } else {
+      // 프로토콜이 없는 경우 (예: localhost:3000)
+      console.warn('SERVER_API_URL에 유효한 프로토콜이 없습니다:', baseUrl);
+      protocol = 'ws://';
+      cleanBaseUrl = baseUrl;
+    }
+
+    // cleanBaseUrl에서 잠재적인 끝 슬래시 제거
+    if (cleanBaseUrl.endsWith('/')) {
+      cleanBaseUrl = cleanBaseUrl.slice(0, -1);
+    }
+
+    return `${protocol}${cleanBaseUrl}/ws`;
+  };
+
+  // 친구 요청 소켓 (STOMP 클라이언트로 변경)
   useEffect(() => {
     fetchPendingRequestCount();
     fetchFriendRequests();
     fetchFriends();
 
-    const wsUrl = `${SERVER_API_URL?.replace('http', 'ws')}/ws`;
-    const ws = new WebSocket(wsUrl);
+    const wsUrl = getWsUrl(SERVER_API_URL);
 
-    ws.onopen = () => {
-      console.log('✅ WebSocket 연결 성공');
-    };
+    if (wsUrl) {
+      const stompClient = new Client({
+        webSocketFactory: () => new WebSocket(wsUrl),
 
-    ws.onmessage = (event) => {
-      console.log('📨 WebSocket 메시지 수신:', event.data);
-      try {
-        const notification = JSON.parse(event.data);
-        if (notification.pendingCount !== undefined) {
-          if (notification.pendingCount > pendingRef.current) {
-            fetchFriendRequests();
-            Alert.alert('새 친구 요청', `새 친구 요청이 도착했습니다.`);
-          }
-          setPendingRequests(notification.pendingCount);
-          pendingRef.current = notification.pendingCount;
+        reconnectDelay: 5000,
+        heartbeatIncoming: 4000,
+        heartbeatOutgoing: 4000,
+
+        onConnect: () => {
+          console.log('✅ STOMP WebSocket 연결 성공');
+
+          stompClient.subscribe(
+            `/topic/friend-requests/${MY_USER_ID}`,
+            (message: IMessage) => {
+              console.log('📨 STOMP 메시지 수신:', message.body);
+              try {
+                const notification = JSON.parse(message.body);
+                if (notification.pendingCount !== undefined) {
+                  if (notification.pendingCount > pendingRef.current) {
+                    fetchFriendRequests();
+                    Alert.alert('새 친구 요청', `새 친구 요청이 도착했습니다.`);
+                  }
+                  setPendingRequests(notification.pendingCount);
+                  pendingRef.current = notification.pendingCount;
+                }
+              } catch (error) {
+                console.error('메시지 파싱 오류', error);
+              }
+            }
+          );
+        },
+
+        onStompError: (frame) => {
+          console.error('❌ STOMP 에러:', frame.headers['message'], frame.body);
+          Alert.alert(
+            'STOMP 오류',
+            `STOMP 연결 중 오류 발생: ${frame.headers['message']}`
+          );
+        },
+
+        // onWebSocketError: (event) => {
+        //   console.error('❌ Low-level WebSocket 에러:', event);
+        // },
+
+        onDisconnect: () => {
+          console.log('🛑 STOMP WebSocket 연결 종료');
+        },
+      });
+
+      stompClient.activate();
+      stompClientRef.current = stompClient;
+
+      return () => {
+        if (stompClientRef.current && stompClientRef.current.active) {
+          stompClientRef.current.deactivate();
         }
-      } catch (error) {
-        console.error('메시지 파싱 오류', error);
-      }
-    };
-
-    // ws.onerror = (error) => {
-    //   console.error('❌ WebSocket 에러:', error);
-    // };
-
-    // ws.onclose = () => {
-    //   console.log('🛑 WebSocket 연결 종료');
-    // };
-
-    wsRef.current = ws;
-
-    return () => {
-      ws.close();
-    };
+      };
+    } else {
+      console.error(
+        'WebSocket URL을 생성할 수 없습니다. SERVER_API_URL을 확인하세요.'
+      );
+    }
   }, []);
 
   // 푸시 토큰
@@ -233,8 +293,8 @@ export default function Social() {
     return () => clearInterval(interval);
   }, []);
 
-  // 응원하기 알림 보내기
-  const sendCheer = async (friend: Friend) => {
+  // 응원하기 알림 보내기 (폭죽 애니메이션과 함께)
+  const sendCheerAni = async (friend: Friend) => {
     try {
       const response = await fetch(
         `${SERVER_API_URL}/api/push-token/${friend.friend_id}/cheer?senderId=${MY_USER_ID}`,
@@ -244,18 +304,19 @@ export default function Social() {
       const json = await response.json();
 
       if (response.ok) {
-        Alert.alert('응원 완료', `${friend.name}님에게 응원을 보냈습니다!`);
+        confettiRef.current?.start(); // 1) 폭죽 애니메이션 실행
+        Alert.alert('응원 완료', `${friend.name}님에게 응원을 보냈습니다!`); // 2) 알림창 띄우기
       } else {
         console.error(json);
         Alert.alert('오류', `응원 실패: ${json.message ?? '알 수 없음'}`);
       }
     } catch (error) {
-      console.error('sendCheer error:', error);
+      console.error('sendCheerAni error:', error);
       Alert.alert('네트워크 오류', '응원 전송에 실패했습니다.');
     }
   };
 
-  // 친구 요청 카운타
+  // 친구 요청 카운트
   const fetchPendingRequestCount = async () => {
     try {
       const response = await fetch(
@@ -537,18 +598,17 @@ export default function Social() {
                       </Text>
                     )}
                   </View>
-
                   {/* 응원하기 / 포인트 보내기 버튼 */}
                   {!isEditing && (
                     <View style={styles.actionButtonsContainer}>
                       <TouchableOpacity
-                        onPress={() => sendCheer(friend)}
+                        onPress={() => sendCheerAni(friend)}
                         style={styles.actionButton}
                       >
                         <Ionicons
-                          name="heart-outline"
+                          name="sparkles-outline"
                           size={20}
-                          color="#FF4081"
+                          color="#E0B000"
                         />
                         <Text style={styles.actionButtonText}>응원</Text>
                       </TouchableOpacity>
@@ -584,15 +644,14 @@ export default function Social() {
                         ]}
                       >
                         <Ionicons
-                          name="cash-outline"
+                          name="medal-outline"
                           size={20}
-                          color="#FFD700"
+                          color="#000000"
                         />
                         <Text style={styles.actionButtonText}>→</Text>
                       </TouchableOpacity>
                     </View>
                   )}
-
                   {/* 친구 요청 수락 버튼 */}
                   {isEditing && (
                     <TouchableOpacity
@@ -621,6 +680,14 @@ export default function Social() {
           )}
         </View>
       )}
+      {/* 폭죽 애니메이션 */}
+      <ConfettiCannon
+        ref={confettiRef}
+        count={100}
+        origin={{ x: -10, y: 0 }} // 필요시 x,y 조절 가능
+        fadeOut={true}
+        autoStart={false} // 버튼 클릭 시 start() 호출해야 실행됨
+      />
     </View>
   );
 }
