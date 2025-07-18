@@ -33,11 +33,23 @@ export function TrackListItem({ item, sourceTab, deleteMode = false, checked = f
   return (
     <View key={item.id} style={{ width: '48%', marginBottom: 14 }}>
       <TouchableOpacity
-        style={[styles.card, checked && deleteMode ? styles.cardSelected : null]}
+        style={[
+          styles.card,
+          checked && deleteMode ? styles.cardSelected : null,
+          deleteMode && styles.cardDeleteMode,
+        ]}
         activeOpacity={0.85}
         onPress={handlePress}
         disabled={false}
       >
+        {/* 삭제 모드일 때 좌상단 원형 인디케이터 */}
+        {deleteMode && (
+          <View style={styles.selectCircleWrapper}>
+            <View style={[styles.selectCircle, checked && styles.selectCircleChecked]}>
+              {checked && <Text style={styles.selectCircleCheck}>✔️</Text>}
+            </View>
+          </View>
+        )}
         <View style={styles.imageWrapper}>
           {item.thumbnailUrl && !imageError ? (
             <Image
@@ -57,12 +69,6 @@ export function TrackListItem({ item, sourceTab, deleteMode = false, checked = f
           )}
           {isImageLoading && (
             <ActivityIndicator style={StyleSheet.absoluteFill} color="#4a90e2" />
-          )}
-          {/* 선택 시 오버레이와 체크마크 */}
-          {deleteMode && checked && (
-            <View style={styles.overlay}>
-              <Text style={styles.checkIcon}>✔️</Text>
-            </View>
           )}
         </View>
         <View style={styles.infoRow}>
@@ -94,6 +100,35 @@ const styles = StyleSheet.create({
   cardSelected: {
     borderColor: '#4a90e2',
     backgroundColor: 'rgba(74,144,226,0.08)',
+  },
+  cardDeleteMode: {
+    borderColor: '#bbb',
+    backgroundColor: '#f8f8fa',
+  },
+  selectCircleWrapper: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    zIndex: 20,
+  },
+  selectCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 2,
+    borderColor: '#bbb',
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectCircleChecked: {
+    borderColor: '#4a90e2',
+    backgroundColor: '#4a90e2',
+  },
+  selectCircleCheck: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   overlay: {
     position: 'absolute',
