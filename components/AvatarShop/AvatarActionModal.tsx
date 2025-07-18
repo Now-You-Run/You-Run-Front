@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Modal, View, Text, StyleSheet, Animated, Image } from 'react-native';
+import { Animated, Image, Modal, StyleSheet, Text, View } from 'react-native';
 
 interface Props {
   visible: boolean;
@@ -15,17 +15,12 @@ export default function AvatarActionModal({ visible, type, onClose, onConfirm, p
 
   useEffect(() => {
     if ((type === 'success' || type === 'notEnough') && visible) {
-      fadeAnim.setValue(1);
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 500,
-        delay: 1000,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      fadeAnim.setValue(1);
+      const timeout = setTimeout(() => {
+        onClose();
+      }, 1500); // 애니메이션+딜레이와 맞춰서
+      return () => clearTimeout(timeout);
     }
-  }, [type, visible]);
+  }, [type, visible, onClose]);
 
   if (!visible || !type) return null;
 
@@ -60,18 +55,22 @@ export default function AvatarActionModal({ visible, type, onClose, onConfirm, p
     );
   } else if (type === 'success') {
     content = (
-      <Animated.View style={{ opacity: fadeAnim }}>
-        <Text style={styles.successText}>구매 완료!</Text>
-      </Animated.View>
+      <Text style={styles.successText}>구매 완료!</Text>
     );
   }
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       {type === 'notEnough' ? content : (
-        <View style={styles.overlay}>
-          <View style={type === 'success' ? styles.successModalBox : styles.modalBox}>{content}</View>
-        </View>
+        type === 'success' ? (
+          <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}> 
+            <View style={styles.successModalBox}>{content}</View>
+          </Animated.View>
+        ) : (
+          <View style={styles.overlay}>
+            <View style={styles.modalBox}>{content}</View>
+          </View>
+        )
       )}
     </Modal>
   );
