@@ -5,7 +5,7 @@ import { TrackListItem } from '@/components/track-list/TrackListItem';
 import { useTrackList } from '@/hooks/useTrackList';
 import { Track } from '@/types/response/RunningTrackResponse';
 import React from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, StyleSheet, View } from 'react-native';
 
 export default function TrackListScreen() {
   const {
@@ -20,7 +20,43 @@ export default function TrackListScreen() {
     handleEndReached,
     sortOrder,
     setSortOrder,
+    deleteTracks,
   } = useTrackList();
+
+  const [deleteMode, setDeleteMode] = React.useState(false);
+  const [selectedTrackIds, setSelectedTrackIds] = React.useState<number[]>([]);
+
+  // 삭제 모드 토글
+  const handleDeleteModeToggle = () => {
+    setDeleteMode((prev) => !prev);
+    setSelectedTrackIds([]);
+  };
+
+  // 트랙 선택/해제
+  const handleSelectTrack = (trackId: number, selected: boolean) => {
+    setSelectedTrackIds((prev) =>
+      selected ? [...prev, trackId] : prev.filter((id) => id !== trackId)
+    );
+  };
+
+  // 선택 삭제 실행
+  const handleDeleteSelected = async () => {
+    if (selectedTrackIds.length === 0) return;
+    Alert.alert(
+      '트랙 삭제',
+      `정말로 ${selectedTrackIds.length}개의 트랙을 삭제하시겠습니까?`,
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '삭제', style: 'destructive', onPress: async () => {
+            await deleteTracks(selectedTrackIds);
+            setSelectedTrackIds([]);
+            setDeleteMode(false);
+          }
+        }
+      ]
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -31,14 +67,23 @@ export default function TrackListScreen() {
         onSortChange={setDistanceSortOption}
         sortOrder={sortOrder}
         onOrderChange={setSortOrder}
+        deleteMode={deleteMode}
+        onDeleteModeToggle={handleDeleteModeToggle}
+        onDeleteSelected={handleDeleteSelected}
+        selectedCount={selectedTrackIds.length}
       />
-      
       <FlatList
         data={tracks}
         renderItem={({ item }: { item: Track }) => (
-          <TrackListItem item={item} sourceTab={tab} />
+          <TrackListItem
+            item={item}
+            sourceTab={tab}
+            deleteMode={deleteMode}
+            checked={selectedTrackIds.includes(Number(item.id))}
+            onCheckChange={(checked: boolean) => handleSelectTrack(Number(item.id), checked)}
+          />
         )}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.id.toString()}
         numColumns={2}
         columnWrapperStyle={styles.columnWrapper}
         showsVerticalScrollIndicator={false}
@@ -47,6 +92,7 @@ export default function TrackListScreen() {
         refreshing={isRefreshing}
         onRefresh={handleRefresh}
         ListFooterComponent={isLoading && tracks.length > 0 ? <ActivityIndicator style={{ margin: 20 }} /> : null}
+        extraData={{ deleteMode, selectedTrackIds }}
       />
       {isLoading && (
         <View style={styles.loadingOverlay}>

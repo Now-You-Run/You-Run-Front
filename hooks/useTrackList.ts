@@ -33,7 +33,10 @@ interface UseTrackListReturn {
   handleEndReached: () => void;
 }
 
-export function useTrackList(): UseTrackListReturn {
+export function useTrackList(): UseTrackListReturn & {
+  deleteTracks: (ids: number[]) => Promise<void>;
+  deleteTrack: (id: number) => Promise<void>;
+} {
   // [수정] localTrackRepository는 더 이상 사용하지 않으므로 제거
   const { trackRecordRepository } = useRepositories();
 
@@ -243,6 +246,27 @@ export function useTrackList(): UseTrackListReturn {
     }
   }, [canLoadMore, isPaginating, tab, fetchMyTracksOrderByClose, fetchAllServerTracksOrderByClose]);
 
+  // 여러 트랙 삭제
+  const deleteTracks = async (ids: number[]) => {
+    if (!trackRecordRepository) return;
+    for (const id of ids) {
+      try {
+        await trackRecordRepository.deleteMyTrack(id);
+      } catch (e) {
+        // 실패 안내(필요시)
+      }
+    }
+    setTracks(prev => prev.filter(track => !ids.includes(Number(track.id))));
+    setPage(0);
+    setCanLoadMore(true);
+    handleRefresh();
+  };
+
+  // 단일 트랙 삭제
+  const deleteTrack = async (id: number) => {
+    await deleteTracks([id]);
+  };
+
   return {
     isLoading,
     isRefreshing,
@@ -255,5 +279,7 @@ export function useTrackList(): UseTrackListReturn {
     sortOrder,    // 추가
     handleRefresh,
     handleEndReached,
+    deleteTracks,
+    deleteTrack,
   };
 }

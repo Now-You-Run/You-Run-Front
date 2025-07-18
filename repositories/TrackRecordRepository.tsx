@@ -193,6 +193,28 @@ export class TrackRecordRepository {
       return { tracks: [], totalPages: 0, totalElements: 0 };
     }
   }
+  public async deleteMyTrack(trackId: number): Promise<boolean> {
+    try {
+      const userId = await AuthAsyncStorage.getUserId();
+      if (!userId) {
+        console.error('User ID not found');
+        return false;
+      }
+      const response = await fetch(`${SERVER_API_URL}/api/track/my?userId=${userId}&trackId=${trackId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (!response.ok) {
+        console.error('Track delete failed:', response.status, await response.text());
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error('Error deleting track:', error);
+      return false;
+    }
+  }
+
   public async saveRunningRecord(recordData: SaveRecordDto): Promise<boolean> {
     try {
       // 1. 저장된 userId를 가져옵니다.

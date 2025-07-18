@@ -14,9 +14,13 @@ interface Props {
   onTabChange: (tab: 'my' | 'server') => void;
   onSortChange: (sort: DistanceSortType) => void;
   onOrderChange: (order: SortOrder) => void;
+  deleteMode: boolean;
+  onDeleteModeToggle: () => void;
+  onDeleteSelected: () => void;
+  selectedCount: number;
 }
 
-export function TrackListHeader({ tab, distanceSortOption, sortOrder, onTabChange, onSortChange, onOrderChange }: Props) {
+export function TrackListHeader({ tab, distanceSortOption, sortOrder, onTabChange, onSortChange, onOrderChange, deleteMode, onDeleteModeToggle, onDeleteSelected, selectedCount }: Props) {
   const router = useRouter();
 
   return (
@@ -25,6 +29,14 @@ export function TrackListHeader({ tab, distanceSortOption, sortOrder, onTabChang
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={styles.deleteModeButton} onPress={onDeleteModeToggle}>
+          <Text style={styles.deleteModeButtonText}>{deleteMode ? '취소' : '삭제 모드'}</Text>
+        </TouchableOpacity>
+        {deleteMode && (
+          <TouchableOpacity style={styles.deleteSelectedButton} onPress={onDeleteSelected} disabled={selectedCount === 0}>
+            <Text style={[styles.deleteSelectedButtonText, selectedCount === 0 && { color: '#aaa' }]}>선택 삭제 ({selectedCount})</Text>
+          </TouchableOpacity>
+        )}
       </View>
       <View style={styles.tabContainer}>
         {/* [수정] '내 트랙' 탭의 활성화 조건과 이벤트 핸들러 값 변경 */}
@@ -68,9 +80,13 @@ export function TrackListHeader({ tab, distanceSortOption, sortOrder, onTabChang
 
 // 스타일 코드는 동일하게 유지합니다.
 const styles = StyleSheet.create({
-  header: { position: 'absolute', top: 50, left: 20, zIndex: 10, backgroundColor: 'rgba(255,255,255,0.8)', borderRadius: 20 },
+  header: { position: 'absolute', top: 50, left: 20, zIndex: 10, backgroundColor: 'rgba(255,255,255,0.8)', borderRadius: 20, flexDirection: 'row', alignItems: 'center', paddingRight: 10 },
   backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
   backButtonText: { fontSize: 24, color: '#333' },
+  deleteModeButton: { marginLeft: 10, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#f0f0f0', borderRadius: 16 },
+  deleteModeButtonText: { color: '#e74c3c', fontWeight: '600', fontSize: 14 },
+  deleteSelectedButton: { marginLeft: 10, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#e74c3c', borderRadius: 16 },
+  deleteSelectedButtonText: { color: '#fff', fontWeight: '600', fontSize: 14 },
   tabContainer: { flexDirection: 'row', justifyContent: 'center', marginVertical: 20, marginTop: 60 },
   tabButton: { paddingVertical: 10, paddingHorizontal: 24, borderRadius: 20, backgroundColor: '#f0f0f0', borderWidth: 1, borderColor: '#e0e0e0', marginHorizontal: 5 },
   tabButtonActive: { backgroundColor: '#4a90e2', borderColor: '#4a90e2' },
