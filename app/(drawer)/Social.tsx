@@ -721,7 +721,7 @@ const styles = StyleSheet.create({
   friendName: { fontSize: 16, fontWeight: '600', color: '#333' },
   friendLevelGrade: { fontSize: 12, color: '#555', marginTop: 2 },
   deleteButton: {
-    marginLeft: 170,
+    marginLeft: 'auto',
     backgroundColor: '#f0f0f0',
     borderRadius: 12,
     padding: 4,
