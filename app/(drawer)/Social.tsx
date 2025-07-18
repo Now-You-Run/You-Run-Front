@@ -37,7 +37,7 @@ const DEFAULT_AVATAR = require('../../assets/profile/유저_기본_프로필.jpe
 
 export default function Social() {
   const [myUserName, setMyUserName] = useState<string>('');
-  const router = useRouter(); 
+  const router = useRouter();
   const navigation = useNavigation();
   const pendingRef = useRef<number>(0);
   const [isEditing, setIsEditing] = useState(false);
@@ -84,13 +84,13 @@ export default function Social() {
       }
     };
 
-    ws.onerror = (error) => {
-      console.error('❌ WebSocket 에러:', error);
-    };
+    // ws.onerror = (error) => {
+    //   console.error('❌ WebSocket 에러:', error);
+    // };
 
-    ws.onclose = () => {
-      console.log('🛑 WebSocket 연결 종료');
-    };
+    // ws.onclose = () => {
+    //   console.log('🛑 WebSocket 연결 종료');
+    // };
 
     wsRef.current = ws;
 
@@ -451,7 +451,7 @@ export default function Social() {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.iconButton}
-          onPress={() => router.push('/SocialAdd')}   
+          onPress={() => router.push('/SocialAdd')}
         >
           <Image
             source={require('@/assets/images/profile-icon.png')}
@@ -484,8 +484,11 @@ export default function Social() {
               contentContainerStyle={{ paddingVertical: 8 }}
               nestedScrollEnabled
             >
-              {friendRequests.map((req) => (
-                <View key={req.id} style={styles.friendRequestItem}>
+              {friendRequests.map((req, index) => (
+                <View
+                  key={`${req.id}_${index}`}
+                  style={styles.friendRequestItem}
+                >
                   <Text style={styles.requestName}>
                     {req.name || '알 수 없음'}
                   </Text>
@@ -523,8 +526,8 @@ export default function Social() {
             <Text style={styles.noFriendsText}>등록된 친구가 없습니다.</Text>
           ) : (
             <ScrollView contentContainerStyle={{ paddingVertical: 16 }}>
-              {friends.map((friend) => (
-                <View key={friend.id} style={styles.friendItem}>
+              {friends.map((friend, index) => (
+                <View key={`${friend.id}_${index}`} style={styles.friendItem}>
                   <Image source={friend.image} style={styles.friendImage} />
                   <View style={styles.friendNameContainer}>
                     <Text style={styles.friendName}>{friend.name}</Text>
@@ -753,12 +756,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   iconButton: {
-  marginLeft: 8,
-  padding: 4,
-},
-iconImage: {
-  width: 24,
-  height: 24,
-  resizeMode: 'contain',
-},
+    marginLeft: 8,
+    padding: 4,
+  },
+  iconImage: {
+    width: 24,
+    height: 24,
+    resizeMode: 'contain',
+  },
 });
