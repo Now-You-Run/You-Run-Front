@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import MapView, { Region } from 'react-native-maps';
 
+import { fetchCurrentAvatar } from '@/api/user';
 import { AvatarOverlay } from '@/components/running/AvatarOverlay';
 import { FinishModal } from '@/components/running/FinishModal';
 import { RunningControls } from '@/components/running/RunningControls';
@@ -21,8 +22,6 @@ import { RunningProvider, useRunning } from '@/context/RunningContext';
 import { useAvatarPosition } from '@/hooks/useAvatarPosition';
 import { useRunningLogic } from '@/hooks/useRunningLogic';
 import { haversineDistance } from '@/utils/RunningUtils';
-
-const avatarId: string = "686ece0ae610780c6c939703";
 
 interface SummaryData {
   path: any[];
@@ -550,6 +549,25 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
     };
   }, []);
 
+  // 현재 선택된 아바타 상태 관리
+  const [currentAvatar, setCurrentAvatar] = useState<{ id: string; glbUrl: string } | null>(null);
+
+  // 컴포넌트 마운트 시 현재 아바타 정보 가져오기
+  useEffect(() => {
+    const loadCurrentAvatar = async () => {
+      try {
+        const avatarData = await fetchCurrentAvatar();
+        setCurrentAvatar({
+          id: avatarData.id,
+          glbUrl: avatarData.glbUrl
+        });
+      } catch (error) {
+        console.error('Failed to fetch current avatar:', error);
+      }
+    };
+    loadCurrentAvatar();
+  }, []);
+
   return (
     <View style={styles.container}>
       {/* 헤더 */}
@@ -612,9 +630,9 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
       {initialLocationLoaded && (
         <AvatarOverlay
           screenPos={avatarScreenPos}
-          isRunning={isActive}
+          isRunning={isActive && !isPaused}
           speed={displaySpeed}
-          avatarId={avatarId}
+          avatarUrl={currentAvatar?.glbUrl || "https://models.readyplayer.me/686ece0ae610780c6c939703.glb"}
           onAvatarReady={handleAvatarReady}
         />
       )}
