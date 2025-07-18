@@ -1,6 +1,6 @@
 // /components/track-list/TrackListHeader.tsx
 
-import { DISTANCE_SORT_OPTIONS, DistanceSortType } from '@/hooks/useTrackList';
+import { DISTANCE_SORT_OPTIONS, DistanceSortType, SortOrder } from '@/hooks/useTrackList';
 import { Picker } from '@react-native-picker/picker';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -10,11 +10,17 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 interface Props {
   tab: 'my' | 'server';
   distanceSortOption: DistanceSortType;
+  sortOrder: SortOrder;
   onTabChange: (tab: 'my' | 'server') => void;
   onSortChange: (sort: DistanceSortType) => void;
+  onOrderChange: (order: SortOrder) => void;
+  deleteMode: boolean;
+  onDeleteModeToggle: () => void;
+  selectedCount: number;
+  // onDeleteSelected: () => void; // 삭제
 }
 
-export function TrackListHeader({ tab, distanceSortOption, onTabChange, onSortChange }: Props) {
+export function TrackListHeader({ tab, distanceSortOption, sortOrder, onTabChange, onSortChange, onOrderChange, deleteMode, onDeleteModeToggle, selectedCount }: Props) {
   const router = useRouter();
 
   return (
@@ -34,18 +40,35 @@ export function TrackListHeader({ tab, distanceSortOption, onTabChange, onSortCh
         </TouchableOpacity>
       </View>
       <View style={styles.pickerContainer}>
-        <View style={styles.pickerWrapper}>
-          <Picker
-            selectedValue={distanceSortOption}
-            onValueChange={onSortChange}
-            mode="dropdown"
-            style={styles.picker}
-            dropdownIconColor="#4a90e2"
-          >
-            {DISTANCE_SORT_OPTIONS.map(opt => (
-              <Picker.Item key={opt.value} label={opt.label} value={opt.value} style={styles.pickerItem} />
-            ))}
-          </Picker>
+        {/* 삭제 모드 진입/해제 버튼을 가장 왼쪽에 배치 */}
+        <TouchableOpacity style={styles.deleteModeButton} onPress={onDeleteModeToggle}>
+          <Text style={styles.deleteModeButtonText}>{deleteMode ? '취소' : '삭제 모드'}</Text>
+        </TouchableOpacity>
+        {/* 선택 삭제 버튼 제거 */}
+        <View style={{ flex: 1, alignItems: 'flex-end' }}>
+          <View style={styles.pickerWrapper}>
+            <Picker
+              selectedValue={distanceSortOption}
+              onValueChange={onSortChange}
+              mode="dropdown"
+              style={styles.picker}
+              dropdownIconColor="#4a90e2"
+            >
+              {DISTANCE_SORT_OPTIONS.map(opt => (
+                <Picker.Item key={opt.value} label={opt.label} value={opt.value} style={styles.pickerItem} />
+              ))}
+            </Picker>
+          </View>
+          {distanceSortOption === 'trackDistance' && (
+            <TouchableOpacity
+              style={styles.orderToggle}
+              onPress={() => onOrderChange(sortOrder === 'asc' ? 'desc' : 'asc')}
+            >
+              <Text style={styles.orderToggleText}>
+                {sortOrder === 'asc' ? '⬆️ 오름차순' : '⬇️ 내림차순'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </>
@@ -54,15 +77,24 @@ export function TrackListHeader({ tab, distanceSortOption, onTabChange, onSortCh
 
 // 스타일 코드는 동일하게 유지합니다.
 const styles = StyleSheet.create({
-  header: { position: 'absolute', top: 50, left: 20, zIndex: 10, backgroundColor: 'rgba(255,255,255,0.8)', borderRadius: 20 },
+  header: { position: 'absolute', top: 50, left: 20, zIndex: 10, backgroundColor: 'rgba(255,255,255,0.8)', borderRadius: 20, flexDirection: 'row', alignItems: 'center', paddingRight: 10 },
   backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
   backButtonText: { fontSize: 24, color: '#333' },
+  deleteModeButton: { marginLeft: 10, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#f0f0f0', borderRadius: 16 },
+  deleteModeButtonText: { color: '#e74c3c', fontWeight: '600', fontSize: 14 },
+  deleteSelectedButton: { marginLeft: 10, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#e74c3c', borderRadius: 16 },
+  deleteSelectedButtonText: { color: '#fff', fontWeight: '600', fontSize: 14 },
   tabContainer: { flexDirection: 'row', justifyContent: 'center', marginVertical: 20, marginTop: 60 },
   tabButton: { paddingVertical: 10, paddingHorizontal: 24, borderRadius: 20, backgroundColor: '#f0f0f0', borderWidth: 1, borderColor: '#e0e0e0', marginHorizontal: 5 },
   tabButtonActive: { backgroundColor: '#4a90e2', borderColor: '#4a90e2' },
   tabButtonText: { fontSize: 16, fontWeight: '600', color: '#333' },
   tabButtonTextActive: { color: '#fff' },
-  pickerContainer: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10, marginRight: 10 },
+  pickerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    marginRight: 10,
+  },
   pickerWrapper: { borderWidth: 1, borderColor: '#4a90e2', borderRadius: 20, overflow: 'hidden', width: 170 },
   picker: {
     height: 50,
@@ -70,5 +102,36 @@ const styles = StyleSheet.create({
   pickerItem: {
     color: '#4a90e2',
     fontSize: 16,
+  },
+  orderToggle: {
+    marginTop: 6,
+    alignSelf: 'flex-end',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    backgroundColor: '#f0f0f0',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  orderToggleText: {
+    color: '#4a90e2',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  inlineDeleteButton: {
+    backgroundColor: '#e74c3c',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginRight: 10,
+    alignSelf: 'flex-start',
+  },
+  inlineDeleteButtonDisabled: {
+    backgroundColor: '#ccc',
+  },
+  inlineDeleteButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
   },
 });

@@ -193,6 +193,28 @@ export class TrackRecordRepository {
       return { tracks: [], totalPages: 0, totalElements: 0 };
     }
   }
+  public async deleteMyTrack(trackId: number): Promise<boolean> {
+    try {
+      const userId = await AuthAsyncStorage.getUserId();
+      if (!userId) {
+        console.error('User ID not found');
+        return false;
+      }
+      const response = await fetch(`${SERVER_API_URL}/api/track/my?userId=${userId}&trackId=${trackId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (!response.ok) {
+        console.error('Track delete failed:', response.status, await response.text());
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error('Error deleting track:', error);
+      return false;
+    }
+  }
+
   public async saveRunningRecord(recordData: SaveRecordDto): Promise<boolean> {
     try {
       // 1. 저장된 userId를 가져옵니다.
@@ -244,6 +266,71 @@ export class TrackRecordRepository {
     }
   }
 
+  public async fetchPaginatedTrackListOrderByDistance(
+    page: number,
+    size: number,
+    order: 'asc' | 'desc' = 'desc'
+  ): Promise<{ tracks: Track[]; totalPages: number; totalElements: number }> {
+    try {
+      const response = await fetch(
+        `${SERVER_API_URL}/api/track/list/order/dist?page=${page}&size=${size}&order=${order}`,
+        { method: 'GET', headers: { 'Content-Type': 'application/json' } }
+      );
 
+      if (!response.ok) {
+        console.error('Paginated track list fetch failed:', response.status, await response.text());
+        return { tracks: [], totalPages: 0, totalElements: 0 };
+      }
+
+      const json = await response.json();
+      if (
+        json &&
+        json.statuscode === '200' &&
+        json.data &&
+        Array.isArray(json.data.tracks)
+      ) {
+        console.log('서버 응답 tracks:', json.data.tracks); // 서버 응답 로그 추가
+        return { tracks: json.data.tracks, totalPages: json.data.totalPages, totalElements: json.data.totalElements };
+      }
+    } catch (error) {
+      console.error('Error fetching paginated track list:', error);
+      return { tracks: [], totalPages: 0, totalElements: 0 };
+    }
+    return { tracks: [], totalPages: 0, totalElements: 0 }; // <-- Add this line
+  }
+
+  public async fetchPaginatedMyTrackListOrderByDistance(
+    userId: number,
+    page: number,
+    size: number,
+    order: 'asc' | 'desc' = 'desc'
+  ): Promise<{ tracks: Track[]; totalPages: number; totalElements: number }> {
+    try {
+      const response = await fetch(
+        `${SERVER_API_URL}/api/track/list/order/dist?userId=${userId}&page=${page}&size=${size}&order=${order}`,
+        { method: 'GET', headers: { 'Content-Type': 'application/json' } }
+      );
+
+      if (!response.ok) {
+        console.error('Paginated track list fetch failed:', response.status, await response.text());
+        return { tracks: [], totalPages: 0, totalElements: 0 };
+      }
+
+      const json = await response.json();
+      if (
+        json &&
+        json.statuscode === '200' &&
+        json.data &&
+        Array.isArray(json.data.tracks)
+      ) {
+        console.log('서버 응답 my tracks:', json.data.tracks); // 서버 응답 로그 추가
+        return { tracks: json.data.tracks, totalPages: json.data.totalPages, totalElements: json.data.totalElements };
+      }
+    } catch (error) {
+      console.error('Error fetching paginated track list:', error);
+      return { tracks: [], totalPages: 0, totalElements: 0 };
+    }
+    return { tracks: [], totalPages: 0, totalElements: 0 }; // <-- Add this line
+  }
 
 }
