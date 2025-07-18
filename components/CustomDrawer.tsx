@@ -25,19 +25,19 @@ export default function CustomDrawer({ closeMenu }: CustomDrawerProps) {
         </View>
 
         {/* 이제 navigateTo에 전달하는 경로에 오타가 있으면 타입스크립트가 오류를 알려줍니다. */}
-        <Pressable
+        {/* <Pressable
           style={styles.menuItem}
           onPress={() => navigateTo('/(drawer)/RunReplay')}
         >
           <Text style={styles.menuText}>🏃 기록</Text>
-        </Pressable>
+        </Pressable> */}
 
-        <Pressable
+        {/* <Pressable
           style={styles.menuItem}
           onPress={() => navigateTo('/(drawer)/MyRunningPath')}
         >
           <Text style={styles.menuText}>🗺️ My 맵</Text>
-        </Pressable>
+        </Pressable> */}
 
         <Pressable
           style={styles.menuItem}

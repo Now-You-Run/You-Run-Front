@@ -2,6 +2,7 @@ import { getUserById } from '@/api/user';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import * as Notifications from 'expo-notifications';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -36,6 +37,7 @@ const DEFAULT_AVATAR = require('../../assets/profile/유저_기본_프로필.jpe
 
 export default function Social() {
   const [myUserName, setMyUserName] = useState<string>('');
+  const router = useRouter(); 
   const navigation = useNavigation();
   const pendingRef = useRef<number>(0);
   const [isEditing, setIsEditing] = useState(false);
@@ -448,6 +450,15 @@ export default function Social() {
           )}
         </TouchableOpacity>
         <TouchableOpacity
+          style={styles.iconButton}
+          onPress={() => router.push('/SocialAdd')}   
+        >
+          <Image
+            source={require('@/assets/images/profile-icon.png')}
+            style={styles.iconImage}
+          />
+        </TouchableOpacity>
+        <TouchableOpacity
           onPress={() => setIsEditing(!isEditing)}
           style={{ marginLeft: 12 }}
         >
@@ -741,4 +752,13 @@ const styles = StyleSheet.create({
     color: '#333',
     fontWeight: '500',
   },
+  iconButton: {
+  marginLeft: 8,
+  padding: 4,
+},
+iconImage: {
+  width: 24,
+  height: 24,
+  resizeMode: 'contain',
+},
 });

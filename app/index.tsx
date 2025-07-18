@@ -1,6 +1,6 @@
 import CharacterSection from '@/components/CharacterSection';
 import FloatingActionButton from '@/components/FloatingActionButton';
-import ProfileIcons from '@/components/ProfileIcons';
+//import ProfileIcons from '@/components/ProfileIcons';
 import { useDrawer } from '@/context/DrawerContext';
 import {
   getTimeBasedColors,
@@ -358,7 +358,6 @@ export default function HomeScreen() {
 
         {/* Main content */}
         <View style={styles.content}>
-          <ProfileIcons />
           <CharacterSection
             userName={userName}
             averagePace={averagePace}
