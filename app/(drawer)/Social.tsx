@@ -15,6 +15,9 @@ import {
   View,
 } from 'react-native';
 
+// STOMP 클라이언트 임포트
+import { Client, IMessage } from '@stomp/stompjs';
+
 interface FriendRequest {
   id: number | string;
   friendId: number | string;
@@ -52,51 +55,107 @@ export default function Social() {
   const [friendPointHistories, setFriendPointHistories] = useState<
     Map<string, number>
   >(new Map());
-  const wsRef = useRef<WebSocket | null>(null);
 
-  // 친구 요청 소켓
+  const stompClientRef = useRef<Client | null>(null);
+
+  const getWsUrl = (baseUrl: string | undefined): string | undefined => {
+    if (!baseUrl) return undefined;
+
+    let protocol: string;
+    let cleanBaseUrl: string;
+
+    // HTTPS -> WSS, HTTP -> WS 로 변경
+    if (baseUrl.startsWith('https://')) {
+      protocol = 'wss://'; // 보안 웹소켓 프로토콜
+      cleanBaseUrl = baseUrl.substring(8); // 'https://' 제거
+    } else if (baseUrl.startsWith('http://')) {
+      protocol = 'ws://'; // 일반 웹소켓 프로토콜
+      cleanBaseUrl = baseUrl.substring(7); // 'http://' 제거
+    } else {
+      // 프로토콜이 없는 경우 (예: localhost:3000)
+      console.warn('SERVER_API_URL에 유효한 프로토콜이 없습니다:', baseUrl);
+      protocol = 'ws://';
+      cleanBaseUrl = baseUrl;
+    }
+
+    // cleanBaseUrl에서 잠재적인 끝 슬래시 제거
+    if (cleanBaseUrl.endsWith('/')) {
+      cleanBaseUrl = cleanBaseUrl.slice(0, -1);
+    }
+
+    return `${protocol}${cleanBaseUrl}/ws`;
+  };
+
+  // 친구 요청 소켓 (STOMP 클라이언트로 변경)
   useEffect(() => {
     fetchPendingRequestCount();
     fetchFriendRequests();
     fetchFriends();
 
-    const wsUrl = `${SERVER_API_URL?.replace('http', 'ws')}/ws`;
-    const ws = new WebSocket(wsUrl);
+    const wsUrl = getWsUrl(SERVER_API_URL);
 
-    ws.onopen = () => {
-      console.log('✅ WebSocket 연결 성공');
-    };
+    if (wsUrl) {
+      const stompClient = new Client({
+        webSocketFactory: () => new WebSocket(wsUrl),
 
-    ws.onmessage = (event) => {
-      console.log('📨 WebSocket 메시지 수신:', event.data);
-      try {
-        const notification = JSON.parse(event.data);
-        if (notification.pendingCount !== undefined) {
-          if (notification.pendingCount > pendingRef.current) {
-            fetchFriendRequests();
-            Alert.alert('새 친구 요청', `새 친구 요청이 도착했습니다.`);
-          }
-          setPendingRequests(notification.pendingCount);
-          pendingRef.current = notification.pendingCount;
+        reconnectDelay: 5000,
+        heartbeatIncoming: 4000,
+        heartbeatOutgoing: 4000,
+
+        onConnect: () => {
+          console.log('✅ STOMP WebSocket 연결 성공');
+
+          stompClient.subscribe(
+            `/topic/friend-requests/${MY_USER_ID}`,
+            (message: IMessage) => {
+              console.log('📨 STOMP 메시지 수신:', message.body);
+              try {
+                const notification = JSON.parse(message.body);
+                if (notification.pendingCount !== undefined) {
+                  if (notification.pendingCount > pendingRef.current) {
+                    fetchFriendRequests();
+                    Alert.alert('새 친구 요청', `새 친구 요청이 도착했습니다.`);
+                  }
+                  setPendingRequests(notification.pendingCount);
+                  pendingRef.current = notification.pendingCount;
+                }
+              } catch (error) {
+                console.error('메시지 파싱 오류', error);
+              }
+            }
+          );
+        },
+
+        onStompError: (frame) => {
+          console.error('❌ STOMP 에러:', frame.headers['message'], frame.body);
+          Alert.alert(
+            'STOMP 오류',
+            `STOMP 연결 중 오류 발생: ${frame.headers['message']}`
+          );
+        },
+
+        // onWebSocketError: (event) => {
+        //   console.error('❌ Low-level WebSocket 에러:', event);
+        // },
+
+        onDisconnect: () => {
+          console.log('🛑 STOMP WebSocket 연결 종료');
+        },
+      });
+
+      stompClient.activate();
+      stompClientRef.current = stompClient;
+
+      return () => {
+        if (stompClientRef.current && stompClientRef.current.active) {
+          stompClientRef.current.deactivate();
         }
-      } catch (error) {
-        console.error('메시지 파싱 오류', error);
-      }
-    };
-
-    // ws.onerror = (error) => {
-    //   console.error('❌ WebSocket 에러:', error);
-    // };
-
-    // ws.onclose = () => {
-    //   console.log('🛑 WebSocket 연결 종료');
-    // };
-
-    wsRef.current = ws;
-
-    return () => {
-      ws.close();
-    };
+      };
+    } else {
+      console.error(
+        'WebSocket URL을 생성할 수 없습니다. SERVER_API_URL을 확인하세요.'
+      );
+    }
   }, []);
 
   // 푸시 토큰
@@ -255,7 +314,7 @@ export default function Social() {
     }
   };
 
-  // 친구 요청 카운타
+  // 친구 요청 카운트
   const fetchPendingRequestCount = async () => {
     try {
       const response = await fetch(
