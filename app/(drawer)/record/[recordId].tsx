@@ -1,3 +1,4 @@
+import BackButton from '@/components/button/BackButton';
 import { AuthAsyncStorage } from '@/repositories/AuthAsyncStorage';
 import { formatTime } from '@/utils/RunningUtils';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -149,6 +150,8 @@ export default function RecordDetailScreen() {
   const isMid = simStep > 0 && simStep < userPath.length - 1;
 
   return (
+    <>
+    <BackButton onPress={() => router.back()} />
     <ScrollView style={styles.container}>
       <Text style={styles.header}>기록 상세</Text>
       <MapView
@@ -258,6 +261,7 @@ export default function RecordDetailScreen() {
         </View>
       </View>
     </ScrollView>
+    </>
   );
 }
 // 보간 함수 추가!
