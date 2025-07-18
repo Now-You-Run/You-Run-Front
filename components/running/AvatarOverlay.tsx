@@ -7,15 +7,14 @@ interface AvatarOverlayProps {
   screenPos: { x: number; y: number } | null;
   isRunning: boolean;
   speed: number;
-  avatarId: string;
+  avatarUrl: string; // avatarId에서 avatarUrl로 변경
   onAvatarReady: () => void;
 }
 
 function areEqual(prev: AvatarOverlayProps, next: AvatarOverlayProps) {
-  // Only re-render if screenPos, isRunning, or avatarId change
   return (
     prev.isRunning === next.isRunning &&
-    prev.avatarId === next.avatarId &&
+    prev.avatarUrl === next.avatarUrl &&
     prev.screenPos?.x === next.screenPos?.x &&
     prev.screenPos?.y === next.screenPos?.y
   );
@@ -25,7 +24,7 @@ export const AvatarOverlay = React.memo(({
   screenPos,
   isRunning,
   speed,
-  avatarId,
+  avatarUrl,
   onAvatarReady
 }: AvatarOverlayProps) => {
   const [avatarLoaded, setAvatarLoaded] = useState(false);
@@ -35,9 +34,9 @@ export const AvatarOverlay = React.memo(({
   const containerStyle = useMemo(() => ({
     position: "absolute" as const,
     left: screenPos ? screenPos.x - 35 : -100,
-    top: screenPos ? screenPos.y - 70 : -100,
+    top: screenPos ? screenPos.y - 90 : -100, // -70에서 -90으로 수정
     width: 70,
-    height: 80,
+    height: 100, // 80에서 100으로 증가
     zIndex: 999,
     opacity: screenPos ? 1 : 0,
     pointerEvents: "none" as const,
@@ -46,12 +45,16 @@ export const AvatarOverlay = React.memo(({
   const handleMessage = useCallback((event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
+      console.log('Received message from WebView:', data);
       if (data.type === 'avatarReady') {
+        console.log('Avatar is ready');
         setAvatarLoaded(true);
         onAvatarReady();
+      } else if (data.type === 'error') {
+        console.error('Error from WebView:', data.error);
       }
     } catch (e) {
-      // 메시지 파싱 오류 무시
+      console.error('Error parsing WebView message:', e);
     }
   }, [onAvatarReady]);
 
@@ -69,7 +72,7 @@ export const AvatarOverlay = React.memo(({
       <WebView
         ref={webViewRef}
         originWhitelist={["*"]}
-        source={{ html: getAvatarHtml(avatarId) }}
+        source={{ html: getAvatarHtml(avatarUrl) }}
         style={{
           flex: 1,
           backgroundColor: "transparent",
@@ -77,13 +80,20 @@ export const AvatarOverlay = React.memo(({
         javaScriptEnabled
         domStorageEnabled
         onMessage={handleMessage}
+        onError={(syntheticEvent) => {
+          const { nativeEvent } = syntheticEvent;
+          console.warn('WebView error:', nativeEvent);
+        }}
+        onHttpError={(syntheticEvent) => {
+          const { nativeEvent } = syntheticEvent;
+          console.warn('WebView HTTP error:', nativeEvent);
+        }}
         allowsInlineMediaPlayback={true}
         mediaPlaybackRequiresUserAction={false}
         cacheEnabled={true}
         scalesPageToFit={false}
         scrollEnabled={false}
         bounces={false}
-        onError={() => {}}
         onLoadStart={() => {}}
         onLoadEnd={() => {}}
       />
