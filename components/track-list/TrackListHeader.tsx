@@ -40,10 +40,12 @@ export function TrackListHeader({ tab, distanceSortOption, sortOrder, onTabChang
         </TouchableOpacity>
       </View>
       <View style={styles.pickerContainer}>
-        {/* 삭제 모드 진입/해제 버튼을 가장 왼쪽에 배치 */}
-        <TouchableOpacity style={styles.deleteModeButton} onPress={onDeleteModeToggle}>
-          <Text style={styles.deleteModeButtonText}>{deleteMode ? '취소' : '삭제 모드'}</Text>
-        </TouchableOpacity>
+        {/* 삭제 모드 진입/해제 버튼을 가장 왼쪽에 배치 (내 트랙일 때만) */}
+        {tab === 'my' && (
+          <TouchableOpacity style={styles.deleteModeButton} onPress={onDeleteModeToggle}>
+            <Text style={styles.deleteModeButtonText}>{deleteMode ? '취소' : '삭제 모드'}</Text>
+          </TouchableOpacity>
+        )}
         {/* 선택 삭제 버튼 제거 */}
         <View style={{ flex: 1, alignItems: 'flex-end' }}>
           <View style={styles.pickerWrapper}>

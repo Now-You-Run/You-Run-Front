@@ -32,6 +32,14 @@ export default function TrackListScreen() {
     setSelectedTrackIds([]);
   };
 
+  // 서버 트랙 탭일 때는 삭제 모드 강제 해제
+  React.useEffect(() => {
+    if (tab !== 'my' && deleteMode) {
+      setDeleteMode(false);
+      setSelectedTrackIds([]);
+    }
+  }, [tab]);
+
   // 트랙 선택/해제
   const handleSelectTrack = (trackId: number, selected: boolean) => {
     setSelectedTrackIds((prev) =>
@@ -93,8 +101,8 @@ export default function TrackListScreen() {
         ListFooterComponent={isLoading && tracks.length > 0 ? <ActivityIndicator style={{ margin: 20 }} /> : null}
         extraData={{ deleteMode, selectedTrackIds }}
       />
-      {/* 삭제 모드일 때만 하단 플로팅 삭제 버튼 */}
-      {deleteMode && (
+      {/* 삭제 모드일 때만 하단 플로팅 삭제 버튼 (내 트랙 탭에서만) */}
+      {deleteMode && tab === 'my' && (
         <View style={styles.fabContainer}>
           <TouchableOpacity
             style={[styles.fab, selectedTrackIds.length === 0 && styles.fabDisabled]}
