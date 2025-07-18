@@ -89,6 +89,14 @@ export default function AvatarShopScreen() {
 
   // 아바타 구매
   const handleBuy = (avatarId: number) => {
+    const avatar = avatars.find(a => a.id === avatarId);
+    if (avatar && point < avatar.price) {
+      setModal({ type: 'notEnough' });
+      setTimeout(() => {
+        setModal({ type: null });
+      }, 1500);
+      return;
+    }
     setPendingBuyId(avatarId);
     setPendingIdx(currentIdx); // 현재 인덱스 기억
     setModal({ type: 'buy' });
@@ -111,8 +119,10 @@ export default function AvatarShopScreen() {
       }, 750);
       setTimeout(async () => {
         await loadAll(true); // 1.2초 후 avatars 갱신
-        setShouldShowSuccess(false);
-        setSuccessAvatarId(null);
+        setTimeout(() => {
+          setShouldShowSuccess(false);
+          setSuccessAvatarId(null);
+        }, 700); // fadeout 시간만큼 더 기다림
       }, 1950);
     } catch (e: any) {
       setModal({ type: 'notEnough' });

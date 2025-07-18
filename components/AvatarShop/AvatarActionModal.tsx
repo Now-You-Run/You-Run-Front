@@ -14,7 +14,7 @@ export default function AvatarActionModal({ visible, type, onClose, onConfirm, p
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    if (type === 'success' && visible) {
+    if ((type === 'success' || type === 'notEnough') && visible) {
       const timeout = setTimeout(() => {
         onClose();
       }, 1500); // 애니메이션+딜레이와 맞춰서
