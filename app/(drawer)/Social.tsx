@@ -84,13 +84,13 @@ export default function Social() {
       }
     };
 
-    ws.onerror = (error) => {
-      console.error('❌ WebSocket 에러:', error);
-    };
+    // ws.onerror = (error) => {
+    //   console.error('❌ WebSocket 에러:', error);
+    // };
 
-    ws.onclose = () => {
-      console.log('🛑 WebSocket 연결 종료');
-    };
+    // ws.onclose = () => {
+    //   console.log('🛑 WebSocket 연결 종료');
+    // };
 
     wsRef.current = ws;
 
