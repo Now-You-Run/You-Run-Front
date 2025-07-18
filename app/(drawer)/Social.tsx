@@ -14,7 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-
+import ConfettiCannon from 'react-native-confetti-cannon';
 // STOMP 클라이언트 임포트
 import { Client, IMessage } from '@stomp/stompjs';
 
@@ -55,6 +55,7 @@ export default function Social() {
   const [friendPointHistories, setFriendPointHistories] = useState<
     Map<string, number>
   >(new Map());
+  const confettiRef = useRef<ConfettiCannon | null>(null);
 
   const stompClientRef = useRef<Client | null>(null);
 
@@ -292,8 +293,8 @@ export default function Social() {
     return () => clearInterval(interval);
   }, []);
 
-  // 응원하기 알림 보내기
-  const sendCheer = async (friend: Friend) => {
+  // 응원하기 알림 보내기 (폭죽 애니메이션과 함께)
+  const sendCheerAni = async (friend: Friend) => {
     try {
       const response = await fetch(
         `${SERVER_API_URL}/api/push-token/${friend.friend_id}/cheer?senderId=${MY_USER_ID}`,
@@ -303,13 +304,14 @@ export default function Social() {
       const json = await response.json();
 
       if (response.ok) {
-        Alert.alert('응원 완료', `${friend.name}님에게 응원을 보냈습니다!`);
+        confettiRef.current?.start(); // 1) 폭죽 애니메이션 실행
+        Alert.alert('응원 완료', `${friend.name}님에게 응원을 보냈습니다!`); // 2) 알림창 띄우기
       } else {
         console.error(json);
         Alert.alert('오류', `응원 실패: ${json.message ?? '알 수 없음'}`);
       }
     } catch (error) {
-      console.error('sendCheer error:', error);
+      console.error('sendCheerAni error:', error);
       Alert.alert('네트워크 오류', '응원 전송에 실패했습니다.');
     }
   };
@@ -596,18 +598,17 @@ export default function Social() {
                       </Text>
                     )}
                   </View>
-
                   {/* 응원하기 / 포인트 보내기 버튼 */}
                   {!isEditing && (
                     <View style={styles.actionButtonsContainer}>
                       <TouchableOpacity
-                        onPress={() => sendCheer(friend)}
+                        onPress={() => sendCheerAni(friend)}
                         style={styles.actionButton}
                       >
                         <Ionicons
-                          name="heart-outline"
+                          name="sparkles-outline"
                           size={20}
-                          color="#FF4081"
+                          color="#E0B000"
                         />
                         <Text style={styles.actionButtonText}>응원</Text>
                       </TouchableOpacity>
@@ -643,15 +644,14 @@ export default function Social() {
                         ]}
                       >
                         <Ionicons
-                          name="cash-outline"
+                          name="medal-outline"
                           size={20}
-                          color="#FFD700"
+                          color="#000000"
                         />
                         <Text style={styles.actionButtonText}>→</Text>
                       </TouchableOpacity>
                     </View>
                   )}
-
                   {/* 친구 요청 수락 버튼 */}
                   {isEditing && (
                     <TouchableOpacity
@@ -680,6 +680,14 @@ export default function Social() {
           )}
         </View>
       )}
+      {/* 폭죽 애니메이션 */}
+      <ConfettiCannon
+        ref={confettiRef}
+        count={100}
+        origin={{ x: -10, y: 0 }} // 필요시 x,y 조절 가능
+        fadeOut={true}
+        autoStart={false} // 버튼 클릭 시 start() 호출해야 실행됨
+      />
     </View>
   );
 }
