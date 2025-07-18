@@ -1,21 +1,22 @@
 import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
+import { HomeAvatarDisplay } from './HomeAvatarDisplay';
 
 interface CharacterSectionProps {
   userName: string;
   /** 초 단위 평균 페이스 */
   averagePace: number;
+  selectedAvatar?: { id: string; url: string; } | null;
 }
 
 function formatPace(min: number): string {
-  // 분 단위 실수 → 전체 초
   const totalSec = Math.round(min * 60);
   const m = Math.floor(totalSec / 60);
   const s = (totalSec % 60).toString().padStart(2, '0');
   return `${m}'${s}"`;
 }
 
-export default function CharacterSection({ userName, averagePace, }:  CharacterSectionProps) {
+export default function CharacterSection({ userName, averagePace, selectedAvatar }: CharacterSectionProps) {
   return (
     <View style={styles.characterSection}>
       <View style={styles.nameContainer}>
@@ -31,65 +32,75 @@ export default function CharacterSection({ userName, averagePace, }:  CharacterS
             {formatPace(averagePace)}
           </Text>
         </View>
-        <Image
-          source={require('@/assets/images/character.png')}
-          style={styles.characterImage}
-        />
+        {selectedAvatar ? (
+          <View style={styles.avatarContainer}>
+            <HomeAvatarDisplay avatarUrl={selectedAvatar.url} />
+          </View>
+        ) : (
+          <Image
+            source={require('@/assets/images/character.png')}
+            style={styles.characterImage}
+          />
+        )}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-      characterSection: {
+  characterSection: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 10, // 50에서 20으로 줄여서 위쪽으로 이동
-    marginTop: -120, // 위쪽으로 더 이동
+    justifyContent: 'flex-start',
+    paddingTop: 20,
+    maxHeight: '65%',
   },
   nameContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 2,
-  },
-  characterName: {
-    fontSize: 25,
-    fontWeight: 'bold',
-    color: '#333',
-    marginRight: 10,
-  },
-  diamondIcon: {
-    width: 30,
-    height: 30,
-    resizeMode: 'contain',
+    marginBottom: -10, // 0에서 -10으로 변경하여 간격 더 축소
+    marginTop: 30,
   },
   characterContainer: {
     alignItems: 'center',
+    justifyContent: 'flex-start',
+    width: '100%',
+    height: '100%',
+    position: 'relative',
+    marginTop: -10, // 추가: 아바타 컨테이너를 위로
+  },
+  avatarContainer: {
+    width: 350,
+    height: 600,
+    alignItems: 'center',
     justifyContent: 'center',
-  },
-  paceContainer: {
-    position: 'absolute',
-    zIndex: 1,
-    right: -35,
-    top: 55,
-  },
-  paceText: {
-    fontSize: 150,
-    fontWeight: 'bold',
-    fontFamily: 'Karantina-Regular',
-    color: 'rgba(22, 22, 22, 0.7)',
-    textShadowColor: 'rgba(0, 0, 0, 0.4)',
-    textShadowOffset: { width: 2, height: 9 },
-    textShadowRadius: 5,
-    transform: [{ scaleY: 1.3 }],
+    marginTop: -100,
+    zIndex: 2,
   },
   characterImage: {
     width: 350,
-    height: 450,
+    height: 600, // 500에서 600으로 증가
     resizeMode: 'contain',
-    zIndex: 2,
   },
-}
-)
+  characterName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#000',
+  },
+  diamondIcon: {
+    width: 24,
+    height: 24,
+    marginRight: 5,
+  },
+  paceContainer: {
+    position: 'absolute',
+    right: '10%',
+    top: '15%',
+    zIndex: 1,
+  },
+  paceText: {
+    fontSize: 42,
+    fontWeight: 'bold',
+    color: '#000',
+  },
+});
