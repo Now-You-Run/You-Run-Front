@@ -93,7 +93,10 @@ export function useTrackList(): UseTrackListReturn & {
     const sortedTracks = distanceSortOption === 'trackDistance' ? sortTracks(newMyTracks, sortOrder) : newMyTracks;
     if (currentPage >= totalPages - 1) setCanLoadMore(false);
     setPage(currentPage + 1);
-    setTracks(prev => (isRefresh ? sortedTracks : [...prev, ...sortedTracks]));
+    setTracks(prev => {
+      const all = isRefresh ? sortedTracks : [...prev, ...sortedTracks];
+      return Array.from(new Map(all.map(t => [t.id, t])).values());
+    });
     finishLoading(start);
   }, [page, isPaginating, myLocation, trackRecordRepository, tab, distanceSortOption, sortOrder]);
 
@@ -113,7 +116,10 @@ export function useTrackList(): UseTrackListReturn & {
     const sortedTracks = distanceSortOption === 'trackDistance' ? sortTracks(newServerTracks, sortOrder) : newServerTracks;
     if (currentPage >= totalPages - 1) setCanLoadMore(false);
     setPage(currentPage + 1);
-    setTracks(prev => (isRefresh ? sortedTracks : [...prev, ...sortedTracks]));
+    setTracks(prev => {
+      const all = isRefresh ? sortedTracks : [...prev, ...sortedTracks];
+      return Array.from(new Map(all.map(t => [t.id, t])).values());
+    });
     finishLoading(start);
   }, [page, isPaginating, myLocation, trackRecordRepository, tab, distanceSortOption, sortOrder]);
   
@@ -153,7 +159,10 @@ export function useTrackList(): UseTrackListReturn & {
     const sortedTracks = distanceSortOption === 'trackDistance' ? sortTracks(newMyTracks, sortOrder) : newMyTracks;
     if (currentPage >= totalPages - 1) setCanLoadMore(false);
     setPage(currentPage + 1);
-    setTracks(prev => (isRefresh ? sortedTracks : [...prev, ...sortedTracks]));
+    setTracks(prev => {
+      const all = isRefresh ? sortedTracks : [...prev, ...sortedTracks];
+      return Array.from(new Map(all.map(t => [t.id, t])).values());
+    });
     finishLoading(start);
   }, [page, isPaginating, myLocation, trackRecordRepository, sortOrder, tab, distanceSortOption]);
 
@@ -177,7 +186,10 @@ export function useTrackList(): UseTrackListReturn & {
     const sortedTracks = distanceSortOption === 'trackDistance' ? sortTracks(newServerTracks, sortOrder) : newServerTracks;
     if (currentPage >= totalPages - 1) setCanLoadMore(false);
     setPage(currentPage + 1);
-    setTracks(prev => (isRefresh ? sortedTracks : [...prev, ...sortedTracks]));
+    setTracks(prev => {
+      const all = isRefresh ? sortedTracks : [...prev, ...sortedTracks];
+      return Array.from(new Map(all.map(t => [t.id, t])).values());
+    });
     finishLoading(start);
   }, [page, isPaginating, myLocation, trackRecordRepository, sortOrder, tab, distanceSortOption]);
 
