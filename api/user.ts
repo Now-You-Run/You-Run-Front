@@ -16,10 +16,36 @@ export const fetchAvatars = async () => {
   return response.data;
 };
 
-// 현재 선택된 아바타 조회
-export const fetchCurrentAvatar = async () => {
-  const response = await axios.get(`${process.env.EXPO_PUBLIC_SERVER_API_URL}/avatars/current`);
-  return response.data;
+const SERVER_API_URL = process.env.EXPO_PUBLIC_SERVER_API_URL;
+
+interface CurrentAvatar {
+  id: string;
+  name: string;
+  imageUrl: string;
+  glbUrl: string;
+  price: number;
+  gender: string;
+}
+
+export const fetchCurrentAvatar = async (): Promise<CurrentAvatar> => {
+  try {
+    const response = await fetch(`${SERVER_API_URL}/avatars/current`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch current avatar');
+    }
+    const data = await response.json();
+    return {
+      id: data.id,
+      name: data.name,
+      imageUrl: data.imageUrl,
+      glbUrl: data.glbUrl,
+      price: data.price,
+      gender: data.gender
+    };
+  } catch (error) {
+    console.error('Error fetching current avatar:', error);
+    throw error;
+  }
 };
 
 // 아바타 구매
