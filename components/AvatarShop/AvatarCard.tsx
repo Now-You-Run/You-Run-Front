@@ -1,6 +1,6 @@
 import LottieView from 'lottie-react-native';
-import React from 'react';
-import { Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Animated, Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = Math.min(width * 0.85 * 1.1, 340 * 1.1); // 10% 증가
@@ -22,6 +22,20 @@ function formatPrice(price: number) {
 
 export default function AvatarCard({ avatar, onSelect, onBuy, buyLoading }: { avatar: Avatar; onSelect?: () => void; onBuy?: () => void; buyLoading?: boolean }) {
   const safeImageUrl = avatar.imageUrl ? avatar.imageUrl.trim() : '';
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (avatar.showSuccess) {
+      fadeAnim.setValue(1);
+    } else {
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 700,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [avatar.showSuccess]);
+
   return (
     <View style={styles.container}>
       <View style={[styles.lottieBgWrap, { width: CARD_WIDTH, height: CARD_HEIGHT }]} pointerEvents="none"> 
@@ -33,22 +47,31 @@ export default function AvatarCard({ avatar, onSelect, onBuy, buyLoading }: { av
         />
         <Image source={{ uri: safeImageUrl }} style={[styles.avatarImg, { width: CARD_WIDTH, height: CARD_HEIGHT }]} />
         {avatar.showSuccess && (
-          <LottieView
-            source={require('@/assets/lottie/success.json')}
-            autoPlay
-            loop={false}
-            speed={0.5}
-            style={[
-              styles.successLottie,
-              {
-                width: CARD_WIDTH * 1.5,
-                height: CARD_HEIGHT * 1.5,
-                position: 'absolute',
-                top: -(CARD_HEIGHT * 0.25),
-                left: -(CARD_WIDTH * 0.25),
-              },
-            ]}
-          />
+          <Animated.View style={{
+            opacity: fadeAnim,
+            position: 'absolute',
+            width: CARD_WIDTH * 1.5,
+            height: CARD_HEIGHT * 1.5,
+            top: -(CARD_HEIGHT * 0.25),
+            left: -(CARD_WIDTH * 0.25),
+          }}>
+            <LottieView
+              source={require('@/assets/lottie/success.json')}
+              autoPlay
+              loop={false}
+              speed={0.5}
+              style={[
+                styles.successLottie,
+                {
+                  width: CARD_WIDTH * 1.5,
+                  height: CARD_HEIGHT * 1.5,
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                },
+              ]}
+            />
+          </Animated.View>
         )}
       </View>
       {/* 아바타 가격 표시 */}
