@@ -17,6 +17,7 @@ interface Props {
   deleteMode: boolean;
   onDeleteModeToggle: () => void;
   selectedCount: number;
+  // onDeleteSelected: () => void; // 삭제
 }
 
 export function TrackListHeader({ tab, distanceSortOption, sortOrder, onTabChange, onSortChange, onOrderChange, deleteMode, onDeleteModeToggle, selectedCount }: Props) {
@@ -27,9 +28,6 @@ export function TrackListHeader({ tab, distanceSortOption, sortOrder, onTabChang
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Text style={styles.backButtonText}>←</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.deleteModeButton} onPress={onDeleteModeToggle}>
-          <Text style={styles.deleteModeButtonText}>{deleteMode ? '취소' : '삭제 모드'}</Text>
         </TouchableOpacity>
       </View>
       <View style={styles.tabContainer}>
@@ -42,7 +40,12 @@ export function TrackListHeader({ tab, distanceSortOption, sortOrder, onTabChang
         </TouchableOpacity>
       </View>
       <View style={styles.pickerContainer}>
-        <View style={{ alignItems: 'flex-end', width: '100%' }}>
+        {/* 삭제 모드 진입/해제 버튼을 가장 왼쪽에 배치 */}
+        <TouchableOpacity style={styles.deleteModeButton} onPress={onDeleteModeToggle}>
+          <Text style={styles.deleteModeButtonText}>{deleteMode ? '취소' : '삭제 모드'}</Text>
+        </TouchableOpacity>
+        {/* 선택 삭제 버튼 제거 */}
+        <View style={{ flex: 1, alignItems: 'flex-end' }}>
           <View style={styles.pickerWrapper}>
             <Picker
               selectedValue={distanceSortOption}
@@ -86,7 +89,12 @@ const styles = StyleSheet.create({
   tabButtonActive: { backgroundColor: '#4a90e2', borderColor: '#4a90e2' },
   tabButtonText: { fontSize: 16, fontWeight: '600', color: '#333' },
   tabButtonTextActive: { color: '#fff' },
-  pickerContainer: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'flex-start', marginBottom: 10, marginRight: 10 },
+  pickerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    marginRight: 10,
+  },
   pickerWrapper: { borderWidth: 1, borderColor: '#4a90e2', borderRadius: 20, overflow: 'hidden', width: 170 },
   picker: {
     height: 50,
@@ -108,6 +116,22 @@ const styles = StyleSheet.create({
   orderToggleText: {
     color: '#4a90e2',
     fontWeight: '600',
+    fontSize: 14,
+  },
+  inlineDeleteButton: {
+    backgroundColor: '#e74c3c',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginRight: 10,
+    alignSelf: 'flex-start',
+  },
+  inlineDeleteButtonDisabled: {
+    backgroundColor: '#ccc',
+  },
+  inlineDeleteButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
     fontSize: 14,
   },
 });
