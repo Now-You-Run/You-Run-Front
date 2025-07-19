@@ -491,6 +491,13 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
           remainDist = 0;
         }
       }
+      // 마지막 점에 도달했는지 확인
+      if (idx >= trackInfo.path.length - 1) {
+        // 마지막 점으로 정확히 이동
+        prevCoord = { ...trackInfo.path[trackInfo.path.length - 1], timestamp: Date.now() };
+        idx = trackInfo.path.length - 1;
+        console.log('🏁 봇 모드 테스트 - 마지막 점 도달:', idx, '/', trackInfo.path.length - 1);
+      }
       accIdxRef.current = idx;
       lastCoordRef.current = prevCoord;
       debouncedSetUserLocation(prevCoord);

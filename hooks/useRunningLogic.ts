@@ -7,15 +7,15 @@ export const useRunningLogic = (
   botDistanceMeters?: number,
   isAhead?: boolean,
   externalTrackKm?: number,
-  externalMode?: string
+  externalMode?: 'track' | 'match' | 'free'
 ) => {
   const { mode: paramMode, trackDistance, trackId } = useLocalSearchParams<{
-    mode?: string;
+    mode?: 'track' | 'match' | 'free';
     trackDistance?: string;
     trackId?: string;
   }>();
 
-  const mode = externalMode ?? paramMode;
+  const mode: 'track' | 'match' | 'free' = (externalMode ?? paramMode ?? 'free') as 'track' | 'match' | 'free';
   const trackKm = externalTrackKm ?? (mode === 'track' && trackDistance ? parseFloat(trackDistance) : undefined);
 
   const {
@@ -90,9 +90,11 @@ export const useRunningLogic = (
       setNextAnnounceKm(0.1);
       await callbacks.addStartPointIfNeeded();
       Speech.speak('러닝을 시작합니다.');
-      if (mode === 'track') {
-        Speech.speak('웜업 구간입니다. 속도를 조절해주세요.');
-      }
+              if (mode === 'track') {
+          Speech.speak('웜업 구간입니다. 속도를 조절해주세요.');
+        } else if (mode === 'match') {
+          // 매치 모드 시작 음성은 MatchRunningScreen에서 직접 처리
+        }
     }
   }, [isActive, isPaused, mode]);
 
@@ -119,8 +121,12 @@ export const useRunningLogic = (
         Speech.speak(`${sec.name}입니다. 속도를 조절해주세요.`);
         // 구간 안내와 함께 추월 안내도 추가
         if (typeof isAhead === 'boolean') {
-          const aheadText = isAhead ? '봇이 앞서고 있습니다.' : '당신이 앞서고 있습니다.';
-          Speech.speak(aheadText);
+          const getAheadText = () => {
+            if (!isAhead) return '당신이 앞서고 있습니다.';
+            // 매치 모드일 때는 상대방, 트랙 모드일 때는 봇으로 안내
+            return externalMode === 'match' ? '상대방이 앞서고 있습니다.' : '봇이 앞서고 있습니다.';
+          };
+          Speech.speak(getAheadText());
         }
         setSectionIndex((prev) => prev + 1);
       }
@@ -143,12 +149,12 @@ export const useRunningLogic = (
     }
   }, [isActive]);
 
-  // 100m마다 거리만 안내 (추월 안내는 구간 안내에서만)
+  // 100m마다 거리만 안내 (트랙 모드에서만, 매치 모드는 MatchRunningScreen에서 처리)
   const announcedSteps = useRef<Set<number>>(new Set());
   useEffect(() => {
-    if (!isActive) {
+    if (!isActive || externalMode === 'match') {
       announcedSteps.current.clear();
-      return; // 러닝 종료 시 안내 로직 실행하지 않음
+      return; // 러닝 종료 시 또는 매치 모드일 때 안내 로직 실행하지 않음
     }
     if (
       typeof botDistanceMeters === 'number' &&
@@ -161,7 +167,9 @@ export const useRunningLogic = (
         announcedSteps.current.add(currentStep);
       }
     }
-  }, [botDistanceMeters, isActive, totalDistance]);
+  }, [botDistanceMeters, isActive, totalDistance, externalMode]);
+
+  // 🆕 매치 모드 거리 안내는 MatchRunningScreen에서 직접 처리하므로 제거
 
   return {
     isActive,

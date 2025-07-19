@@ -53,11 +53,16 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
   
   // 🆕 음성 안내 우선순위 처리
   const speakWithPriority = useCallback((text: string, priority: 'high' | 'low' = 'low') => {
+    console.log('🔊 음성 안내:', text, '우선순위:', priority);
     if (priority === 'high') {
       Speech.stop(); // 기존 음성 중단
-      setTimeout(() => Speech.speak(text), 100);
+      setTimeout(() => {
+        console.log('🔊 고우선순위 음성 재생:', text);
+        Speech.speak(text);
+      }, 100);
     } else {
       // 낮은 우선순위는 기존 음성이 끝난 후 재생
+      console.log('🔊 저우선순위 음성 재생:', text);
       Speech.speak(text);
     }
   }, []);
@@ -121,7 +126,7 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
     }
   }, [trackId, trackInfoParam]);
 
-  // 🆕 러닝 로직 (봇 모드와 동일하게 useRunningLogic 사용)
+  // 🆕 러닝 로직 (임시 값으로 먼저 초기화)
   const runningLogic = useRunningLogic(
     0, // 임시로 0 전달, 나중에 업데이트
     false, // 임시로 false 전달, 나중에 업데이트
@@ -141,18 +146,8 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
     setUserLocation,
     pauseRunning,
     resumeRunning,
+    mode,
   } = runningLogic;
-
-  // 🆕 위치 업데이트 중복 방지를 위한 디바운싱 함수
-  const debouncedSetUserLocation = useCallback((coord: any) => {
-    if (locationUpdateTimeoutRef.current) {
-      clearTimeout(locationUpdateTimeoutRef.current);
-    }
-    
-    locationUpdateTimeoutRef.current = setTimeout(() => {
-      setUserLocation(coord);
-    }, 50); // 50ms 디바운싱
-  }, [setUserLocation]);
 
   // --- 상대 실선+고스트 (경과시간 기준) ---
   const { livePath: opponentLivePath, ghost: opponentGhost } = React.useMemo(() => {
@@ -183,6 +178,39 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
       totalDistance: totalDist ?? 0,
     };
   }, [trackInfo?.path, path, opponentLivePath, trackInfo?.distanceMeters]);
+
+  // 🆕 거리 값이 계산되면 직접 음성 안내 (useRunningLogic 대신 직접 처리)
+  const announcedSteps = useRef<Set<number>>(new Set());
+  useEffect(() => {
+    if (!isActive || mode !== 'match') {
+      announcedSteps.current.clear();
+      return;
+    }
+    
+    if (
+      typeof userVsOpponent.distanceMeters === 'number' &&
+      userVsOpponent.distanceMeters > 0 && // 0보다 클 때만 안내
+      totalDistance > 0.1 // 100m 이상 이동한 경우에만 안내
+    ) {
+      const currentStep = Math.floor(userVsOpponent.distanceMeters / 100);
+      if (!announcedSteps.current.has(currentStep)) {
+        Speech.speak(`상대방과의 거리는 약 ${Math.round(userVsOpponent.distanceMeters)}미터.`);
+        announcedSteps.current.add(currentStep);
+        console.log('🔄 매치 모드 거리 안내:', userVsOpponent.distanceMeters, 'm, 앞서는가:', userVsOpponent.isAhead);
+      }
+    }
+  }, [userVsOpponent.distanceMeters, userVsOpponent.isAhead, isActive, totalDistance]);
+
+  // 🆕 위치 업데이트 중복 방지를 위한 디바운싱 함수
+  const debouncedSetUserLocation = useCallback((coord: any) => {
+    if (locationUpdateTimeoutRef.current) {
+      clearTimeout(locationUpdateTimeoutRef.current);
+    }
+    
+    locationUpdateTimeoutRef.current = setTimeout(() => {
+      setUserLocation(coord);
+    }, 50); // 50ms 디바운싱
+  }, [setUserLocation]);
 
   // --- 지도 region 초기화 ---
   useEffect(() => {
@@ -309,6 +337,13 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
           remainDist = 0;
         }
       }
+      // 마지막 점에 도달했는지 확인
+      if (idx >= trackInfo.path.length - 1) {
+        // 마지막 점으로 정확히 이동
+        prevCoord = { ...trackInfo.path[trackInfo.path.length - 1], timestamp: Date.now() };
+        idx = trackInfo.path.length - 1;
+        console.log('🏁 매치 모드 테스트 - 마지막 점 도달:', idx, '/', trackInfo.path.length - 1);
+      }
       accIdxRef.current = idx;
       lastCoordRef.current = prevCoord;
       debouncedSetUserLocation(prevCoord);
@@ -387,6 +422,7 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
 
   // --- 러닝 시작 ---
   const customOnMainPress = useCallback(() => {
+    console.log('🎯 customOnMainPress 호출됨, isActive:', isActive, 'isPaused:', isPaused);
     if (isActive) {
       pauseRunning();
       return;
@@ -409,6 +445,9 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
       addToPath(startCoord);
       startRunning();
       startFakeTrackInterval();
+      // 🆕 테스트 모드에서도 시작 음성 추가
+      console.log('🎯 테스트 모드 시작 음성 호출');
+      speakWithPriority('러닝 대결을 시작합니다. 파이팅!', 'high');
       return;
     }
     if (!userLocation) {
@@ -425,6 +464,8 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
       Alert.alert('시작 위치 오류', `시작점에서 약 ${Math.round(dist)}m 떨어져 있습니다. ${START_BUFFER_METERS}m 이내로 이동해주세요.`);
       return;
     }
+    // 🆕 매치 모드 시작 음성 추가
+    console.log('🎯 실제 모드 시작 음성 호출');
     speakWithPriority('러닝 대결을 시작합니다. 파이팅!', 'high');
     onMainPress();
   }, [isActive, isPaused, pauseRunning, resumeRunning, trackInfo, userLocation, isTestMode, resetRunning, setUserLocation, addToPath, startRunning, startFakeTrackInterval, runningContext.clearPath, onMainPress]);
@@ -441,9 +482,20 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
     const totalRunMeters = totalDistance * 1000;
     if (distToFinish <= FINISH_RADIUS_METERS && totalRunMeters >= ((trackInfo?.distanceMeters ?? 0) - 10) &&
           totalRunMeters >= MIN_REQUIRED_METERS) {
-      handleFinish();
+      console.log('🏁 매치 모드 완주 조건 충족:', {
+        distToFinish,
+        totalRunMeters,
+        requiredDistance: trackInfo?.distanceMeters,
+        isTestMode
+      });
+      // handleMatchFinish가 정의된 후에 호출되도록 setTimeout 사용
+      setTimeout(() => {
+        if (handleMatchFinish) {
+          handleMatchFinish();
+        }
+      }, 0);
     }
-  }, [userLocation, path, isActive, trackInfo, totalDistance, handleFinish]);
+  }, [userLocation, path, isActive, trackInfo, totalDistance]);
 
   // --- 매치 완주 처리 ---
   const handleMatchFinish = useCallback(async () => {
@@ -601,19 +653,19 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
           <>
             <TouchableOpacity
               style={styles.startPointBtn}
-                              onPress={() => {
-                  if (Array.isArray(trackInfo?.path) && trackInfo.path.length > 0) {
-                    const startCoord = { ...trackInfo.path[0], timestamp: Date.now() };
-                    runningContext.clearPath();
-                    debouncedSetUserLocation(startCoord);
-                    accIdxRef.current = 0;
-                    lastCoordRef.current = startCoord;
-                    // path가 완전히 비워진 뒤에 addToPath 실행
-                    setTimeout(() => {
-                      addToPath(startCoord);
-                    }, 0);
-                  }
-                }}
+              onPress={() => {
+                if (Array.isArray(trackInfo?.path) && trackInfo.path.length > 0) {
+                  const startCoord = { ...trackInfo.path[0], timestamp: Date.now() };
+                  runningContext.clearPath();
+                  debouncedSetUserLocation(startCoord);
+                  accIdxRef.current = 0;
+                  lastCoordRef.current = startCoord;
+                  // path가 완전히 비워진 뒤에 addToPath 실행
+                  setTimeout(() => {
+                    addToPath(startCoord);
+                  }, 0);
+                }
+              }}
             >
               <Text style={styles.startPointBtnText}>🚩 시작점 이동</Text>
             </TouchableOpacity>
