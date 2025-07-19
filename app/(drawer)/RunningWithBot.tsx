@@ -42,6 +42,20 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
   // 아바타 포지션
   const { avatarScreenPos, handleAvatarReady, updateAvatarPosition, setMapRef, avatarReady } = useAvatarPosition();
 
+  // 🆕 위치 업데이트 중복 방지를 위한 디바운싱
+  const locationUpdateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
+  // 🆕 음성 안내 우선순위 처리
+  const speakWithPriority = useCallback((text: string, priority: 'high' | 'low' = 'low') => {
+    if (priority === 'high') {
+      Speech.stop(); // 기존 음성 중단
+      setTimeout(() => Speech.speak(text), 100);
+    } else {
+      // 낮은 우선순위는 기존 음성이 끝난 후 재생
+      Speech.speak(text);
+    }
+  }, []);
+
   // 봇 페이스/시뮬레이션
   const botPace = useMemo(() => ({
     minutes: botMin ? parseInt(botMin, 10) : 0,
@@ -92,6 +106,17 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
     resumeRunning,
   } = runningLogic;
 
+  // 🆕 위치 업데이트 중복 방지를 위한 디바운싱 함수
+  const debouncedSetUserLocation = useCallback((coord: any) => {
+    if (locationUpdateTimeoutRef.current) {
+      clearTimeout(locationUpdateTimeoutRef.current);
+    }
+    
+    locationUpdateTimeoutRef.current = setTimeout(() => {
+      setUserLocation(coord);
+    }, 50); // 50ms 디바운싱
+  }, [setUserLocation]);
+
   // 종료 버튼 관련 상태/애니메이션
   const [isFinishPressed, setIsFinishPressed] = useState(false);
   const finishProgressAnimation = useRef(new Animated.Value(0)).current;
@@ -110,7 +135,7 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
     finishTimeoutRef.current = setTimeout(() => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Speech.stop(); // 모든 음성 안내 중단
-      Speech.speak('러닝이 종료되었습니다.');
+      speakWithPriority('러닝이 종료되었습니다.', 'high');
       resetRunning();
       stopSimulation();
       setIsFinishModalVisible(false);
@@ -151,8 +176,8 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
       addToPath(startCoord);
       accIdxRef.current = 0;
       lastCoordRef.current = startCoord;
-      Speech.speak("러닝을 시작합니다.");
-      Speech.speak("웜업 구간입니다. 속도를 조절해주세요.");
+      speakWithPriority("러닝을 시작합니다.", 'high');
+      speakWithPriority("웜업 구간입니다. 속도를 조절해주세요.", 'low');
       startRunning();
       return;
     }
@@ -286,7 +311,7 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
 
   // 기존 useFinishDetection, 진행률 기반 자동 완주 useEffect 제거 후 아래로 통합
   useEffect(() => {
-    if (!trackInfo?.path || path.length === 0 || !userLocation || !isActive) return;
+    if (!trackInfo?.path || path.length === 0 || !userLocation || !isActive || isFinishModalVisible) return;
     const finishPoint = trackInfo.path[trackInfo.path.length - 1];
     const distToFinish = haversineDistance(
       finishPoint.latitude, finishPoint.longitude,
@@ -295,6 +320,7 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
     const totalRunMeters = totalDistance * 1000;
     if (distToFinish <= FINISH_RADIUS_METERS && totalRunMeters >= (trackInfo.distanceMeters ?? 0)) {
       Speech.stop(); // 도착점 도달 시 모든 음성 안내 중단
+      speakWithPriority('완주를 축하합니다!', 'high');
       setSummaryData({
         trackPath: trackInfo.path ?? [],
         userPath: path,
@@ -306,7 +332,7 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
       setIsFinishModalVisible(true);
       stopSimulation();
     }
-  }, [userLocation, path, isActive, trackInfo, totalDistance, elapsedTime, source, trackId, stopSimulation]);
+  }, [userLocation, path, isActive, trackInfo, totalDistance, elapsedTime, source, trackId, stopSimulation, isFinishModalVisible]);
 
   // 경로 이탈 감지 및 자동 일시정지/재개
   const [isOffCourse, setIsOffCourse] = useState(false);
@@ -465,9 +491,16 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
           remainDist = 0;
         }
       }
+      // 마지막 점에 도달했는지 확인
+      if (idx >= trackInfo.path.length - 1) {
+        // 마지막 점으로 정확히 이동
+        prevCoord = { ...trackInfo.path[trackInfo.path.length - 1], timestamp: Date.now() };
+        idx = trackInfo.path.length - 1;
+        console.log('🏁 봇 모드 테스트 - 마지막 점 도달:', idx, '/', trackInfo.path.length - 1);
+      }
       accIdxRef.current = idx;
       lastCoordRef.current = prevCoord;
-      setUserLocation(prevCoord);
+      debouncedSetUserLocation(prevCoord);
       addToPath(prevCoord);
       updateAvatarPosition(prevCoord, false);
       setCurrentSpeed(testSpeedKmh);
@@ -498,7 +531,7 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
     console.log('🧪 테스트 모드 - 시작점 초기화 및 러닝 시작');
     accIdxRef.current = 0;
     lastCoordRef.current = { ...trackInfo.path[0], timestamp: Date.now() };
-    setUserLocation(lastCoordRef.current);
+    debouncedSetUserLocation(lastCoordRef.current);
     addToPath(lastCoordRef.current);
     startRunning();
     startFakeTrackInterval();
@@ -531,6 +564,10 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
       if (fakeLocationIntervalRef.current) {
         clearInterval(fakeLocationIntervalRef.current);
         fakeLocationIntervalRef.current = null;
+      }
+      if (locationUpdateTimeoutRef.current) {
+        clearTimeout(locationUpdateTimeoutRef.current);
+        locationUpdateTimeoutRef.current = null;
       }
     };
   }, []);
@@ -598,7 +635,7 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
                 onPress={() => {
                   if (Array.isArray(trackInfo?.path) && trackInfo.path.length > 0) {
                     const startCoord = { ...trackInfo.path[0], timestamp: Date.now() };
-                    setUserLocation(startCoord);
+                    debouncedSetUserLocation(startCoord);
                     addToPath(startCoord);
                     accIdxRef.current = 0;
                     lastCoordRef.current = startCoord;
