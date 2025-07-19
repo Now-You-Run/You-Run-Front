@@ -11,9 +11,11 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View
 } from 'react-native';
 import MapView, { LatLng, Marker, Polyline } from 'react-native-maps';
+import type { SourceType } from '../TrackDetailScreen';
 
 interface RecordDetail {
   id: number;
@@ -260,6 +262,32 @@ export default function RecordDetailScreen() {
           <Text style={styles.value}>{calories} kcal</Text>
         </View>
       </View>
+      <View style={{ paddingHorizontal: 18, marginBottom: 24 }}>
+          <TouchableOpacity
+            style={{
+              backgroundColor: '#4a90e2',
+              padding: 12,
+              borderRadius: 8,
+              alignItems: 'center',
+            }}
+            onPress={() => {
+              const sourceParam: SourceType = detail.mode === 'FREE' ? 'my' : 'server';
+              router.push({
+                pathname: '/TrackDetailScreen',             // 실제 파일 경로로 조정
+                params: {
+                  trackId: detail.trackId.toString(),      // 문자열로 전달
+                  source: sourceParam,          // server 또는 my 중 선택
+                },
+              });
+            }}
+          >
+            <Text style={{ color: '#fff', fontWeight: '600' }}>
+              이 기록의 트랙 상세 보기
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+
     </ScrollView>
     </>
   );
