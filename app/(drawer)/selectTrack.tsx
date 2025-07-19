@@ -87,28 +87,37 @@ export default function TrackListScreen() {
         onDeleteModeToggle={handleDeleteModeToggle}
         selectedCount={selectedTrackIds.length}
       />
-      <FlatList
-        data={tracks}
-        renderItem={({ item }: { item: Track }) => (
-          <TrackListItem
-            item={item}
-            sourceTab={tab}
-            deleteMode={deleteMode}
-            checked={selectedTrackIds.includes(Number(item.id))}
-            onCheckChange={(checked: boolean) => handleSelectTrack(Number(item.id), checked)}
-          />
-        )}
-        keyExtractor={(item) => item.id.toString()}
-        numColumns={2}
-        columnWrapperStyle={styles.columnWrapper}
-        showsVerticalScrollIndicator={false}
-        onEndReached={handleEndReached}
-        onEndReachedThreshold={0.5}
-        refreshing={isRefreshing}
-        onRefresh={handleRefresh}
-        ListFooterComponent={isLoading && tracks.length > 0 ? <ActivityIndicator style={{ margin: 20 }} /> : null}
-        extraData={{ deleteMode, selectedTrackIds }}
-      />
+      {isLoading && tracks.length === 0 ? (
+        // 초기 로딩 시 전체 화면 로딩
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4a90e2" />
+          <Text style={styles.loadingText}>트랙을 불러오는 중...</Text>
+        </View>
+      ) : (
+        // 데이터가 있을 때 FlatList 표시
+        <FlatList
+          data={tracks}
+          renderItem={({ item }: { item: Track }) => (
+            <TrackListItem
+              item={item}
+              sourceTab={tab}
+              deleteMode={deleteMode}
+              checked={selectedTrackIds.includes(Number(item.id))}
+              onCheckChange={(checked: boolean) => handleSelectTrack(Number(item.id), checked)}
+            />
+          )}
+          keyExtractor={(item) => item.id.toString()}
+          numColumns={2}
+          columnWrapperStyle={styles.columnWrapper}
+          showsVerticalScrollIndicator={false}
+          onEndReached={handleEndReached}
+          onEndReachedThreshold={0.5}
+          refreshing={isRefreshing}
+          onRefresh={handleRefresh}
+          ListFooterComponent={isLoading && tracks.length > 0 ? <ActivityIndicator style={{ margin: 20 }} /> : null}
+          extraData={{ deleteMode, selectedTrackIds }}
+        />
+      )}
       {/* 삭제 모드일 때만 하단 플로팅 삭제 버튼 (내 트랙 탭에서만) */}
       {deleteMode && tab === 'my' && (
         <View style={styles.fabContainer}>
@@ -119,11 +128,6 @@ export default function TrackListScreen() {
           >
             <Text style={styles.fabText}>선택 삭제 ({selectedTrackIds.length})</Text>
           </TouchableOpacity>
-        </View>
-      )}
-      {isLoading && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#4a90e2" />
         </View>
       )}
     </View>

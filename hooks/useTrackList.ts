@@ -231,7 +231,8 @@ export function useTrackList(): UseTrackListReturn & {
         return;
       }
       if (distanceSortOption === 'proximity' && !myLocation) {
-        setIsLoading(false);
+        // 위치가 없을 때는 로딩 상태를 유지하고 위치를 기다림
+        console.log('위치 정보 대기 중...');
         return;
       }
       if (distanceSortOption === 'trackDistance') {
@@ -249,7 +250,7 @@ export function useTrackList(): UseTrackListReturn & {
       }
     };
     fetchData();
-  }, [tab, distanceSortOption, sortOrder, trackRecordRepository]);
+  }, [tab, distanceSortOption, sortOrder, trackRecordRepository, myLocation]);
 
   // myLocation이 최초 할당될 때만 초기화 및 fetchData 실행
   const prevLocationRef = useRef<Coordinate | undefined>(undefined);
@@ -268,7 +269,8 @@ export function useTrackList(): UseTrackListReturn & {
         return;
       }
       if (distanceSortOption === 'proximity' && !myLocation) {
-        setIsLoading(false);
+        // 위치가 없을 때는 로딩 상태를 유지하고 위치를 기다림
+        console.log('위치 정보 대기 중...');
         return;
       }
       if (distanceSortOption === 'trackDistance') {
