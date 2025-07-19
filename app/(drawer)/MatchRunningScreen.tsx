@@ -8,12 +8,16 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, BackHandler, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Region } from 'react-native-maps';
 
+import { fetchCurrentAvatar } from '@/api/user';
+import { AvatarOverlay } from '@/components/running/AvatarOverlay';
 import { BotDistanceDisplay } from '@/components/running/BotDistanceDisplay';
 import { FinishModal } from '@/components/running/FinishModal';
 import { RunningControls } from '@/components/running/RunningControls';
 import { RunningMap } from '@/components/running/RunningMap';
 import { RunningStats } from '@/components/running/RunningStats';
 import { RunningProvider, useRunning } from '@/context/RunningContext';
+import { useAvatarPosition } from '@/hooks/useAvatarPosition';
+import { useRunningLogic } from '@/hooks/useRunningLogic';
 import { loadTrackInfo, TrackInfo } from '@/repositories/appStorage';
 import { Coordinate } from '@/types/TrackDto';
 import { calculateTotalDistance, calculateTrackDistance, getOpponentPathAndGhost, haversineDistance } from '@/utils/RunningUtils';
@@ -37,27 +41,26 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
   const navigation = useNavigation();
   const { trackId, recordId, trackInfo: trackInfoParam } = useLocalSearchParams<{ trackId?: string; recordId?: string; trackInfo?: string }>();
 
-  // --- 러닝 로직 ---
-  const {
-    isActive,
-    isPaused,
-    elapsedTime,
-    path,
-    totalDistance,
-    userLocation,
-    resetRunning,
-    setUserLocation,
-    pauseRunning,
-    resumeRunning,
-    addToPath,
-    startRunning,
-    setCurrentSpeed,
-  } = useRunning();
+  // useRunning에서 path 등 필요한 값 먼저 가져오기
+  const runningContext = useRunning();
+  const { path, startLocationTracking, stopLocationTracking, addToPath, startRunning, setCurrentSpeed } = runningContext;
 
-  // 위치 구독 함수와 clearPath는 useRunning에서 직접 가져온다
-  const runningCtx = useRunning();
-  const startLocationTracking = runningCtx.startLocationTracking;
-  const stopLocationTracking = runningCtx.stopLocationTracking;
+  // 아바타 포지션 (봇 모드와 동일하게 추가)
+  const { avatarScreenPos, handleAvatarReady, updateAvatarPosition, setMapRef, avatarReady } = useAvatarPosition();
+
+  // 🆕 위치 업데이트 중복 방지를 위한 디바운싱
+  const locationUpdateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
+  // 🆕 음성 안내 우선순위 처리
+  const speakWithPriority = useCallback((text: string, priority: 'high' | 'low' = 'low') => {
+    if (priority === 'high') {
+      Speech.stop(); // 기존 음성 중단
+      setTimeout(() => Speech.speak(text), 100);
+    } else {
+      // 낮은 우선순위는 기존 음성이 끝난 후 재생
+      Speech.speak(text);
+    }
+  }, []);
 
   // --- State Management ---
   const [trackInfo, setTrackInfo] = useState<TrackInfo | null>(null);
@@ -75,17 +78,12 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
   const scaleAnimation = useRef(new Animated.Value(1)).current;
   const finishTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // --- 테스트 모드 상태 및 참조 ---
-  const [isTestModeState, setIsTestModeState] = useState(isTestMode);
+  // --- 테스트 모드 상태 및 참조 (단순화) ---
   const [testSpeedKmh, setTestSpeedKmh] = useState(10); // 기본 10km/h
   const fakeLocationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const accIdxRef = useRef(0);
   const lastCoordRef = useRef<any>(null);
-  const prevActiveRef = useRef(isActive);
-
-  // 최신 isTestMode 값을 항상 참조
-  const isTestModeRef = useRef(isTestModeState);
-  useEffect(() => { isTestModeRef.current = isTestModeState; }, [isTestModeState]);
+  const prevActiveRef = useRef(false);
 
   // --- 상대방 기록 불러오기 ---
   useEffect(() => {
@@ -103,11 +101,6 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
       console.log('🔥🔥 axios 에러:', err);
     });
   }, [recordId]);
-
-  // --- 상대 실선+고스트 (경과시간 기준) ---
-  const { livePath: opponentLivePath, ghost: opponentGhost } = React.useMemo(() => {
-    return getOpponentPathAndGhost(opponentPath, elapsedTime ?? 0);
-  }, [opponentPath, elapsedTime]);
 
   // --- 트랙 정보 로딩 ---
   useEffect(() => {
@@ -127,6 +120,69 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
         .catch(() => setTrackError('트랙 정보를 불러오는 중 오류가 발생했습니다.'));
     }
   }, [trackId, trackInfoParam]);
+
+  // 🆕 러닝 로직 (봇 모드와 동일하게 useRunningLogic 사용)
+  const runningLogic = useRunningLogic(
+    0, // 임시로 0 전달, 나중에 업데이트
+    false, // 임시로 false 전달, 나중에 업데이트
+    trackInfo?.distanceMeters ? trackInfo.distanceMeters / 1000 : undefined,
+    'match' // 매치 모드임을 명시
+  );
+  const {
+    isActive,
+    isPaused,
+    elapsedTime,
+    totalDistance,
+    displaySpeed,
+    onMainPress,
+    handleFinish,
+    userLocation,
+    resetRunning,
+    setUserLocation,
+    pauseRunning,
+    resumeRunning,
+  } = runningLogic;
+
+  // 🆕 위치 업데이트 중복 방지를 위한 디바운싱 함수
+  const debouncedSetUserLocation = useCallback((coord: any) => {
+    if (locationUpdateTimeoutRef.current) {
+      clearTimeout(locationUpdateTimeoutRef.current);
+    }
+    
+    locationUpdateTimeoutRef.current = setTimeout(() => {
+      setUserLocation(coord);
+    }, 50); // 50ms 디바운싱
+  }, [setUserLocation]);
+
+  // --- 상대 실선+고스트 (경과시간 기준) ---
+  const { livePath: opponentLivePath, ghost: opponentGhost } = React.useMemo(() => {
+    return getOpponentPathAndGhost(opponentPath, elapsedTime ?? 0);
+  }, [opponentPath, elapsedTime]);
+
+  // --- 진행률/거리 계산 (user vs opponent) ---
+  const userVsOpponent = React.useMemo(() => {
+    if (!trackInfo?.path || path.length === 0 || !opponentLivePath || opponentLivePath.length === 0) {
+      // fallback: 트랙 거리 직접 계산
+      const fallbackTotal = trackInfo?.path ? calculateTotalDistance(trackInfo.path) * 1000 : 0;
+      return { distanceMeters: 0, isAhead: false, userProgress: 0, totalDistance: fallbackTotal };
+    }
+    const userPos = path[path.length - 1];
+    const opponentPos = opponentLivePath[opponentLivePath.length - 1];
+    const result = calculateTrackDistance(opponentPos, userPos, trackInfo.path);
+
+    // trackInfo.distanceMeters가 없으면 직접 계산
+    let totalDist = trackInfo.distanceMeters;
+    if (!totalDist && trackInfo.path) {
+      totalDist = calculateTotalDistance(trackInfo.path) * 1000; // km → m
+    }
+
+    return {
+      distanceMeters: result.distanceMeters,
+      isAhead: result.isAhead,
+      userProgress: result.userProgress, // 이미 미터 단위
+      totalDistance: totalDist ?? 0,
+    };
+  }, [trackInfo?.path, path, opponentLivePath, trackInfo?.distanceMeters]);
 
   // --- 지도 region 초기화 ---
   useEffect(() => {
@@ -163,41 +219,50 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
     }
   }, [mapRegion]);
 
+  // userLocation이 있고 path가 비어있을 때 아바타 위치 강제 계산
+  useEffect(() => {
+    if (userLocation && path.length === 0) {
+      updateAvatarPosition(userLocation, true);
+    }
+  }, [userLocation, path.length, updateAvatarPosition]);
+
+  // userLocation이 바뀔 때마다 아바타 위치도 갱신 (avatarReady + 1m 이상 이동 시만)
+  const prevLocationRef = useRef<any>(null);
+  useEffect(() => {
+    if (!avatarReady || !userLocation) return;
+    const prev = prevLocationRef.current;
+    const moved =
+      prev
+        ? haversineDistance(
+            prev.latitude,
+            prev.longitude,
+            userLocation.latitude,
+            userLocation.longitude
+          ) * 1000
+        : Infinity;
+    if (moved > 1) {
+      updateAvatarPosition(userLocation, true);
+      prevLocationRef.current = userLocation;
+      console.log('🧪 useEffect: updateAvatarPosition(userLocation)', userLocation);
+    }
+  }, [userLocation, avatarReady, updateAvatarPosition]);
+
   // --- 위치 구독 시작 (테스트 모드 아닐 때만) ---
   useEffect(() => {
-    if (isTestModeRef.current) return;
+    if (isTestMode) {
+      return;
+    }
     if (startLocationTracking && stopLocationTracking) {
       startLocationTracking();
       return () => {
         stopLocationTracking();
       };
     }
-  }, [isTestModeRef.current, startLocationTracking, stopLocationTracking]);
+  }, [isTestMode, startLocationTracking, stopLocationTracking]);
 
-  // --- 테스트 모드 진입 시점에 상태 완전 초기화 ---
+  // --- 최초 GPS 위치 수신 (테스트 모드 아닐 때만) ---
   useEffect(() => {
-    if (isTestModeState) {
-      if (trackInfo?.path && trackInfo.path.length > 0) {
-        const startCoord = { ...trackInfo.path[0], timestamp: Date.now() };
-        setUserLocation(startCoord);
-        accIdxRef.current = 0;
-        lastCoordRef.current = startCoord;
-        resetRunning();
-        // path를 명시적으로 비우고 시작점만 추가 (clearPath가 있으면 사용)
-        runningCtx.clearPath();
-        addToPath(startCoord);
-      }
-    }
-    // 테스트 모드 해제 시, 필요하다면 GPS 위치를 다시 받아오게 할 수 있음
-    // else { ... }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isTestModeState]);
-
-  // --- 최초 GPS 위치 수신 (테스트 모드 아닐 때만, 안전하게) ---
-  useEffect(() => {
-    // 🚨 테스트 모드일 때는 절대 GPS 위치를 요청하지 마세요!
-    // 이 로직은 isTestMode가 false일 때만 동작합니다.
-    if (isTestModeRef.current) return;
+    if (isTestMode) return; // 테스트 모드면 GPS로 세팅하지 않음
     if (!userLocation) {
       (async () => {
         const { status } = await Location.requestForegroundPermissionsAsync();
@@ -211,8 +276,7 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
         }
       })();
     }
-    // 앞으로 어떤 기능이 추가되어도, isTestMode가 true면 GPS 위치가 절대 세팅되지 않도록 유지하세요.
-  }, [isTestModeRef.current]);
+  }, [isTestMode, userLocation, setUserLocation]);
 
   // --- 테스트 모드: 트랙 path 자동 이동 setInterval만 시작 (진행 상태는 건드리지 않음) ---
   const startFakeTrackInterval = useCallback(() => {
@@ -247,11 +311,12 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
       }
       accIdxRef.current = idx;
       lastCoordRef.current = prevCoord;
-      setUserLocation(prevCoord);
+      debouncedSetUserLocation(prevCoord);
       addToPath(prevCoord);
+      updateAvatarPosition(prevCoord, false);
       setCurrentSpeed(testSpeedKmh);
     }, 1000) as any;
-  }, [trackInfo, isActive, isPaused, setUserLocation, addToPath, setCurrentSpeed, testSpeedKmh]);
+  }, [trackInfo, isActive, isPaused, addToPath, setCurrentSpeed, testSpeedKmh, debouncedSetUserLocation, updateAvatarPosition]);
 
   // --- 러닝 처음 시작할 때만 진행 상태 초기화 + setInterval 시작 ---
   const startFakeTrackMovement = useCallback(() => {
@@ -263,26 +328,26 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
     }
     accIdxRef.current = 0;
     lastCoordRef.current = { ...trackInfo.path[0], timestamp: Date.now() };
-    setUserLocation(lastCoordRef.current);
+    debouncedSetUserLocation(lastCoordRef.current);
     addToPath(lastCoordRef.current);
     startRunning();
     startFakeTrackInterval();
-  }, [trackInfo, setUserLocation, startFakeTrackInterval, addToPath, startRunning]);
+  }, [trackInfo, startFakeTrackInterval, addToPath, startRunning, debouncedSetUserLocation]);
 
   // --- 테스트 모드 이동 제어 ---
   useEffect(() => {
-    if (isTestModeState && isActive && !prevActiveRef.current && accIdxRef.current === 0) {
+    if (isTestMode && isActive && !prevActiveRef.current && accIdxRef.current === 0) {
       startFakeTrackMovement();
     }
     prevActiveRef.current = isActive;
-    if ((!isTestModeState || !isActive || isPaused) && fakeLocationIntervalRef.current) {
+    if ((!isTestMode || !isActive || isPaused) && fakeLocationIntervalRef.current) {
       clearInterval(fakeLocationIntervalRef.current);
       fakeLocationIntervalRef.current = null;
     }
-    if (isTestModeState && isActive && !isPaused && !fakeLocationIntervalRef.current && accIdxRef.current > 0) {
+    if (isTestMode && isActive && !isPaused && !fakeLocationIntervalRef.current && accIdxRef.current > 0) {
       startFakeTrackInterval();
     }
-  }, [isTestModeState, isActive, isPaused, startFakeTrackMovement, startFakeTrackInterval]);
+  }, [isTestMode, isActive, isPaused, startFakeTrackMovement, startFakeTrackInterval]);
 
   // --- 컴포넌트 언마운트 시 인터벌 정리 ---
   useEffect(() => {
@@ -291,7 +356,33 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
         clearInterval(fakeLocationIntervalRef.current);
         fakeLocationIntervalRef.current = null;
       }
+      if (locationUpdateTimeoutRef.current) {
+        clearTimeout(locationUpdateTimeoutRef.current);
+        locationUpdateTimeoutRef.current = null;
+      }
     };
+  }, []);
+
+  // --- 최종 준비 여부 ---
+  const isMapReady = !!(trackInfo && mapRegion);
+
+  // 현재 선택된 아바타 상태 관리 (봇 모드와 동일하게 추가)
+  const [currentAvatar, setCurrentAvatar] = useState<{ id: string; glbUrl: string } | null>(null);
+
+  // 컴포넌트 마운트 시 현재 아바타 정보 가져오기
+  useEffect(() => {
+    const loadCurrentAvatar = async () => {
+      try {
+        const avatarData = await fetchCurrentAvatar();
+        setCurrentAvatar({
+          id: avatarData.id,
+          glbUrl: avatarData.glbUrl
+        });
+      } catch (error) {
+        console.error('Failed to fetch current avatar:', error);
+      }
+    };
+    loadCurrentAvatar();
   }, []);
 
   // --- 러닝 시작 ---
@@ -308,13 +399,13 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
       return;
     }
     const startPoint = trackInfo.path[0];
-    if (isTestModeState) {
+    if (isTestMode) {
       resetRunning();
-      runningCtx.clearPath();
+      runningContext.clearPath();
       const startCoord = { ...startPoint, timestamp: Date.now() };
       accIdxRef.current = 0;
       lastCoordRef.current = startCoord;
-      setUserLocation(startCoord);
+      debouncedSetUserLocation(startCoord);
       addToPath(startCoord);
       startRunning();
       startFakeTrackInterval();
@@ -334,9 +425,9 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
       Alert.alert('시작 위치 오류', `시작점에서 약 ${Math.round(dist)}m 떨어져 있습니다. ${START_BUFFER_METERS}m 이내로 이동해주세요.`);
       return;
     }
-    Speech.speak('러닝 대결을 시작합니다. 파이팅!');
-    // onMainPress(); // This line was removed from useRunning, so it's removed here.
-  }, [isActive, isPaused, pauseRunning, resumeRunning, trackInfo, userLocation, isTestModeState, resetRunning, setUserLocation, addToPath, startRunning, startFakeTrackInterval, runningCtx.clearPath]);
+    speakWithPriority('러닝 대결을 시작합니다. 파이팅!', 'high');
+    onMainPress();
+  }, [isActive, isPaused, pauseRunning, resumeRunning, trackInfo, userLocation, isTestMode, resetRunning, setUserLocation, addToPath, startRunning, startFakeTrackInterval, runningContext.clearPath, onMainPress]);
 
   // --- 완주(트랙 도착) 처리 ---
   useEffect(() => {
@@ -350,9 +441,9 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
     const totalRunMeters = totalDistance * 1000;
     if (distToFinish <= FINISH_RADIUS_METERS && totalRunMeters >= ((trackInfo?.distanceMeters ?? 0) - 10) &&
           totalRunMeters >= MIN_REQUIRED_METERS) {
-      handleMatchFinish();
+      handleFinish();
     }
-  }, [userLocation, path, isActive, trackInfo, totalDistance]);
+  }, [userLocation, path, isActive, trackInfo, totalDistance, handleFinish]);
 
   // --- 매치 완주 처리 ---
   const handleMatchFinish = useCallback(async () => {
@@ -375,9 +466,9 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
     }
 
     if (isWinner) {
-      Speech.speak('러닝을 완료했습니다. 상대방과의 대결에서 승리하였습니다!');
+      speakWithPriority('러닝을 완료했습니다. 상대방과의 대결에서 승리하였습니다!', 'high');
     } else {
-      Speech.speak('러닝을 완료했습니다. 아쉽게도 상대방과의 대결에서 패배하였습니다.');
+      speakWithPriority('러닝을 완료했습니다. 아쉽게도 상대방과의 대결에서 패배하였습니다.', 'high');
     }
 
     setSummaryData({
@@ -470,34 +561,6 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
     };
   }, [navigation, isActive, isPaused, elapsedTime, handleForfeit]);
 
-  // --- 최종 준비 여부 ---
-  const isMapReady = !!(trackInfo && mapRegion);
-
-  // --- 진행률/거리 계산 (user vs opponent) ---
-  const userVsOpponent = React.useMemo(() => {
-    if (!trackInfo?.path || path.length === 0 || !opponentLivePath || opponentLivePath.length === 0) {
-      // fallback: 트랙 거리 직접 계산
-      const fallbackTotal = trackInfo?.path ? calculateTotalDistance(trackInfo.path) * 1000 : 0;
-      return { distanceMeters: 0, isAhead: false, userProgress: 0, totalDistance: fallbackTotal };
-    }
-    const userPos = path[path.length - 1];
-    const opponentPos = opponentLivePath[opponentLivePath.length - 1];
-    const result = calculateTrackDistance(opponentPos, userPos, trackInfo.path);
-
-    // trackInfo.distanceMeters가 없으면 직접 계산
-    let totalDist = trackInfo.distanceMeters;
-    if (!totalDist && trackInfo.path) {
-      totalDist = calculateTotalDistance(trackInfo.path) * 1000; // km → m
-    }
-
-    return {
-      distanceMeters: result.distanceMeters,
-      isAhead: result.isAhead,
-      userProgress: result.userProgress, // 이미 미터 단위
-      totalDistance: totalDist ?? 0,
-    };
-  }, [trackInfo?.path, path, opponentLivePath, trackInfo?.distanceMeters]);
-
   // --- 렌더 ---
   if (trackError) {
     return (
@@ -525,32 +588,32 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
           <TouchableOpacity
             style={[
               styles.testModeToggle,
-              { backgroundColor: isTestModeState ? '#ff6b6b' : '#4ecdc4' }
+              { backgroundColor: isTestMode ? '#ff6b6b' : '#4ecdc4' }
             ]}
-            onPress={() => setIsTestModeState(!isTestModeState)}
+            onPress={() => setIsTestMode(!isTestMode)}
           >
             <Text style={styles.testModeToggleText}>
-              {isTestModeState ? 'ON' : 'OFF'}
+              {isTestMode ? 'ON' : 'OFF'}
             </Text>
           </TouchableOpacity>
         </View>
-        {isTestModeState && (
+        {isTestMode && (
           <>
             <TouchableOpacity
               style={styles.startPointBtn}
-              onPress={() => {
-                if (Array.isArray(trackInfo?.path) && trackInfo.path.length > 0) {
-                  const startCoord = { ...trackInfo.path[0], timestamp: Date.now() };
-                  runningCtx.clearPath();
-                  setUserLocation(startCoord);
-                  accIdxRef.current = 0;
-                  lastCoordRef.current = startCoord;
-                  // path가 완전히 비워진 뒤에 addToPath 실행
-                  setTimeout(() => {
-                    addToPath(startCoord);
-                  }, 0);
-                }
-              }}
+                              onPress={() => {
+                  if (Array.isArray(trackInfo?.path) && trackInfo.path.length > 0) {
+                    const startCoord = { ...trackInfo.path[0], timestamp: Date.now() };
+                    runningContext.clearPath();
+                    debouncedSetUserLocation(startCoord);
+                    accIdxRef.current = 0;
+                    lastCoordRef.current = startCoord;
+                    // path가 완전히 비워진 뒤에 addToPath 실행
+                    setTimeout(() => {
+                      addToPath(startCoord);
+                    }, 0);
+                  }
+                }}
             >
               <Text style={styles.startPointBtnText}>🚩 시작점 이동</Text>
             </TouchableOpacity>
@@ -574,13 +637,22 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
         initialRegion={mapRegion}
         region={mapRegion}
         userLocation={userLocation}
+        onAvatarPositionUpdate={updateAvatarPosition}
+        onMapReady={setMapRef}
         externalPath={trackInfo?.path}
-        opponentLivePath={opponentLivePath} // 상대 실시간 경로
-        startPosition={trackInfo?.path?.[0]}
-        endPosition={trackInfo?.path?.[trackInfo?.path.length - 1]}
-        onAvatarPositionUpdate={() => {}}
+        opponentLivePath={opponentLivePath}
         opponentGhost={opponentGhost}
       />
+
+      {avatarScreenPos && (
+        <AvatarOverlay
+          screenPos={avatarScreenPos}
+          isRunning={isActive && !isPaused}
+          speed={displaySpeed}
+          avatarUrl={currentAvatar?.glbUrl || "https://models.readyplayer.me/686ece0ae610780c6c939703.glb"}
+          onAvatarReady={handleAvatarReady}
+        />
+      )}
 
       {/* 하단 오버레이 */}
       <View style={styles.overlay}>
@@ -610,13 +682,24 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
         />
       </View>
 
-      {/* 로딩 오버레이 */}
+      {/* 오버레이: 트랙/지도 준비 중이거나, 3D 아바타 준비 중일 때 메시지 */}
       {!isMapReady && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#007aff" />
           <Text style={styles.loadingText}>
-            {!trackInfo ? '트랙 정보 로딩 중...' : !mapRegion ? 'GPS 신호 수신 중...' : ''}
+            {!trackInfo
+              ? '트랙 정보 로딩 중...'
+              : !mapRegion
+                ? 'GPS 신호 수신 중...'
+                : ''}
           </Text>
+        </View>
+      )}
+      {/* 3D 아바타 준비 중 메시지는 별도로 */}
+      {isMapReady && !avatarScreenPos && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#007aff" />
+          <Text style={styles.loadingText}>3D 아바타 준비 중...</Text>
         </View>
       )}
 
