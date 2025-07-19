@@ -473,7 +473,7 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
   // --- 완주(트랙 도착) 처리 ---
   useEffect(() => {
     const MIN_REQUIRED_METERS = 50;
-    if (!trackInfo?.path || path.length < 2 || !userLocation || !isActive) return;
+    if (!trackInfo?.path || path.length < 2 || !userLocation || !isActive || isFinishModalVisible) return;
     const finishPoint = trackInfo.path[trackInfo.path.length - 1];
     const distToFinish = haversineDistance(
       finishPoint.latitude, finishPoint.longitude,
@@ -495,7 +495,7 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
         }
       }, 0);
     }
-  }, [userLocation, path, isActive, trackInfo, totalDistance]);
+  }, [userLocation, path, isActive, trackInfo, totalDistance, isFinishModalVisible]);
 
   // --- 매치 완주 처리 ---
   const handleMatchFinish = useCallback(async () => {

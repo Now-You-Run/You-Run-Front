@@ -311,7 +311,7 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
 
   // 기존 useFinishDetection, 진행률 기반 자동 완주 useEffect 제거 후 아래로 통합
   useEffect(() => {
-    if (!trackInfo?.path || path.length === 0 || !userLocation || !isActive) return;
+    if (!trackInfo?.path || path.length === 0 || !userLocation || !isActive || isFinishModalVisible) return;
     const finishPoint = trackInfo.path[trackInfo.path.length - 1];
     const distToFinish = haversineDistance(
       finishPoint.latitude, finishPoint.longitude,
@@ -332,7 +332,7 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
       setIsFinishModalVisible(true);
       stopSimulation();
     }
-  }, [userLocation, path, isActive, trackInfo, totalDistance, elapsedTime, source, trackId, stopSimulation]);
+  }, [userLocation, path, isActive, trackInfo, totalDistance, elapsedTime, source, trackId, stopSimulation, isFinishModalVisible]);
 
   // 경로 이탈 감지 및 자동 일시정지/재개
   const [isOffCourse, setIsOffCourse] = useState(false);
