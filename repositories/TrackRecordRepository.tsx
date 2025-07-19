@@ -272,8 +272,11 @@ export class TrackRecordRepository {
     order: 'asc' | 'desc' = 'desc'
   ): Promise<{ tracks: Track[]; totalPages: number; totalElements: number }> {
     try {
+      const url = `${SERVER_API_URL}/api/track/list/order/dist?page=${page}&size=${size}&order=${order}`;
+      console.log('fetchPaginatedTrackListOrderByDistance 요청 URL:', url);
+      console.log('fetchPaginatedTrackListOrderByDistance 파라미터:', { page, size, order });
       const response = await fetch(
-        `${SERVER_API_URL}/api/track/list/order/dist?page=${page}&size=${size}&order=${order}`,
+        url,
         { method: 'GET', headers: { 'Content-Type': 'application/json' } }
       );
 
@@ -283,13 +286,14 @@ export class TrackRecordRepository {
       }
 
       const json = await response.json();
+      console.log('서버 원본 응답 json:', JSON.stringify(json, null, 2));
       if (
         json &&
         json.statuscode === '200' &&
         json.data &&
         Array.isArray(json.data.tracks)
       ) {
-        console.log('서버 응답 tracks:', json.data.tracks); // 서버 응답 로그 추가
+        console.log('서버 응답 tracks id:', json.data.tracks.map((t: any) => t.id));
         return { tracks: json.data.tracks, totalPages: json.data.totalPages, totalElements: json.data.totalElements };
       }
     } catch (error) {
