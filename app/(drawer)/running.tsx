@@ -257,21 +257,6 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
     };
   }, []);
 
-  // 초기화 로직
-  // useEffect(() => {
-  //   setIsFinishPressed(false);
-  //   setFinishProgress(0);
-  //   setSummaryData(null);
-  //   setIsFinishModalVisible(false);
-  //   console.log('🔄 러닝 화면 진입 - 상태 초기화 완료');
-  // }, []);
-
-  // // 러닝 상태 초기화
-  // useEffect(() => {
-  //   resetRunning();
-  //   console.log('🔄 러닝 상태 초기화');
-  // }, []);
-
     useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (e) => {
       // 러닝 기록이 없으면(시간이 0초) 아무것도 묻지 않고 바로 나갑니다.
@@ -634,17 +619,17 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
         <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
-        
-        {/* 🧪 테스트 모드 토글 버튼 */}
-        <TouchableOpacity 
-          style={[styles.testModeButton, { backgroundColor: isTestMode ? '#ff6b6b' : '#4ecdc4' }]} 
-          onPress={() => setIsTestMode(!isTestMode)}
-        >
-          <Text style={styles.testModeButtonText}>
-            {isTestMode ? '🧪 테스트 ON' : '🧪 테스트 OFF'}
-          </Text>
-        </TouchableOpacity>
       </View>
+
+      {/* 🧪 테스트 모드 토글 버튼 - 오른쪽 상단 고정 */}
+      <TouchableOpacity 
+        style={styles.testModeFloatingButton}
+        onPress={() => setIsTestMode(!isTestMode)}
+      >
+        <Text style={styles.testModeButtonText}>
+          {isTestMode ? '🧪 테스트 ON' : '🧪 테스트 OFF'}
+        </Text>
+      </TouchableOpacity>
 
       {/* ✅ 위치 로딩 상태 표시 */}
       {!initialLocationLoaded && (
@@ -802,7 +787,6 @@ const styles = StyleSheet.create({
     top: 50,
     left: 20,
     zIndex: 10,
-    backgroundColor: 'rgba(255,255,255,0.8)',
     borderRadius: 20,
     flexDirection: 'row', // 버튼들을 가로로 배치
     justifyContent: 'space-between', // 버튼들 사이에 공간 두기
@@ -810,14 +794,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10, // 버튼들 사이의 간격
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#fff',
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
+    marginRight: 8,
   },
   backButtonText: {
     fontSize: 24,
-    color: '#333'
+    color: '#333',
+    fontWeight: 'bold',
   },
   testModeButton: {
     paddingVertical: 8,
@@ -827,7 +820,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   testModeButtonText: {
-    color: 'white',
+    color: 'green',
     fontSize: 14,
     fontWeight: 'bold',
   },
@@ -903,5 +896,17 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  testModeFloatingButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
