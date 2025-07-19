@@ -26,6 +26,14 @@ export default function TrackListScreen() {
   const [deleteMode, setDeleteMode] = React.useState(false);
   const [selectedTrackIds, setSelectedTrackIds] = React.useState<number[]>([]);
 
+  React.useEffect(() => {
+    console.log('selectTrack 마운트');
+    return () => console.log('selectTrack 언마운트');
+  }, []);
+
+  // 트랙 개수 로그
+  console.log('트랙 개수:', tracks.length);
+
   // 삭제 모드 토글
   const handleDeleteModeToggle = () => {
     setDeleteMode((prev) => !prev);
