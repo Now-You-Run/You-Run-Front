@@ -1,3 +1,4 @@
+import { fetchCurrentAvatar } from '@/api/user';
 import { AvatarOverlay } from '@/components/running/AvatarOverlay';
 import { BotDistanceDisplay } from '@/components/running/BotDistanceDisplay';
 import { FinishModal } from '@/components/running/FinishModal';
@@ -10,7 +11,6 @@ import { useOffCourseDetection } from '@/hooks/useOffCourseDetection';
 import { useRunningLogic } from '@/hooks/useRunningLogic';
 import { useTrackSimulation } from '@/hooks/useTrackSimulation';
 import { loadTrackInfo, TrackInfo } from '@/repositories/appStorage';
-import { AVATAR_CONSTANTS } from '@/utils/Constants';
 import { calculateTrackDistance, haversineDistance } from '@/utils/RunningUtils';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
@@ -538,6 +538,25 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
   // 지도 준비 상태: 트랙 정보와 지도 영역이 모두 준비되었을 때 true
   const isMapReady = !!(trackInfo && mapRegion);
 
+  // 현재 선택된 아바타 상태 관리
+  const [currentAvatar, setCurrentAvatar] = useState<{ id: string; glbUrl: string } | null>(null);
+
+  // 컴포넌트 마운트 시 현재 아바타 정보 가져오기
+  useEffect(() => {
+    const loadCurrentAvatar = async () => {
+      try {
+        const avatarData = await fetchCurrentAvatar();
+        setCurrentAvatar({
+          id: avatarData.id,
+          glbUrl: avatarData.glbUrl
+        });
+      } catch (error) {
+        console.error('Failed to fetch current avatar:', error);
+      }
+    };
+    loadCurrentAvatar();
+  }, []);
+
   if (trackError) {
     return (
       <View style={styles.errorContainer}>
@@ -620,9 +639,9 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
       {avatarScreenPos && (
         <AvatarOverlay
           screenPos={avatarScreenPos}
-          isRunning={isActive}
+          isRunning={isActive && !isPaused}
           speed={displaySpeed}
-          avatarUrl={AVATAR_CONSTANTS.AVATAR_ID}
+          avatarUrl={currentAvatar?.glbUrl || "https://models.readyplayer.me/686ece0ae610780c6c939703.glb"}
           onAvatarReady={handleAvatarReady}
         />
       )}
