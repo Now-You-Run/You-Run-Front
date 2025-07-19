@@ -694,6 +694,9 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
         externalPath={trackInfo?.path}
         opponentLivePath={opponentLivePath}
         opponentGhost={opponentGhost}
+        startPosition={trackInfo?.path?.[0] || null}
+        endPosition={trackInfo?.path?.[trackInfo?.path?.length - 1] || null}
+        isSimulating={isActive}
       />
 
       {avatarScreenPos && (
