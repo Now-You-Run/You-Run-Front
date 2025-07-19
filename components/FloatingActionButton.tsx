@@ -22,7 +22,7 @@ export default function FloatingMenuButton() {
 const styles = StyleSheet.create({
   buttonContainer: {
     position: 'absolute', // 💥 핵심! 화면의 다른 요소와 상관없이 독립적으로 위치합니다.
-    zIndex: 100, // 💥 다른 콘텐츠들보다 항상 위에 있도록 z-index를 설정합니다.
+    zIndex: 50, // 💥 z-index를 낮춰서 달리기 버튼이 눌릴 수 있도록 함
     width: 50,
     height: 50,
     justifyContent: 'center',

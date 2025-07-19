@@ -417,9 +417,16 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
 
   // 🧪 트랙 path 자동 이동 setInterval만 시작 (진행 상태는 건드리지 않음)
   const startFakeTrackInterval = useCallback(() => {
-    if (!trackInfo?.path || trackInfo.path.length < 2) return;
-    if (fakeLocationIntervalRef.current) clearInterval(fakeLocationIntervalRef.current);
+    if (!trackInfo?.path || trackInfo.path.length < 2) {
+      console.log('🧪 테스트 모드 - 인터벌 시작 실패: 트랙 경로 없음');
+      return;
+    }
+    if (fakeLocationIntervalRef.current) {
+      console.log('🧪 테스트 모드 - 기존 인터벌 정리');
+      clearInterval(fakeLocationIntervalRef.current);
+    }
 
+    console.log('🧪 테스트 모드 - 인터벌 시작');
     // 테스트 모드 속도 적용
     const speedMps = testSpeedKmh / 3.6;
 
@@ -465,44 +472,58 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
       updateAvatarPosition(prevCoord, false);
       setCurrentSpeed(testSpeedKmh);
       prevTimestamp = Date.now();
+      
+      console.log(`🧪 테스트 모드 - 위치 업데이트: 인덱스 ${idx}/${trackInfo.path.length - 1}, 좌표: ${prevCoord.latitude.toFixed(6)}, ${prevCoord.longitude.toFixed(6)}`);
     }, 1000) as any;
-  }, [trackInfo, isActive, isPaused, setUserLocation, addToPath, updateAvatarPosition, setCurrentSpeed, testSpeedKmh]);
+  }, [trackInfo?.path, isActive, isPaused, setUserLocation, addToPath, updateAvatarPosition, setCurrentSpeed, testSpeedKmh]);
 
   // 🧪 러닝 처음 시작할 때만 진행 상태 초기화 + setInterval 시작
   // 러닝 시작(테스트 모드) 시에는 중복 setUserLocation/addToPath 하지 않도록 분기
   const startFakeTrackMovement = useCallback(() => {
-    if (!trackInfo?.path || trackInfo.path.length < 2) return;
+    if (!trackInfo?.path || trackInfo.path.length < 2) {
+      console.log('🧪 테스트 모드 - 트랙 경로 없음');
+      return;
+    }
+    
     // 이미 트랙 시작점으로 초기화된 상태라면 중복 세팅하지 않음
-    if (accIdxRef.current === 0 && lastCoordRef.current && lastCoordRef.current.latitude === trackInfo.path[0].latitude && lastCoordRef.current.longitude === trackInfo.path[0].longitude) {
+    if (accIdxRef.current === 0 && lastCoordRef.current && 
+        lastCoordRef.current.latitude === trackInfo.path[0].latitude && 
+        lastCoordRef.current.longitude === trackInfo.path[0].longitude) {
+      console.log('🧪 테스트 모드 - 이미 시작점에 있음, 러닝만 시작');
       startRunning(); // 러닝 상태만 활성화
       startFakeTrackInterval();
       return;
     }
+    
+    console.log('🧪 테스트 모드 - 시작점 초기화 및 러닝 시작');
     accIdxRef.current = 0;
     lastCoordRef.current = { ...trackInfo.path[0], timestamp: Date.now() };
     setUserLocation(lastCoordRef.current);
     addToPath(lastCoordRef.current);
     startRunning();
     startFakeTrackInterval();
-  }, [trackInfo, setUserLocation, startFakeTrackInterval, addToPath, startRunning]);
+  }, [trackInfo?.path, setUserLocation, addToPath, startRunning, startFakeTrackInterval]);
 
   // 🧪 테스트 모드 이동 제어
   useEffect(() => {
     // 러닝 처음 시작할 때만 진행 상태 초기화 + setInterval 시작
     if (isTestMode && isActive && !prevActiveRef.current && accIdxRef.current === 0) {
+      console.log('🧪 테스트 모드 - 러닝 시작');
       startFakeTrackMovement();
     }
     prevActiveRef.current = isActive;
     // 일시정지/재개 시에는 setInterval만 멈추거나 재시작
     if ((!isTestMode || !isActive || isPaused) && fakeLocationIntervalRef.current) {
+      console.log('🧪 테스트 모드 - 인터벌 정지');
       clearInterval(fakeLocationIntervalRef.current);
       fakeLocationIntervalRef.current = null;
     }
     // 재개 시에는 진행 상태(accIdxRef, lastCoordRef)는 그대로 두고 setInterval만 새로 시작
     if (isTestMode && isActive && !isPaused && !fakeLocationIntervalRef.current && accIdxRef.current > 0) {
+      console.log('🧪 테스트 모드 - 인터벌 재시작');
       startFakeTrackInterval(); // 진행 상태는 그대로, setInterval만 새로 시작
     }
-  }, [isTestMode, isActive, isPaused, startFakeTrackMovement, startFakeTrackInterval]);
+  }, [isTestMode, isActive, isPaused]);
 
   // 🧪 컴포넌트 언마운트 시 인터벌 정리
   useEffect(() => {
