@@ -18,7 +18,8 @@ import { FinishModal } from '@/components/running/FinishModal';
 import { RunningControls } from '@/components/running/RunningControls';
 import { RunningMap } from '@/components/running/RunningMap';
 import { RunningStats } from '@/components/running/RunningStats';
-import { RunningProvider, useRunning } from '@/context/RunningContext';
+import { useRepositories } from '@/context/RepositoryContext';
+import { Coord, RunningProvider, useRunning } from '@/context/RunningContext';
 import { useAvatarPosition } from '@/hooks/useAvatarPosition';
 import { useRunningLogic } from '@/hooks/useRunningLogic';
 import { haversineDistance } from '@/utils/RunningUtils';
@@ -37,6 +38,11 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
   // 🧪 테스트 모드 상태
   const fakeLocationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const fakeDistanceRef = useRef<number>(0); // 누적 거리를 ref로 관리
+  const testPathIdxRef = useRef(0); // 테스트 경로 인덱스
+
+  // 🧪 테스트 모드 트랙 경로 관리
+  const { trackRecordRepository } = useRepositories();
+  const [testPath, setTestPath] = useState<Coord[] | null>(null);
 
   const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
   const [isFinishModalVisible, setIsFinishModalVisible] = useState<boolean>(false);
@@ -70,6 +76,7 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
     resetRunning,
     userLocation,
     setUserLocation,
+    pauseRunning,
   } = useRunningLogic();
 
   // 🧪 addToPath, setCurrentSpeed 함수를 useRunning에서 직접 가져오기
@@ -83,32 +90,26 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
     setMapRef,
   } = useAvatarPosition();
 
-  // 🧪 가짜 위치 생성 함수
-  const generateFakeLocation = useCallback((baseLat: number, baseLng: number, distanceKm: number) => {
-    // 북쪽으로 일직선 이동 (위도 증가)
-    const latOffset = distanceKm / 111.32; // 1도 위도 ≈ 111.32km
-    return {
-      latitude: baseLat + latOffset,
-      longitude: baseLng,
-      timestamp: Date.now(),
-    };
-  }, []);
-
-  // 🧪 가짜 위치 업데이트 시작
-  const startFakeLocationUpdates = useCallback((baseLat: number, baseLng: number) => {
+  // 🧪 개선된 가짜 위치 업데이트 시작 (실제 트랙 경로 따라가기)
+  const startFakeLocationUpdates = useCallback(() => {
+    if (!testPath || testPath.length < 2) {
+      console.log('🧪 테스트 모드 - 트랙 경로가 없거나 부족함');
+      return;
+    }
+    
     if (fakeLocationIntervalRef.current) {
       clearInterval(fakeLocationIntervalRef.current);
     }
 
-    // 러닝 시작 시 거리 초기화
+    // 러닝 시작 시 인덱스 초기화
     if (!isActive) {
-      fakeDistanceRef.current = 0;
+      testPathIdxRef.current = 0;
     }
 
     // 첫 번째 시작점 추가
-    let prevCoord = {
-      latitude: baseLat,
-      longitude: baseLng,
+    let prevCoord: Coord = {
+      latitude: testPath[0].latitude,
+      longitude: testPath[0].longitude,
       timestamp: Date.now(),
     };
     let prevTimestamp = prevCoord.timestamp;
@@ -117,38 +118,66 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
     console.log('🧪 테스트 모드 시작점 설정:', prevCoord);
 
     const interval = setInterval(() => {
-      if (isActive && !isPaused) {
-        fakeDistanceRef.current += 0.01; // 10m씩 증가
-        const now = Date.now();
-        const fakeCoord = generateFakeLocation(baseLat, baseLng, fakeDistanceRef.current);
-
-        // 속도 계산 (km/h)
-        const dKm = haversineDistance(
-          prevCoord.latitude,
-          prevCoord.longitude,
-          fakeCoord.latitude,
-          fakeCoord.longitude
-        );
-        const dt = (now - prevTimestamp) / 1000;
-        const speedKmh = dt > 0 ? (dKm / (dt / 3600)) : 0;
-        setCurrentSpeed(speedKmh);
-
-        // 경로에 추가
-        addToPath(fakeCoord);
-        // 아바타 위치 업데이트
-        updateAvatarPosition(fakeCoord, false);
-        // 🧪 내 위치도 업데이트 (마커 표시)
-        setUserLocation(fakeCoord);
-
-        prevCoord = fakeCoord;
-        prevTimestamp = now;
-
-        console.log('🧪 가짜 위치 업데이트:', fakeCoord, '거리:', fakeDistanceRef.current.toFixed(3), 'km', '속도:', speedKmh.toFixed(2), 'km/h');
+      if (!isActive || isPaused) return;
+      
+      let idx = testPathIdxRef.current;
+      if (idx >= testPath.length - 1) {
+        console.log('🧪 테스트 모드 - 트랙 경로 끝에 도달, 시뮬레이션 종료');
+        stopFakeLocationUpdates();
+        pauseRunning(); // 트랙 끝에서 자동 일시정지
+        return;
       }
+
+      const nextCoord = testPath[idx + 1];
+      const now = Date.now();
+      
+      const dKm = haversineDistance(
+        prevCoord.latitude,
+        prevCoord.longitude,
+        nextCoord.latitude,
+        nextCoord.longitude
+      );
+      // 1초에 20m씩 이동 (보간)
+      const moveDist = 0.02; // 20m
+      
+      let newCoord: Coord;
+      if (dKm <= moveDist) {
+        // 다음 점까지 이동
+        testPathIdxRef.current = idx + 1;
+        newCoord = {
+          ...nextCoord,
+          timestamp: now,
+        };
+      } else {
+        // 보간 위치 계산
+        const ratio = moveDist / dKm;
+        newCoord = {
+          latitude: prevCoord.latitude + (nextCoord.latitude - prevCoord.latitude) * ratio,
+          longitude: prevCoord.longitude + (nextCoord.longitude - prevCoord.longitude) * ratio,
+          timestamp: now,
+        };
+      }
+
+      // 속도 계산 (km/h)
+      const dt = (now - prevTimestamp) / 1000;
+      const speedKmh = dt > 0 ? (moveDist / (dt / 3600)) : 0;
+      setCurrentSpeed(speedKmh);
+
+      // 경로에 추가
+      addToPath(newCoord);
+      // 아바타 위치 업데이트
+      updateAvatarPosition(newCoord, false);
+      // 🧪 내 위치도 업데이트 (마커 표시)
+      setUserLocation(newCoord);
+
+      prevCoord = newCoord;
+      prevTimestamp = now;
+
+      console.log('🧪 가짜 위치 업데이트:', newCoord, '인덱스:', testPathIdxRef.current, '속도:', speedKmh.toFixed(2), 'km/h');
     }, 1000); // 1초마다 업데이트
 
     fakeLocationIntervalRef.current = interval as any;
-  }, [isActive, isPaused, generateFakeLocation, addToPath, updateAvatarPosition, setUserLocation, setCurrentSpeed]);
+  }, [isActive, isPaused, testPath, addToPath, updateAvatarPosition, setUserLocation, setCurrentSpeed, pauseRunning]);
 
   // 🧪 가짜 위치 업데이트 중지
   const stopFakeLocationUpdates = useCallback(() => {
@@ -158,30 +187,29 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
     }
   }, []);
 
-  // 🧪 러닝 상태에 따른 가짜 위치 제어
+  // 🧪 러닝 상태에 따른 가짜 위치 제어 (통합)
   useEffect(() => {
-    if (!isTestMode || !mapRegion) return;
+    if (!isTestMode || !testPath) return;
 
-    // 이미 인터벌이 실행 중이면 중복 실행 방지
-    if (fakeLocationIntervalRef.current) {
+    // 러닝 중지/일시정지 시 인터벌 정리
+    if (!isActive || isPaused) {
+      if (fakeLocationIntervalRef.current) {
+        console.log('🧪 테스트 모드 - 인터벌 정지');
+        stopFakeLocationUpdates();
+      }
       return;
     }
 
-    if (isActive && !isPaused) {
-      startFakeLocationUpdates(mapRegion.latitude, mapRegion.longitude);
+    // 러닝 시작 시 인터벌 시작
+    if (isActive && !isPaused && !fakeLocationIntervalRef.current) {
+      console.log('🧪 테스트 모드 - 인터벌 시작');
+      startFakeLocationUpdates();
     }
 
     return () => {
       stopFakeLocationUpdates();
     };
-  }, [isActive, isPaused, isTestMode, mapRegion]);
-
-  // 🧪 러닝 일시정지/종료 시 가짜 위치 업데이트 중지
-  useEffect(() => {
-    if (!isActive || isPaused) {
-      stopFakeLocationUpdates();
-    }
-  }, [isActive, isPaused]);
+  }, [isActive, isPaused, isTestMode, testPath]);
 
   // 🧪 러닝 재시작 시 거리 초기화
   useEffect(() => {
@@ -190,6 +218,37 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
       console.log('🧪 러닝 종료 - 가짜 거리 초기화');
     }
   }, [isActive]);
+
+  // 🧪 러닝 재시작 시 인덱스 초기화
+  useEffect(() => {
+    if (!isActive) {
+      testPathIdxRef.current = 0;
+      console.log('🧪 러닝 종료 - 테스트 경로 인덱스 초기화');
+    }
+  }, [isActive]);
+
+  // 🧪 테스트 모드 진입 시 트랙 경로 fetch
+  useEffect(() => {
+    if (isTestMode && !testPath && trackRecordRepository) {
+      console.log('🧪 테스트 모드 - 트랙 경로 가져오기 시작');
+      trackRecordRepository.fetchTrackRecord(44).then(data => {
+        if (data?.trackInfoDto?.path) {
+          console.log('🧪 테스트 모드 - 트랙 경로 로드 완료:', data.trackInfoDto.path.length, '개 좌표');
+          // Coordinate[]를 Coord[]로 변환
+          const coordPath: Coord[] = data.trackInfoDto.path.map(coord => ({
+            latitude: coord.latitude,
+            longitude: coord.longitude,
+            timestamp: Date.now() // 현재 시간으로 설정
+          }));
+          setTestPath(coordPath);
+        } else {
+          console.log('�� 테스트 모드 - 트랙 경로 로드 실패');
+        }
+      }).catch(error => {
+        console.error('🧪 테스트 모드 - 트랙 경로 로드 오류:', error);
+      });
+    }
+  }, [isTestMode, testPath, trackRecordRepository]);
 
   // 컴포넌트 언마운트 시 정리
   useEffect(() => {
@@ -600,7 +659,9 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
       {/* 🧪 테스트 모드 상태 표시 */}
       {isTestMode && initialLocationLoaded && (
         <View style={styles.testModeOverlay}>
-          <Text style={styles.testModeText}>🧪 테스트 모드 - 가짜 위치 사용 중</Text>
+          <Text style={styles.testModeText}>
+            🧪 테스트 모드 - {testPath ? '트랙 경로 로드됨' : '트랙 경로 로딩 중...'}
+          </Text>
         </View>
       )}
 
