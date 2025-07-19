@@ -71,15 +71,15 @@ const styles = StyleSheet.create({
   },
   avatarContainer: {
     width: 350,
-    height: 600,
+    height: 500, // 600에서 500으로 줄여서 달리기 버튼을 가리지 않도록 함
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: -100,
-    zIndex: 2,
+    zIndex: 1, // z-index를 낮춤
   },
   characterImage: {
     width: 350,
-    height: 600, // 500에서 600으로 증가
+    height: 500, // 600에서 500으로 줄임
     resizeMode: 'contain',
   },
   characterName: {

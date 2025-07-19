@@ -9,7 +9,7 @@ interface HomeAvatarDisplayProps {
 export const HomeAvatarDisplay = ({ avatarUrl }: HomeAvatarDisplayProps) => {
   const webViewRef = useRef<WebView>(null);
   const CONTAINER_WIDTH = 350;
-  const CONTAINER_HEIGHT = 600; // 500에서 600으로 증가
+  const CONTAINER_HEIGHT = 500; // 600에서 500으로 줄임
 
   const getAvatarHtml = (glbUrl: string) => `
     <!DOCTYPE html>

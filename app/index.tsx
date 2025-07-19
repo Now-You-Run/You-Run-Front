@@ -3,10 +3,10 @@ import CharacterSection from '@/components/CharacterSection';
 import FloatingActionButton from '@/components/FloatingActionButton';
 import { useDrawer } from '@/context/DrawerContext';
 import {
-  getTimeBasedColors,
-  getWeatherAnimationKey,
-  getWeatherData,
-  WeatherAnimationKey,
+    getTimeBasedColors,
+    getWeatherAnimationKey,
+    getWeatherData,
+    WeatherAnimationKey,
 } from '@/utils/WeatherUtils';
 import { useFonts } from 'expo-font';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,13 +16,13 @@ import * as SplashScreen from 'expo-splash-screen';
 import LottieView from 'lottie-react-native';
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
-  Modal,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Alert,
+    Modal,
+    SafeAreaView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 const SERVER_API_URL = process.env.EXPO_PUBLIC_SERVER_API_URL;
@@ -48,7 +48,7 @@ export default function HomeScreen() {
       left: 0,
       right: 0,
       bottom: 0,
-      zIndex: 5,
+      zIndex: 1, // z-index를 낮춤
       pointerEvents: 'none',
     },
     snow: {
@@ -57,7 +57,7 @@ export default function HomeScreen() {
       left: 0,
       right: 0,
       bottom: 0,
-      zIndex: 5,
+      zIndex: 1, // z-index를 낮춤
       pointerEvents: 'none',
     },
     cloud: {
@@ -66,7 +66,7 @@ export default function HomeScreen() {
       left: 0,
       right: 0,
       height: '40%',
-      zIndex: 5,
+      zIndex: 1, // z-index를 낮춤
       pointerEvents: 'none',
     },
     sunny: {
@@ -75,7 +75,7 @@ export default function HomeScreen() {
       left: 20,
       width: 120,
       height: 120,
-      zIndex: 5,
+      zIndex: 1, // z-index를 낮춤
       pointerEvents: 'none',
     },
     moon: {
@@ -84,7 +84,7 @@ export default function HomeScreen() {
       left: 10,
       width: 140,
       height: 140,
-      zIndex: 5,
+      zIndex: 1, // z-index를 낮춤
       pointerEvents: 'none',
     },
   };
@@ -299,6 +299,7 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     paddingBottom: 30,
+    zIndex: 100, // z-index를 높여서 다른 요소들 위에 표시
   },
   runButton: {
     backgroundColor: '#5EFFAE',
@@ -315,6 +316,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
+    zIndex: 101, // z-index를 높여서 확실히 클릭 가능하도록 함
   },
   runButtonText: {
     color: 'black',

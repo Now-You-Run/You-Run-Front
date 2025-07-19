@@ -601,7 +601,7 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
           screenPos={avatarScreenPos}
           isRunning={isActive}
           speed={displaySpeed}
-          avatarId={AVATAR_CONSTANTS.AVATAR_ID}
+          avatarUrl={AVATAR_CONSTANTS.AVATAR_ID}
           onAvatarReady={handleAvatarReady}
         />
       )}

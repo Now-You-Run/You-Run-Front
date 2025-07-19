@@ -52,7 +52,6 @@
     "expo-symbols": "~0.4.5",
     "expo-system-ui": "~5.0.9",
     "expo-task-manager": "~13.1.5",
-    "expo-three": "^8.0.0",
     "expo-web-browser": "~14.2.0",
     "jsqr": "^1.4.0",
     "kalmanjs": "^1.1.0",
@@ -76,7 +75,7 @@
     "react-native-worklets-core": "^1.6.0",
     "read-pkg-up": "^10.1.0",
     "sockjs-client": "^1.6.1",
-    "three": "^0.166.1",
+    "three": "^0.128.0",
     "zustand": "^5.0.6"
   },
   "devDependencies": {
