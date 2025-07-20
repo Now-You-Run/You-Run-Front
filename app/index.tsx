@@ -1,6 +1,5 @@
 import { fetchCurrentAvatar } from '@/api/user';
 import CharacterSection from '@/components/CharacterSection';
-import FloatingActionButton from '@/components/FloatingActionButton';
 import { useDrawer } from '@/context/DrawerContext';
 import { useUserStore } from '@/stores/userStore';
 import {
@@ -9,6 +8,7 @@ import {
   getWeatherData,
   WeatherAnimationKey,
 } from '@/utils/WeatherUtils';
+import { Entypo, FontAwesome5, Fontisto } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Notifications from 'expo-notifications';
@@ -19,11 +19,12 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Modal,
+  Pressable,
   SafeAreaView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 
 const SERVER_API_URL = process.env.EXPO_PUBLIC_SERVER_API_URL;
@@ -212,7 +213,6 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <FloatingActionButton />
       <LinearGradient
         colors={backgroundColors}
         style={styles.gradientBackground}
@@ -232,6 +232,32 @@ export default function HomeScreen() {
 
         {/* Main content */}
         <View style={styles.content}>
+          <View style={[styles.topRightMenu]}>
+        <Pressable
+          style={styles.menuButton}
+          onPress={() => router.push('/(drawer)/myPage')}
+        >
+          <Fontisto name="slightly-smile" size={24} />
+          <Text style={styles.menuLabel}>My</Text>
+        </Pressable>
+
+        <Pressable
+          style={styles.menuButton}
+          onPress={() => router.push('/(drawer)/Social')}
+        >
+          <FontAwesome5 name="user-friends" size={24} />
+          <Text style={styles.menuLabel}>친구</Text>
+        </Pressable>
+
+        <Pressable
+          style={styles.menuButton}
+          onPress={() => router.push('/(drawer)/AvatarShop')}
+        >
+          <Entypo name="shop" size={24} />
+          <Text style={styles.menuLabel}>상점</Text>
+        </Pressable>
+        </View>
+
           <CharacterSection
             userName={userName}
             averagePace={averagePace}
@@ -311,7 +337,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    marginTop: 40, // 20에서 40으로 변경하여 더 아래로
+    marginTop: 20, // 20에서 40으로 변경하여 더 아래로
   },
   bottomSection: {
     width: '100%',
@@ -398,5 +424,25 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
+  },
+  topRightMenu: {
+    position: 'absolute',
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+
+  // 아이콘과 텍스트를 세로로 정렬
+  menuButton: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    marginLeft: 16,      // 버튼 간 간격
+  },
+
+  menuLabel: {
+    fontSize: 12,
+    marginTop: 4,        // 아이콘과 레이블 사이 여백
+    color: '#000',
   },
 });
