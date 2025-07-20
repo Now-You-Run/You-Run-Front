@@ -16,81 +16,101 @@ function formatPace(min: number): string {
   return `${m}'${s}″`.replace(/\s/g, '');  // 모든 공백 제거
 }
 
-export default function CharacterSection({ userName, averagePace, selectedAvatar }: CharacterSectionProps) {
+export default function CharacterSection({ userName, averagePace, selectedAvatar }: CharacterSectionProps) { 
   const formattedPace = formatPace(averagePace);
 
   const renderPaceText = () => {
-    // 바닥 그림자 레이어 추가
-    const groundShadows = Array.from({ length: 12 }, (_, index) => {  // 레이어 수 증가
-      // 투명도를 지수 함수적으로 감소시켜 더 부드러운 변화 생성
-      const opacity = 0.08 * Math.pow(0.85, index);
-      const scale = 1.1 + (index * 0.1);  // 크기 증가율 감소
-      return (
-        <View
-          key={`ground-shadow-${index}`}
-          style={{
-            position: 'absolute',
-            width: 180,
-            height: 8 + (index * 1.8),  // 높이 증가율 감소
-            backgroundColor: '#000',
-            opacity: opacity,
-            bottom: -5 - (index * 1.5),  // 간격 감소
-            right: 30 + (index * 1.5),   // 간격 감소
-            transform: [
-              { rotateY: '25deg' },
-              { scaleX: scale },
-              { translateX: -20 }
-            ],
-            borderRadius: 100,
-            zIndex: -26,
-          }}
-        />
-      );
-    });
-
-    const shadowLayers = Array.from({ length: 25 }, (_, index) => {
-      const offset = index * 0.8;
-      return (
-        <Text
-          key={`shadow-${index}`}
-          style={[
-            styles.main,
-            {
-              position: 'absolute',
-              transform: [
-                { translateX: offset },
-                { translateY: offset * 0.15 },
-                { scaleY: 2.5 },
-                { scaleX: 0.9 }
-              ],
-              color: `rgba(180, 180, 180, ${1 - (index * 0.03)})`,
-              zIndex: -25 + index,
-            }
-          ]}
-        >
-          {formattedPace}
-        </Text>
-      );
-    });
-
+  // 바닥 그림자만 유지
+  const groundShadows = Array.from({ length: 8 }, (_, index) => {
+    const opacity = 0.07 * Math.pow(0.8, index);
+    const scale = 1.3 + (index * 0.2);
+    const width = 180 + (index * 20);
+    
     return (
-      <View style={styles.paceTextContainer}>
-        {groundShadows}
-        {shadowLayers}
-        <Text style={[styles.main, {
+      <View
+        key={`ground-shadow-${index}`}
+        style={{
           position: 'absolute',
+          width: 90 + (index * 2),
+          height: 8 + (index * 1.8),
+          backgroundColor: '#000',
+          opacity: opacity,
+          bottom: 5 - (index * 1.8),
+          right: 30 + (index * 1.6),
           transform: [
-            { scaleY: 2.5 },
-            { scaleX: 0.9 }
+            { rotateY: '25deg' },
+            { scaleX: scale },
+            { translateX: -50 }
           ],
-          zIndex: 31,
-          color: '#ffffff'
-        }]}>
-          {formattedPace}
-        </Text>
-      </View>
+          borderRadius: 100,
+          zIndex: -26,
+        }}
+      />
     );
-  };
+  });
+
+  const shadowLayers = Array.from({ length: 5 }, (_, index) => {
+    const offset = index * 1.0;
+    return (
+      <Text
+        key={`shadow-${index}`}
+        style={[
+          styles.main,
+          {
+            position: 'absolute',
+            transform: [
+              { translateX: offset },
+              { translateY: offset * 0.1 },
+              { scaleY: 4.0 },
+              { scaleX: 0.6 }
+            ],
+            color: `rgba(180, 180, 180, ${0.8 - (index * 0.15)})`,
+            zIndex: 30 - index,  // zIndex 범위를 좁히기
+          }
+        ]}
+      >
+        {formattedPace}
+      </Text>
+    );  
+  });
+
+     return (
+    <View style={styles.paceTextContainer}>
+      {groundShadows}
+      
+      {/* 단일 뒷면 그림자 */}
+      <Text style={[styles.main, {
+        position: 'absolute',
+        transform: [
+          { translateX: 4 },
+          { translateY: 4 },
+        ],
+        zIndex: 29,
+        color: 'rgba(120, 120, 120, 0.7)',
+      }]}>
+        {formattedPace}
+      </Text>
+
+      {/* 메인 텍스트 */}
+      <Text style={[styles.main, {
+        position: 'absolute',
+        transform: [],
+        zIndex: 31,
+        color: '#e7e4e4fd',
+        // 기본 shadow로 깊이감 추가
+        textShadowColor: 'rgba(100, 100, 100, 0.6)',
+        textShadowOffset: { width: 2, height: 2 },
+        textShadowRadius: 1,
+        elevation: 8,
+        shadowOpacity: 0.6,
+        shadowRadius: 2,
+        shadowOffset: { width: 2, height: 2 },
+      }]}>
+        {formattedPace}
+      </Text>
+    </View>
+  );
+};
 
   return (
     <View style={styles.characterSection}>
@@ -104,8 +124,8 @@ export default function CharacterSection({ userName, averagePace, selectedAvatar
       <View style={styles.characterContainer}>
         <View style={[styles.paceContainer, {
           transform: [
-            { translateX: 100 },   // 60에서 100으로 수정하여 더 오른쪽으로
-            { translateY: 50 }    // 0에서 50으로 수정하여 더 아래로
+            { translateX: 100 },
+            { translateY: 50 }
           ]
         }]}>
           {renderPaceText()}
@@ -136,8 +156,9 @@ const styles = StyleSheet.create({
   nameContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 5,  // 20에서 5로 줄임
     marginTop: 30,
+    right: 60,
   },
   characterContainer: {
     position: 'relative',
@@ -171,34 +192,46 @@ const styles = StyleSheet.create({
     marginRight: 5,
   },
   paceContainer: {
-    position: 'absolute',
-    right: '25%',    // -20%에서 25%로 수정
-    bottom: '15%',
-    zIndex: -1,
-  },
-  paceTextContainer: {
-    position: 'relative',
-    width: 300,     // 400에서 300으로 수정
-    height: 150,
-    alignItems: 'center',
-    justifyContent: 'center',
-    transform: [
-      { rotateZ: '0deg' },
-      { rotateY: '25deg' }
-    ],
-    flexDirection: 'row',
-  },
+  position: 'absolute',
+  right: '-12%',
+  bottom: '18%',
+  zIndex: -1,
+  width: 350,      
+  height: 200,     
+  alignItems: 'center',    
+  justifyContent: 'center', 
+},
+paceTextContainer: {
+  position: 'relative',
+  width: 350,      
+  height: 200,     
+  alignItems: 'center',
+  justifyContent: 'center',
+  transform: [
+    { rotateZ: '1deg' },
+    { rotateY: '35deg' },
+    { rotateX: '-20deg'},
+  ],
+  flexDirection: 'row',
+},
   main: {
-    fontSize: 90,    // 100에서 90으로 수정
+    fontSize: 120,
     fontWeight: '900',
     fontFamily: Platform.select({
-      ios: 'System',
-      android: 'sans-serif',
+      ios: 'HelveticaNeue-CondensedBlack',
+      android: 'sans-serif-condensed',
     }),
-    width: 300,     // 400에서 300으로 수정
+    width: '100%',
     textAlign: 'center',
-    lineHeight: 90,  // fontSize와 맞춤
+    lineHeight: 288,
     flexShrink: 1,
-    letterSpacing: -1,
+    letterSpacing: -8,
+  },
+  shadowLayer: {
+    position: 'absolute',
+  },
+  frontLayer: {
+    zIndex: 31,
+    color: '#e7e4e4fd',
   },
 });

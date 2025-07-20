@@ -4,10 +4,10 @@ import FloatingActionButton from '@/components/FloatingActionButton';
 import { useDrawer } from '@/context/DrawerContext';
 import { useUserStore } from '@/stores/userStore';
 import {
-    getTimeBasedColors,
-    getWeatherAnimationKey,
-    getWeatherData,
-    WeatherAnimationKey,
+  getTimeBasedColors,
+  getWeatherAnimationKey,
+  getWeatherData,
+  WeatherAnimationKey,
 } from '@/utils/WeatherUtils';
 import { useFonts } from 'expo-font';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,13 +17,13 @@ import * as SplashScreen from 'expo-splash-screen';
 import LottieView from 'lottie-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-    Alert,
-    Modal,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  Modal,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 const SERVER_API_URL = process.env.EXPO_PUBLIC_SERVER_API_URL;
@@ -63,10 +63,10 @@ export default function HomeScreen() {
     },
     cloud: {
       position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      height: '40%',
+      top: 22,
+      right: 15,
+      width: 130,
+      height: 150,
       zIndex: 5,
       pointerEvents: 'none',
     },

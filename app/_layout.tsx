@@ -9,7 +9,7 @@ import { fetchUserProfile } from '@/repositories/UserRepository';
 import { useUserStore } from '@/stores/userStore';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Slot, SplashScreen, Stack, } from "expo-router";
+import { SplashScreen, Stack } from "expo-router";
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, useColorScheme, View } from 'react-native';
@@ -88,10 +88,8 @@ function RootLayoutNav() {
 
   return (
     <SafeAreaContainer>
-      {/* 네이티브 헤더 완전 OFF */}
       <Stack screenOptions={{ headerShown: false }}>
-        {/* 실제 각 화면이 여기에 렌더링 됩니다 */}
-        <Slot />
+        {/* 모든 스크린이 여기에 렌더링됩니다 */}
       </Stack>
       {isMenuVisible && <CustomDrawer closeMenu={closeMenu} />}
     </SafeAreaContainer>
@@ -102,6 +100,9 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    'Karantina-Bold': require('../assets/fonts/Karantina-Bold.ttf'),
+    'Karantina-Regular': require('../assets/fonts/Karantina-Regular.ttf'),
+    'Karantina-Light': require('../assets/fonts/Karantina-Light.ttf'),
   });
 
   if (!loaded) {
