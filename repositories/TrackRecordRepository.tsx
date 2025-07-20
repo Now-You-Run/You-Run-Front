@@ -124,6 +124,7 @@ export class TrackRecordRepository {
     page: number,
     size: number
   ): Promise<{ tracks: Track[]; totalPages: number; totalElements: number }> {
+    console.time('fetchPaginatedTrackListOrderByClose');
     try {
       const response = await fetch(
         `${SERVER_API_URL}/api/track/list/order/close?userLon=${userLon}&userLat=${userLat}&page=${page}&size=${size}`,
@@ -152,6 +153,8 @@ export class TrackRecordRepository {
     } catch (error) {
       console.error('Error fetching paginated track list:', error);
       return { tracks: [], totalPages: 0, totalElements: 0 };
+    } finally {
+      console.timeEnd('fetchPaginatedTrackListOrderByClose');
     }
   }
 
@@ -163,6 +166,7 @@ export class TrackRecordRepository {
     page: number,
     size: number
   ): Promise<{ tracks: Track[]; totalPages: number; totalElements: number }> {
+    console.time('fetchPaginatedUserTrackListOrderByClose');
     try {
       const response = await fetch(
         `${SERVER_API_URL}/api/track/list/order/close?userLon=${userLon}&userLat=${userLat}&page=${page}&size=${size}&userId=${userId}`,
@@ -191,6 +195,8 @@ export class TrackRecordRepository {
     } catch (error) {
       console.error('Error fetching paginated track list:', error);
       return { tracks: [], totalPages: 0, totalElements: 0 };
+    } finally {
+      console.timeEnd('fetchPaginatedUserTrackListOrderByClose');
     }
   }
   public async deleteMyTrack(trackId: number): Promise<boolean> {
