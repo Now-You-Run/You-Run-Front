@@ -27,7 +27,7 @@ export const animationStyleObjects: Record<WeatherAnimationKey, object> = {
   },
   cloud: {
     position: 'absolute',
-    top: 0, left: 0, right: 0, height: '40%',
+    top: 0, left: 0, right: 0, bottom: 0,
     zIndex: 5, pointerEvents: 'none',
   },
   sunny: {
