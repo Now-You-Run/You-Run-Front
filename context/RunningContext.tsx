@@ -576,6 +576,53 @@ const startRunning = (): void => {
     return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
+  // 위치 캐싱: Provider 마운트 시 최초 1회 위치를 받아와 userLocation에 저장
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      // 1. AsyncStorage에서 마지막 위치 불러오기
+      try {
+        const lastLocStr = await AsyncStorage.getItem('lastUserLocation');
+        if (lastLocStr && isMounted) {
+          const lastLoc = JSON.parse(lastLocStr);
+          if (lastLoc && typeof lastLoc.latitude === 'number' && typeof lastLoc.longitude === 'number') {
+            setUserLocation(lastLoc);
+          }
+        }
+      } catch (e) {
+        console.error('이전 위치 불러오기 실패:', e);
+      }
+      // 2. 실제 위치 받아와서 갱신
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const loc = await Location.getCurrentPositionAsync({});
+          if (isMounted) {
+            const newLoc = {
+              latitude: loc.coords.latitude,
+              longitude: loc.coords.longitude,
+              timestamp: Date.now(),
+            };
+            setUserLocation(newLoc);
+            await AsyncStorage.setItem('lastUserLocation', JSON.stringify(newLoc));
+          }
+        } else {
+          console.warn('위치 권한이 거부되었습니다.');
+        }
+      } catch (e) {
+        console.error('초기 위치 정보 가져오기 실패:', e);
+      }
+    })();
+    return () => { isMounted = false; };
+  }, []);
+
+  // 위치가 갱신될 때마다 AsyncStorage에 저장
+  useEffect(() => {
+    if (userLocation) {
+      AsyncStorage.setItem('lastUserLocation', JSON.stringify(userLocation)).catch(() => {});
+    }
+  }, [userLocation]);
+
   return (
     <RunningContext.Provider
       value={{
