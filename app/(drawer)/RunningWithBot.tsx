@@ -1,4 +1,5 @@
 import { fetchCurrentAvatar } from '@/api/user';
+import BackButton from '@/components/button/BackButton';
 import { AvatarOverlay } from '@/components/running/AvatarOverlay';
 import { BotDistanceDisplay } from '@/components/running/BotDistanceDisplay';
 import { FinishModal } from '@/components/running/FinishModal';
@@ -607,10 +608,8 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
 
   return (
     <View style={styles.container}>
+      <BackButton onPress={() => router.back()} />
       <View style={styles.headerBarRow}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Text style={styles.backButtonText}>←</Text>
-        </TouchableOpacity>
         <View style={styles.headerSpacer} />
         {/* 테스트 모드 UI */}
         <View style={styles.testModeBox}>

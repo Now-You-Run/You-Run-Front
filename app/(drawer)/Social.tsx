@@ -1,4 +1,5 @@
 import { getUserById } from '@/api/user';
+import BackButton from '@/components/button/BackButton';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import * as Notifications from 'expo-notifications';
@@ -489,19 +490,18 @@ export default function Social() {
   return (
     // 전체적인 틀 UI
     <View style={styles.container}>
-      <View style={styles.headerContainer}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>←</Text>
-        </TouchableOpacity>
-        <View>
-          <Text style={styles.title}>용인시 처인구</Text>
-          <Text style={styles.subTitle}>러너 그라운드</Text>
-        </View>
-        <TouchableOpacity
-          style={styles.bellButton}
-          onPress={() => setShowRequests(!showRequests)}
-        >
-          <Ionicons name="notifications-outline" size={28} color="#333" />
+      {/* ① 맨 위에 뒤로가기 버튼 */}
+     <BackButton onPress={() => router.back()} />
+       {/* 2️⃣ 가운데 타이틀 */}
+      <View style={styles.titleWrapper}>
+        <Text style={styles.title}>용인시 처인구</Text>
+        <Text style={styles.subTitle}>러너 그라운드</Text>
+      </View>
+
+      {/* 3️⃣ 우측 아이콘 그룹 */}
+      <View style={styles.rightIcons}>
+        <TouchableOpacity style={styles.iconButton} onPress={() => setShowRequests(!showRequests)}>
+          <Ionicons name="notifications-outline" size={24} color="#333" />
           {pendingRequests > 0 && (
             <View style={styles.badge}>
               <Text style={styles.badgeText}>
@@ -510,24 +510,14 @@ export default function Social() {
             </View>
           )}
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.iconButton}
-          onPress={() => router.push('/SocialAdd')}
-        >
-          <Image
-            source={require('@/assets/images/profile-icon.png')}
-            style={styles.iconImage}
-          />
+        <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/SocialAdd')}>
+          <Image source={require('@/assets/images/profile-icon.png')} style={styles.iconImage} />
         </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => setIsEditing(!isEditing)}
-          style={{ marginLeft: 12 }}
-        >
-          <Text style={{ color: '#32CD32', fontWeight: 'bold' }}>
-            {isEditing ? '완료' : '편집'}
-          </Text>
+        <TouchableOpacity style={styles.editButton} onPress={() => setIsEditing(!isEditing)}>
+          <Text style={styles.editText}>{isEditing ? '완료' : '편집'}</Text>
         </TouchableOpacity>
       </View>
+
 
       {/* 친구 수락 / 거절 창 */}
       {showRequests ? (
@@ -696,7 +686,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
-    paddingTop: 20,
+    paddingTop: 50,
     paddingHorizontal: 20,
   },
   headerContainer: {
@@ -705,9 +695,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 20,
   },
-  subTitle: { fontSize: 12 },
-  title: { fontSize: 20, fontWeight: 'bold', color: '#222' },
-  backButton: { fontSize: 24, color: '#333', marginRight: 12 },
+  // backButton: { fontSize: 24, color: '#333', marginRight: 12 },
   bellButton: { position: 'relative', padding: 5 },
   badge: {
     position: 'absolute',
@@ -822,13 +810,45 @@ const styles = StyleSheet.create({
     color: '#333',
     fontWeight: '500',
   },
+  
+  /** 2️⃣ 가운데 타이틀 **/
+  titleWrapper: {
+    position: 'absolute',
+    top: 20,            // status bar 아래로 내리기
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#222',
+  },
+  subTitle: {
+    fontSize: 12,
+    color: '#555',
+  },
+
+  /** 3️⃣ 우측 아이콘 **/
+  rightIcons: {
+    position: 'absolute',
+    top: 18,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   iconButton: {
-    marginLeft: 8,
-    padding: 4,
+    marginLeft: 12,
   },
   iconImage: {
     width: 24,
     height: 24,
-    resizeMode: 'contain',
+  },
+  editButton: {
+    marginLeft: 12,
+  },
+  editText: {
+    color: '#32CD32',
+    fontWeight: 'bold',
   },
 });

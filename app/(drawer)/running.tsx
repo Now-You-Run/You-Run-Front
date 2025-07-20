@@ -13,6 +13,7 @@ import {
 import MapView, { Region } from 'react-native-maps';
 
 import { fetchCurrentAvatar } from '@/api/user';
+import BackButton from '@/components/button/BackButton';
 import { AvatarOverlay } from '@/components/running/AvatarOverlay';
 import { FinishModal } from '@/components/running/FinishModal';
 import { RunningControls } from '@/components/running/RunningControls';
@@ -614,12 +615,8 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
 
   return (
     <View style={styles.container}>
-      {/* 헤더 */}
-      <View style={styles.headerBar}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
-          <Text style={styles.backButtonText}>←</Text>
-        </TouchableOpacity>
-      </View>
+      {/* ① 뒤로가기 버튼 */}
+        <BackButton onPress={() => router.back()} />
 
       {/* 🧪 테스트 모드 토글 버튼 - 오른쪽 상단 고정 */}
       <TouchableOpacity 
@@ -793,25 +790,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', // 버튼들을 세로로 정렬
     paddingHorizontal: 10, // 버튼들 사이의 간격
   },
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 3,
-    marginRight: 8,
-  },
-  backButtonText: {
-    fontSize: 24,
-    color: '#333',
-    fontWeight: 'bold',
-  },
+
   testModeButton: {
     paddingVertical: 8,
     paddingHorizontal: 15,

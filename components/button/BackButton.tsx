@@ -31,6 +31,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   text: {
+    top:5,
+    left:9,
     fontSize: 24,
     color: '#333',
   },
