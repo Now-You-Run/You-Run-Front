@@ -1,3 +1,4 @@
+import { fetchCurrentAvatar } from '@/api/user';
 import CustomDrawer from '@/components/CustomDrawer';
 import { DrawerProvider, useDrawer } from '@/context/DrawerContext';
 import { PaceProvider } from '@/context/PaceContext';
@@ -39,6 +40,7 @@ function RootLayoutNav() {
   const { isMenuVisible, closeMenu } = useDrawer();
   const [isLoading, setIsLoading] = useState(true);
   const setProfile = useUserStore((state) => state.setProfile);
+  const updateSelectedAvatar = useUserStore((state) => state.updateSelectedAvatar);
 
   useEffect(() => {
     console.log('화면이 처음 나타났습니다!');
@@ -48,9 +50,20 @@ function RootLayoutNav() {
   useEffect(() => {
     async function loadDataAndSetup() {
       try {
-        const userProfile = await fetchUserProfile();
+        const [userProfile, currentAvatar] = await Promise.all([
+          fetchUserProfile(),
+          fetchCurrentAvatar()
+        ]);
+
         if (userProfile) {
           setProfile(userProfile);
+        }
+
+        if (currentAvatar) {
+          updateSelectedAvatar({
+            id: Number(currentAvatar.id),  // 문자열을 숫자로 변환
+            url: currentAvatar.imageUrl
+          });
         }
       } catch (e) {
         console.warn('Failed to load user data:', e);

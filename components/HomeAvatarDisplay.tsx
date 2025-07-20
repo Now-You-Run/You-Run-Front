@@ -1,15 +1,31 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import WebView from 'react-native-webview';
+import { useUserStore } from '../stores/userStore';
 
 interface HomeAvatarDisplayProps {
-  avatarUrl: string;
+  avatarUrl?: string;  // optional로 변경
 }
 
 export const HomeAvatarDisplay = ({ avatarUrl }: HomeAvatarDisplayProps) => {
   const webViewRef = useRef<WebView>(null);
   const CONTAINER_WIDTH = 350;
-  const CONTAINER_HEIGHT = 500; // 600에서 500으로 줄임
+  const CONTAINER_HEIGHT = 600; // 500에서 600으로 증가
+
+  // 전역 상태에서 선택된 아바타 URL 가져오기
+  const selectedAvatar = useUserStore(state => state.profile?.selectedAvatar);
+  const finalAvatarUrl = avatarUrl || selectedAvatar?.url;
+
+  useEffect(() => {
+    console.log('HomeAvatarDisplay - Selected Avatar Changed:', selectedAvatar);
+    console.log('HomeAvatarDisplay - Final Avatar URL:', finalAvatarUrl);
+  }, [selectedAvatar, finalAvatarUrl]);
+
+  // 아바타 URL이 없으면 렌더링하지 않음
+  if (!finalAvatarUrl) {
+    console.log('HomeAvatarDisplay - No Avatar URL available');
+    return <View style={styles.container} />;
+  }
 
   const getAvatarHtml = (glbUrl: string) => `
     <!DOCTYPE html>
@@ -276,17 +292,12 @@ export const HomeAvatarDisplay = ({ avatarUrl }: HomeAvatarDisplayProps) => {
     <View style={[styles.container, { width: CONTAINER_WIDTH, height: CONTAINER_HEIGHT }]}>
       <WebView
         ref={webViewRef}
-        source={{ html: getAvatarHtml(avatarUrl) }}
+        source={{ html: getAvatarHtml(finalAvatarUrl) }}
         style={styles.webview}
         scrollEnabled={false}
-        bounces={false}
-        onMessage={(event) => {
-          const data = JSON.parse(event.nativeEvent.data);
-          if (data.type === "avatarReady") {
-            console.log("아바타가 준비되었습니다!");
-          } else if (data.type === "error") {
-            console.error("아바타 로딩 에러:", data.error);
-          }
+        onError={(syntheticEvent) => {
+          const { nativeEvent } = syntheticEvent;
+          console.warn('WebView error: ', nativeEvent);
         }}
       />
     </View>

@@ -113,11 +113,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     experiments: {
       typedRoutes: true,
     },
-    // Optional: Add extra for custom values you might want to access in your app
     extra: {
       eas: {
-        projectId: '6a645e27-b64f-4c1c-8831-20a05154c26a', // If you use EAS Build and want to define project ID here
-      },
-    },
+        projectId: "3af2447b-1dc4-4cc3-a9a1-8a6ba58c4694"
+      }
+    }
   };
 };
