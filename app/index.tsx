@@ -212,27 +212,28 @@ export default function HomeScreen() {
   if (!fontsLoaded) return null;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <LinearGradient
-        colors={backgroundColors}
-        style={styles.gradientBackground}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 0.4 }}
-        locations={[0, 0.7, 1]}
-      >
-        {/* Weather animation */}
-        {weatherAnimation && (
-          <LottieView
-            source={weatherAnimation}
-            autoPlay
-            loop
-            style={animationStyleObjects[animationKey]}
-          />
-        )}
+    <>
+      <SafeAreaView style={styles.safeArea}>
+        <LinearGradient
+          colors={backgroundColors}
+          style={styles.gradientBackground}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 0.4 }}
+          locations={[0, 0.7, 1]}
+        >
+          {/* Weather animation */}
+          {weatherAnimation && (
+            <LottieView
+              source={weatherAnimation}
+              autoPlay
+              loop
+              style={animationStyleObjects[animationKey]}
+            />
+          )}
 
-        {/* Main content */}
-        <View style={styles.content}>
-          <View style={[styles.topRightMenu]}>
+          {/* Main content */}
+          <View style={styles.content}>
+            <View style={[styles.topRightMenu]}>
         <Pressable
           style={styles.menuButton}
           onPress={() => router.push('/(drawer)/myPage')}
@@ -280,69 +281,75 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
         )}
+      </LinearGradient>
+      </SafeAreaView>
 
-        {/* Run mode modal */}
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={isModalVisible}
-          onRequestClose={() => setIsModalVisible(false)}
-        >
+      {/* Run mode modal - SafeAreaView 바깥으로 이동 */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={isModalVisible}
+        onRequestClose={() => setIsModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
           <TouchableOpacity
-            style={styles.modalOverlay}
+            style={styles.modalBackground}
             activeOpacity={1}
             onPress={() => setIsModalVisible(false)}
-          >
-            <TouchableOpacity
-              style={styles.modalContent}
-              activeOpacity={1}
-              onPress={() => {}}
-            >
-              <Text style={styles.modalText}>{userName}님, 달려볼까요?</Text>
-              <View style={styles.modalButtons}>
-                <TouchableOpacity
-                  style={[styles.modeButton, styles.freeButton]}
-                  onPress={() => {
-                    setIsModalVisible(false);
-                    router.push('./(drawer)/running');
-                  }}
-                >
-                  <Text style={styles.modeButtonText}>자유</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.modeButton, styles.trackButton]}
-                  onPress={() => {
-                    setIsModalVisible(false);
-                    router.push('/(drawer)/selectTrack');
-                  }}
-                >
-                  <Text style={styles.modeButtonText}>트랙</Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          </TouchableOpacity>
-        </Modal>
-      </LinearGradient>
-    </SafeAreaView>
+          />
+          <View style={styles.modalContent}>
+            <Text style={styles.modalText}>{userName}님, 달려볼까요?</Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modeButton, styles.freeButton]}
+                onPress={() => {
+                  setIsModalVisible(false);
+                  router.push('./(drawer)/running');
+                }}
+              >
+                <Text style={styles.modeButtonText}>자유</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modeButton, styles.trackButton]}
+                onPress={() => {
+                  setIsModalVisible(false);
+                  router.push('/(drawer)/selectTrack');
+                }}
+              >
+                <Text style={styles.modeButtonText}>트랙</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+    position: 'relative',  // 추가
   },
   gradientBackground: {
     flex: 1,
     paddingTop: 20,
+    position: 'relative',  // 추가
   },
   content: {
-    flex: 1,
-    marginTop: 20, // 20에서 40으로 변경하여 더 아래로
+    position: 'absolute',  // flex: 1 대신 absolute로 변경
+    top: 20,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   bottomSection: {
+    position: 'absolute',  // 추가
+    bottom: 30,           // 추가
+    left: 0,             // 추가
+    right: 0,            // 추가
     width: '100%',
     alignItems: 'center',
-    paddingBottom: 30,
   },
   runButton: {
     backgroundColor: '#5EFFAE',
@@ -367,9 +374,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   modalOverlay: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     justifyContent: 'flex-end',
-    backgroundColor: 'transparent',
+    zIndex: 1000,
+  },
+  modalBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   modalContent: {
     backgroundColor: 'rgba(255, 255, 255, 0.6)',
