@@ -8,7 +8,7 @@ import { fetchUserProfile } from '@/repositories/UserRepository';
 import { useUserStore } from '@/stores/userStore';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { SplashScreen, Stack } from "expo-router";
+import { Slot, SplashScreen, Stack, } from "expo-router";
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, useColorScheme, View } from 'react-native';
@@ -75,8 +75,10 @@ function RootLayoutNav() {
 
   return (
     <SafeAreaContainer>
+      {/* 네이티브 헤더 완전 OFF */}
       <Stack screenOptions={{ headerShown: false }}>
-        {/* 모든 스크린이 여기에 렌더링됩니다 */}
+        {/* 실제 각 화면이 여기에 렌더링 됩니다 */}
+        <Slot />
       </Stack>
       {isMenuVisible && <CustomDrawer closeMenu={closeMenu} />}
     </SafeAreaContainer>

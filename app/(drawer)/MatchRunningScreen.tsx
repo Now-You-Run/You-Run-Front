@@ -8,6 +8,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, BackHandler, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Region } from 'react-native-maps';
 
+import BackButton from '@/components/button/BackButton';
 import { BotDistanceDisplay } from '@/components/running/BotDistanceDisplay';
 import { FinishModal } from '@/components/running/FinishModal';
 import { RunningControls } from '@/components/running/RunningControls';
@@ -513,11 +514,7 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
   return (
     <View style={styles.container}>
       {/* 상단바 */}
-      <View style={styles.headerBar}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Text style={styles.backButtonText}>←</Text>
-        </TouchableOpacity>
-      </View>
+      <BackButton onPress={() => router.back()} />
       <View style={styles.testModeBox}>
         {/* 테스트 모드 UI */}
         <View style={styles.testModeRow}>
@@ -654,13 +651,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.8)', 
     borderRadius: 20 
   },
-  backButton: { 
-    width: 40, 
-    height: 40, 
-    justifyContent: 'center', 
-    alignItems: 'center' 
-  },
-  backButtonText: { fontSize: 24, color: '#333' },
+  // backButton: { 
+  //   width: 40, 
+  //   height: 40, 
+  //   justifyContent: 'center', 
+  //   alignItems: 'center' 
+  // },
+  // backButtonText: { fontSize: 24, color: '#333' },
   overlay: { 
     position: 'absolute', 
     bottom: 0, 

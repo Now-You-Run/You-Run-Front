@@ -5,6 +5,7 @@ import { Picker } from '@react-native-picker/picker';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import BackButton from '../button/BackButton';
 
 // [수정] Props의 tab 타입과 onTabChange 타입을 'my' | 'server'로 변경
 interface Props {
@@ -25,11 +26,7 @@ export function TrackListHeader({ tab, distanceSortOption, sortOrder, onTabChang
 
   return (
     <>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Text style={styles.backButtonText}>←</Text>
-        </TouchableOpacity>
-      </View>
+      <BackButton onPress={() => router.back()} />
       <View style={styles.tabContainer}>
         {/* [수정] '내 트랙' 탭의 활성화 조건과 이벤트 핸들러 값 변경 */}
         <TouchableOpacity style={[styles.tabButton, tab === 'my' && styles.tabButtonActive]} onPress={() => onTabChange('my')}>
@@ -79,9 +76,9 @@ export function TrackListHeader({ tab, distanceSortOption, sortOrder, onTabChang
 
 // 스타일 코드는 동일하게 유지합니다.
 const styles = StyleSheet.create({
-  header: { position: 'absolute', top: 50, left: 20, zIndex: 10, backgroundColor: 'rgba(255,255,255,0.8)', borderRadius: 20, flexDirection: 'row', alignItems: 'center', paddingRight: 10 },
-  backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
-  backButtonText: { fontSize: 24, color: '#333' },
+  // header: { position: 'absolute', top: 50, left: 20, zIndex: 10, backgroundColor: 'rgba(255,255,255,0.8)', borderRadius: 20, flexDirection: 'row', alignItems: 'center', paddingRight: 10 },
+  // backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+  // backButtonText: { fontSize: 24, color: '#333' },
   deleteModeButton: { marginLeft: 10, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#f0f0f0', borderRadius: 16 },
   deleteModeButtonText: { color: '#e74c3c', fontWeight: '600', fontSize: 14 },
   deleteSelectedButton: { marginLeft: 10, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#e74c3c', borderRadius: 16 },

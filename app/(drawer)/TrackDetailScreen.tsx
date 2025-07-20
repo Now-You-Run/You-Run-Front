@@ -1,3 +1,4 @@
+import BackButton from '@/components/button/BackButton';
 import GradeBadge from '@/components/GradeBadge';
 import { useRepositories } from '@/context/RepositoryContext';
 import { saveTrackInfo, TrackInfo } from '@/repositories/appStorage';
@@ -96,6 +97,10 @@ export default function TrackDetailScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+     {/* ① 맨 위에 BackButton */}
+     <BackButton onPress={() => router.back()} />
+     {/* ② 여기부터 본문 */}
+     <View style={styles.inner}>
       <MapView
         style={styles.map}
         initialRegion={{
@@ -202,12 +207,14 @@ export default function TrackDetailScreen() {
           <Text style={styles.botButtonText}>코칭 봇과 함께 달리기</Text>
         </TouchableOpacity>
       </View>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
+  inner:    { flex: 1 }, 
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   map: { width: '100%', height: 300 },
   content: { padding: 16 },

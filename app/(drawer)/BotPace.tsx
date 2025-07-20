@@ -1,3 +1,4 @@
+import BackButton from '@/components/button/BackButton';
 import { usePace } from '@/context/PaceContext';
 import { saveBotPace } from '@/repositories/appStorage';
 import { Picker } from '@react-native-picker/picker';
@@ -54,16 +55,21 @@ const FacePaceScreen: React.FC = () => {
       >
       {/* header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
-          <Image source={require('@/assets/images/backButton.png')} style={styles.icon} />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => setIsHelpMode(prev => !prev)} style={styles.iconBtn}>
-          <Text style={styles.helpIcon}>?</Text>
-        </TouchableOpacity>
+        {/* 절대위치: 뒤로가기 */}
+          <View style={styles.backWrapper}>
+            <BackButton onPress={() => router.back()} />
+          </View>
+          {/* 절대위치: 물음표 */}
+          <TouchableOpacity
+            style={styles.helpWrapper}
+            onPress={() => setIsHelpMode(h => !h)}
+          >
+            <Text style={styles.helpIcon}>?</Text>
+          </TouchableOpacity>
       </View>
 
       {/* bot & message */}
-      <View style={styles.botCard}>
+     
         <Image source={require('@/assets/images/bot.png')} style={styles.botImg} resizeMode="contain" />
         {(showMessage || isHelpMode) && (
           <View style={[styles.tooltip, isHelpMode ? styles.tooltipHelp : styles.tooltipInit]}>
@@ -74,7 +80,7 @@ const FacePaceScreen: React.FC = () => {
             </Text>
           </View>
         )}
-      </View>
+      
 
       {/* picker */}
       <View style={styles.pickerRow}>
@@ -145,21 +151,31 @@ const styles = StyleSheet.create({
   },
   header: {
     width: '100%',
+    height:44,
+    position:'relative',
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  backWrapper: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+  },
+  helpWrapper: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
   },
   iconBtn: {
     padding: 8,
     borderRadius: 20,
   },
-  icon: {
-    width: 28,
-    height: 28,
-  },
   helpIcon: {
     fontSize: 30,
     fontWeight: 'bold',
     color: '#e91e63',
+    right: 0,
+    top:10
   },
 
   botCard: {
@@ -175,8 +191,8 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   botImg: {
-    width: 180,
-    height: 180,
+    width: 200,
+    height: 200,
   },
   tooltip: {
     position: 'absolute',

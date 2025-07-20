@@ -1,8 +1,9 @@
 import { useNavigation } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, Vibration, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fetchAvatars, fetchCurrentAvatar, getUserById, purchaseAvatar, selectAvatar } from '../../api/user';
+import BackButton from '../button/BackButton';
 import AvatarActionModal from './AvatarActionModal';
 import AvatarCarousel from './AvatarCarousel';
 
@@ -142,10 +143,8 @@ export default function AvatarShopScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.backButton}>
-        <TouchableOpacity onPress={handleBackPress}>
-          <Text style={styles.backButtonText}>←</Text>
-        </TouchableOpacity>
-        <Text style={{ fontSize: 22, fontWeight: '400', marginLeft: 12 }}>상점</Text>
+        <BackButton onPress={() => navigation.goBack()} />
+        <Text style={{ fontSize: 22, fontWeight: '400', marginLeft: 145,marginTop:12  }}>상점</Text>
       </View>
       <AvatarCarousel
         avatars={avatars.map(a => (shouldShowSuccess && successAvatarId && a.id === successAvatarId) ? { ...a, showSuccess: true } : a)}
