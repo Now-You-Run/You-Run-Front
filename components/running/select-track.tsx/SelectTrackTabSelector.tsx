@@ -22,7 +22,7 @@ export default function SelectTrackTabSelector({ selectedTab, onSelectTab }: Sel
         onPress={() => onSelectTab('server')}
       >
         <Text style={[styles.tabButtonText, selectedTab === 'server' && styles.tabButtonTextActive]}>
-          서버 트랙
+          전국 트랙
         </Text>
       </TouchableOpacity>
     </View>

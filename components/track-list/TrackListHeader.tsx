@@ -33,7 +33,7 @@ export function TrackListHeader({ tab, distanceSortOption, sortOrder, onTabChang
           <Text style={[styles.tabButtonText, tab === 'my' && styles.tabButtonTextActive]}>내 트랙</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.tabButton, tab === 'server' && styles.tabButtonActive]} onPress={() => onTabChange('server')}>
-          <Text style={[styles.tabButtonText, tab === 'server' && styles.tabButtonTextActive]}>서버 트랙</Text>
+          <Text style={[styles.tabButtonText, tab === 'server' && styles.tabButtonTextActive]}>전국 트랙</Text>
         </TouchableOpacity>
       </View>
       <View style={styles.pickerContainer}>
