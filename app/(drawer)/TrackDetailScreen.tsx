@@ -25,7 +25,7 @@ export default function TrackDetailScreen() {
   const { trackId, source } = useLocalSearchParams<{ trackId: string; source: SourceType }>();
 
   // [2. 수정] localRunningRecordRepository도 가져옵니다.
-  const { localTrackRepository, trackRecordRepository, localRunningRecordRepository } = useRepositories();
+  const { trackRecordRepository } = useRepositories();
 
   const [track, setTrack] = useState<DisplayableTrackDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);

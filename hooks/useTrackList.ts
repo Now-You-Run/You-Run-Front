@@ -36,7 +36,6 @@ export function useTrackList(): UseTrackListReturn & {
   deleteTracks: (ids: number[]) => Promise<void>;
   deleteTrack: (id: number) => Promise<void>;
 } {
-  // [수정] localTrackRepository는 더 이상 사용하지 않으므로 제거
   const { trackRecordRepository } = useRepositories();
 
   const [isLoading, setIsLoading] = useState(false);
