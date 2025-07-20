@@ -2,6 +2,7 @@ import { fetchCurrentAvatar } from '@/api/user';
 import CharacterSection from '@/components/CharacterSection';
 import FloatingActionButton from '@/components/FloatingActionButton';
 import { useDrawer } from '@/context/DrawerContext';
+import { useUserStore } from '@/stores/userStore';
 import {
     getTimeBasedColors,
     getWeatherAnimationKey,
@@ -11,10 +12,10 @@ import {
 import { useFonts } from 'expo-font';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Notifications from 'expo-notifications';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import LottieView from 'lottie-react-native';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     Alert,
     Modal,
@@ -48,7 +49,7 @@ export default function HomeScreen() {
       left: 0,
       right: 0,
       bottom: 0,
-      zIndex: 1, // z-index를 낮춤
+      zIndex: 5,
       pointerEvents: 'none',
     },
     snow: {
@@ -57,7 +58,7 @@ export default function HomeScreen() {
       left: 0,
       right: 0,
       bottom: 0,
-      zIndex: 1, // z-index를 낮춤
+      zIndex: 5,
       pointerEvents: 'none',
     },
     cloud: {
@@ -66,7 +67,7 @@ export default function HomeScreen() {
       left: 0,
       right: 0,
       height: '40%',
-      zIndex: 1, // z-index를 낮춤
+      zIndex: 5,
       pointerEvents: 'none',
     },
     sunny: {
@@ -75,7 +76,7 @@ export default function HomeScreen() {
       left: 20,
       width: 120,
       height: 120,
-      zIndex: 1, // z-index를 낮춤
+      zIndex: 5,
       pointerEvents: 'none',
     },
     moon: {
@@ -84,7 +85,7 @@ export default function HomeScreen() {
       left: 10,
       width: 140,
       height: 140,
-      zIndex: 1, // z-index를 낮춤
+      zIndex: 5,
       pointerEvents: 'none',
     },
   };
@@ -110,6 +111,8 @@ export default function HomeScreen() {
 
   const { isMenuVisible, closeMenu } = useDrawer();
   const router = useRouter();
+
+  const updateSelectedAvatar = useUserStore(state => state.updateSelectedAvatar);
 
   // Font loading
   const [fontsLoaded] = useFonts({
@@ -166,23 +169,38 @@ export default function HomeScreen() {
     }
   };
 
+  // 현재 아바타 정보 가져오기
+  const loadCurrentAvatar = useCallback(async () => {
+    try {
+      const avatar = await fetchCurrentAvatar();
+      setCurrentAvatar(avatar);
+      // 전역 상태도 업데이트
+      updateSelectedAvatar({
+        id: Number(avatar.id),
+        url: avatar.glbUrl  // glbUrl 사용
+      });
+    } catch (error) {
+      console.error('현재 아바타 로드 실패:', error);
+    }
+  }, [updateSelectedAvatar]);
+
+  // 화면에 포커스될 때마다 아바타 정보 새로 불러오기
+  useFocusEffect(
+    useCallback(() => {
+      console.log('홈 화면 포커스 - 아바타 정보 새로 불러오기');
+      loadCurrentAvatar();
+    }, [loadCurrentAvatar])
+  );
+
   // Initial data loading
   useEffect(() => {
     if (fontsLoaded) {
       SplashScreen.hideAsync();
       updateWeather();
-      
-      // 현재 아바타 정보 가져오기
-      fetchCurrentAvatar()
-        .then(setCurrentAvatar)
-        .catch(error => {
-          console.error('현재 아바타 로드 실패:', error);
-          Alert.alert('오류', '아바타 로드에 실패했습니다.');
-        });
-
+      loadCurrentAvatar();  // 초기 로딩
       fetchUserProfile(MY_USER_ID);
     }
-  }, [fontsLoaded]);
+  }, [fontsLoaded, loadCurrentAvatar]);
 
   // Weather update interval
   useEffect(() => {
@@ -299,7 +317,6 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     paddingBottom: 30,
-    zIndex: 100, // z-index를 높여서 다른 요소들 위에 표시
   },
   runButton: {
     backgroundColor: '#5EFFAE',
@@ -316,7 +333,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
-    zIndex: 101, // z-index를 높여서 확실히 클릭 가능하도록 함
   },
   runButtonText: {
     color: 'black',

@@ -71,7 +71,7 @@ export const getAvatarHtml = (avatarUrl: string) => `
             avatar = gltf.scene;
             avatar.scale.setScalar(1.8); // 1.5에서 1.8로 크기 증가
             // ✅ 초기 위치만 설정하고, 이후에는 고정하지 않음
-            avatar.position.set(0, -0.9, 0);
+            avatar.position.set(0, -0.9, 0.2); // z 값을 0에서 0.2로 조정하여 앞으로 이동
             avatar.rotation.y = 0;
             scene.add(avatar);
             
@@ -88,7 +88,7 @@ export const getAvatarHtml = (avatarUrl: string) => `
               }
             });
 
-            camera.position.set(0.5, -2.2, -2.5); // y를 -1.8에서 -2.2로, z를 -2.0에서 -2.5로 조정
+            camera.position.set(0, -2.2, -2.5); // x 값을 0.5에서 0으로 조정하여 중앙으로 이동
             camera.lookAt(0, 0, 0);
 
             mixer = new THREE.AnimationMixer(avatar);

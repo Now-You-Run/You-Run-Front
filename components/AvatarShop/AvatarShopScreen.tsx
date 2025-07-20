@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fetchAvatars, fetchCurrentAvatar, getUserById, purchaseAvatar, selectAvatar } from '../../api/user';
+import { useUserStore } from '../../stores/userStore';
 import AvatarActionModal from './AvatarActionModal';
 import AvatarCarousel from './AvatarCarousel';
 
@@ -75,13 +76,26 @@ export default function AvatarShopScreen() {
     console.log('handleSelect 진입, avatarId:', avatarId);
     setActionLoading(true);
     try {
-      console.log('selectAvatar 호출 전');
       await selectAvatar(avatarId);
-      console.log('selectAvatar 호출 후, loadAll 호출 전');
+      
+      // 현재 선택된 아바타 정보 가져오기
+      const selectedAvatar = avatars.find(a => a.id === avatarId);
+      if (selectedAvatar) {
+        // 전역 상태 업데이트
+        useUserStore.setState(state => ({
+          profile: state.profile ? {
+            ...state.profile,
+            selectedAvatar: {
+              id: avatarId,
+              url: selectedAvatar.imageUrl
+            }
+          } : null
+        }));
+      }
+      
       await loadAll();
-      console.log('loadAll 호출 후');
     } catch (e) {
-      console.log('handleSelect 에러:', e);
+      console.error('handleSelect 에러:', e);
     } finally {
       setActionLoading(false);
     }
@@ -110,9 +124,24 @@ export default function AvatarShopScreen() {
       await purchaseAvatar(pendingBuyId);
       setModal({ type: 'success' });
       Vibration.vibrate(300);
+      
+      // 구매 후 자동 선택 시 전역 상태도 업데이트
+      const purchasedAvatar = avatars.find(a => a.id === pendingBuyId);
+      if (purchasedAvatar) {
+        useUserStore.setState(state => ({
+          profile: state.profile ? {
+            ...state.profile,
+            selectedAvatar: {
+              id: pendingBuyId,
+              url: purchasedAvatar.imageUrl
+            }
+          } : null
+        }));
+      }
+      
       setTimeout(() => {
-        setModal({ type: null }); // 700ms 후 모달 닫기
-        setShouldShowSuccess(true); // success 애니메이션 준비
+        setModal({ type: null });
+        setShouldShowSuccess(true);
       }, 700);
       setTimeout(() => {
         setSuccessAvatarId(pendingBuyId); // 모달 닫힌 후 success 애니메이션 실행
