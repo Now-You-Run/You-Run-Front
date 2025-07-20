@@ -18,8 +18,17 @@ function formatPace(min: number): string {
 
 export default function CharacterSection({ userName, averagePace, selectedAvatar }: CharacterSectionProps) { 
   const formattedPace = formatPace(averagePace);
+  console.log('Rendering CharacterSection:', { userName, averagePace, formattedPace });  // 디버그 로그 추가
 
   const renderPaceText = () => {
+    console.log('Rendering pace text:', formattedPace);  // 디버그 로그 추가
+
+    // 페이스가 0이면 렌더링하지 않음
+    if (averagePace === 0) {
+      console.log('Average pace is 0, not rendering pace text');  // 디버그 로그 추가
+      return null;
+    }
+
   // 바닥 그림자만 유지
   const groundShadows = Array.from({ length: 8 }, (_, index) => {
     const opacity = 0.07 * Math.pow(0.8, index);
@@ -58,14 +67,20 @@ export default function CharacterSection({ userName, averagePace, selectedAvatar
           styles.main,
           {
             position: 'absolute',
-            transform: [
-              { translateX: offset },
-              { translateY: offset * 0.1 },
-              { scaleY: 4.0 },
-              { scaleX: 0.6 }
-            ],
+            transform: Platform.select({
+              ios: [
+                { translateX: offset },
+                { translateY: offset * 0.1 },
+                { scaleY: 4.0 },
+                { scaleX: 0.6 }
+              ],
+              android: [
+                { translateX: offset },
+                { translateY: offset * 0.1 }
+              ]
+            }),
             color: `rgba(180, 180, 180, ${0.8 - (index * 0.15)})`,
-            zIndex: 30 - index,  // zIndex 범위를 좁히기
+            zIndex: 30 - index,
           }
         ]}
       >
@@ -81,10 +96,16 @@ export default function CharacterSection({ userName, averagePace, selectedAvatar
       {/* 단일 뒷면 그림자 */}
       <Text style={[styles.main, {
         position: 'absolute',
-        transform: [
-          { translateX: 4 },
-          { translateY: 4 },
-        ],
+        transform: Platform.select({
+          ios: [
+            { translateX: 4 },
+            { translateY: 4 }
+          ],
+          android: [
+            { translateX: 2 },
+            { translateY: 2 }
+          ]
+        }),
         zIndex: 29,
         color: 'rgba(120, 120, 120, 0.7)',
       }]}>
@@ -94,17 +115,26 @@ export default function CharacterSection({ userName, averagePace, selectedAvatar
       {/* 메인 텍스트 */}
       <Text style={[styles.main, {
         position: 'absolute',
-        transform: [],
+        transform: Platform.select({
+          ios: [],
+          android: []
+        }),
         zIndex: 31,
         color: '#e7e4e4fd',
-        // 기본 shadow로 깊이감 추가
-        textShadowColor: 'rgba(100, 100, 100, 0.6)',
-        textShadowOffset: { width: 2, height: 2 },
-        textShadowRadius: 1,
-        elevation: 8,
-        shadowOpacity: 0.6,
-        shadowRadius: 2,
-        shadowOffset: { width: 2, height: 2 },
+        ...Platform.select({
+          ios: {
+            textShadowColor: 'rgba(100, 100, 100, 0.6)',
+            textShadowOffset: { width: 2, height: 2 },
+            textShadowRadius: 1,
+            elevation: 8,
+            shadowOpacity: 0.6,
+            shadowRadius: 2,
+            shadowOffset: { width: 2, height: 2 },
+          },
+          android: {
+            elevation: 5,
+          }
+        })
       }]}>
         {formattedPace}
       </Text>
@@ -122,12 +152,7 @@ export default function CharacterSection({ userName, averagePace, selectedAvatar
         <Text style={styles.characterName}> {userName} </Text>
       </View>
       <View style={styles.characterContainer}>
-        <View style={[styles.paceContainer, {
-          transform: [
-            { translateX: 100 },
-            { translateY: 50 }
-          ]
-        }]}>
+        <View style={[styles.paceContainer]}>
           {renderPaceText()}
         </View>
         {selectedAvatar ? (
@@ -170,16 +195,25 @@ const styles = StyleSheet.create({
     height: 600,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -80,  // -50에서 -80으로 수정하여 위로 올림
+    marginTop: -80,
     marginLeft: -120,
-    zIndex: 2,
+    ...Platform.select({
+      ios: {
+        zIndex: 2,  // iOS에서 페이스보다 앞으로
+      }
+    })
   },
   characterImage: {
     width: 350,
     height: 600,
     resizeMode: 'contain',
     marginLeft: -120,
-    marginTop: -30,  // 새로 추가하여 기본 이미지도 위로 올림
+    marginTop: -30,
+    ...Platform.select({
+      ios: {
+        zIndex: 2,  // iOS에서 페이스보다 앞으로
+      }
+    })
   },
   characterName: {
     fontSize: 24,
@@ -192,40 +226,68 @@ const styles = StyleSheet.create({
     marginRight: 5,
   },
   paceContainer: {
-  position: 'absolute',
-  right: '-12%',
-  bottom: '18%',
-  zIndex: -1,
-  width: 350,      
-  height: 200,     
-  alignItems: 'center',    
-  justifyContent: 'center', 
-},
-paceTextContainer: {
-  position: 'relative',
-  width: 350,      
-  height: 200,     
-  alignItems: 'center',
-  justifyContent: 'center',
-  transform: [
-    { rotateZ: '1deg' },
-    { rotateY: '35deg' },
-    { rotateX: '-20deg'},
-  ],
-  flexDirection: 'row',
-},
+    position: 'absolute',
+    right: '-40%',    // -35%에서 -45%로 수정
+    bottom: '18%',
+    width: 350,      
+    height: 200,     
+    alignItems: 'center',    
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        zIndex: -1,
+      },
+      android: {
+        elevation: 10,
+      }
+    })
+  },
+  paceTextContainer: {
+    position: 'relative',
+    width: 350,      
+    height: 200,     
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    ...Platform.select({
+      ios: {
+        transform: [
+          { rotateZ: '1deg' },
+          { rotateY: '35deg' },
+          { rotateX: '-20deg'},
+        ],
+      },
+      android: {
+        transform: [],
+        elevation: 10,
+      }
+    })
+  },
   main: {
-    fontSize: 120,
-    fontWeight: '900',
+    position: 'absolute',
+    fontSize: 100,
+    fontWeight: Platform.select({
+      ios: '900',
+      android: 'bold'
+    }),
     fontFamily: Platform.select({
       ios: 'HelveticaNeue-CondensedBlack',
-      android: 'sans-serif-condensed',
+      android: 'sans-serif-black'
     }),
     width: '100%',
     textAlign: 'center',
-    lineHeight: 288,
-    flexShrink: 1,
-    letterSpacing: -8,
+    lineHeight: Platform.select({
+      ios: 288,
+      android: 100
+    }),
+    color: '#e7e4e4fd',
+    ...Platform.select({
+      ios: {},
+      android: {
+        elevation: 10,
+        letterSpacing: -6,  // 안드로이드에서 글자 간격 줄이기
+      }
+    })
   },
   shadowLayer: {
     position: 'absolute',

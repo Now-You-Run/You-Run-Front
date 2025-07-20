@@ -159,14 +159,16 @@ export default function HomeScreen() {
       }
       const json = await response.json();
       const { name, averagePace } = json.data;
-      console.log('✅ user profile response:', json.data);
+      console.log('✅ User profile data:', json.data);
+      console.log('✅ Average pace before setting:', averagePace);
 
       setUserName(name);
-      setAveragePace(averagePace ?? 0);
+      setAveragePace(averagePace ?? 5);  // 기본값 5로 설정
+      console.log('✅ Average pace after setting:', averagePace ?? 5);
     } catch (e) {
       console.error('유저 프로필 로드 실패:', e);
       setUserName('이름 없음');
-      setAveragePace(0);
+      setAveragePace(5);  // 에러 시에도 기본값 5로 설정
     }
   };
 
