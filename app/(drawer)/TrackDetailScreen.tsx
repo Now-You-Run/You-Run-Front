@@ -116,7 +116,7 @@ export default function TrackDetailScreen() {
       <View style={styles.content}>
         <Text style={styles.title}>{track.name}</Text>
         <Text>총 거리: {(track.distance / 1000).toFixed(2)} km</Text>
-        {track.rate != null && <Text>평점: {track.rate}</Text>}
+        {/* {track.rate != null && <Text>평점: {track.rate}</Text>} */}
       </View>
       <View style={styles.content}>
         <Text style={styles.subtitle}>
