@@ -1,5 +1,7 @@
 import * as Haptics from 'expo-haptics';
-import React from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
+import LottieView from 'lottie-react-native';
+import React, { useEffect, useRef } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 
 interface RunningControlsProps {
@@ -29,6 +31,19 @@ export const RunningControls = React.memo(function RunningControls({
   onFinishPressOut,
   isReady = true 
 }: RunningControlsProps) {
+  const lottieRef = useRef<LottieView>(null);
+  const progress = finishProgress / 100; // 0-1 사이 값으로 변환
+
+  useEffect(() => {
+    if (lottieRef.current) {
+      if (isFinishPressed) {
+        lottieRef.current.play();
+      } else {
+        lottieRef.current.reset();
+      }
+    }
+  }, [isFinishPressed]);
+
   const mainLabel = isActive ? '정지' : isPaused ? '재개' : '시작';
   return (
     <View style={styles.buttonRow}>
@@ -41,11 +56,10 @@ export const RunningControls = React.memo(function RunningControls({
         >
           <Pressable
             style={[
-              styles.controlButton, 
+              styles.controlButton,
               { 
-                backgroundColor: isFinishPressed ? '#ff6b6b' : '#333',
-                position: 'relative',
                 overflow: 'hidden',
+                backgroundColor: isFinishPressed ? 'transparent' : '#333'
               }
             ]}
             onPressIn={() => {
@@ -58,13 +72,22 @@ export const RunningControls = React.memo(function RunningControls({
               onFinishPressOut();
             }}
           >
+            {isFinishPressed && (
+              <LinearGradient
+                colors={['#00D4FF', '#8A2BE2', '#FF1493']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                locations={[0, 0.5, 1]}
+                style={StyleSheet.absoluteFill}
+              />
+            )}
             <Animated.View
               style={{
                 position: 'absolute',
                 left: 0,
                 top: 0,
                 bottom: 0,
-                backgroundColor: '#ff4444',
+                backgroundColor: 'rgba(255, 255, 255, 0.2)',
                 width: progressAnimation.interpolate({
                   inputRange: [0, 1],
                   outputRange: ['0%', '100%'],
@@ -72,23 +95,17 @@ export const RunningControls = React.memo(function RunningControls({
                 opacity: isFinishPressed ? 0.3 : 0,
               }}
             />
+            
             {isFinishPressed && (
               <View style={styles.progressContainer}>
-                <View style={styles.progressCircle}>
-                  <Animated.View
-                    style={[
-                      styles.progressFill,
-                      {
-                        transform: [{
-                          rotate: progressAnimation.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: ['0deg', '360deg'],
-                          }),
-                        }],
-                      },
-                    ]}
-                  />
-                </View>
+                <LottieView
+                  ref={lottieRef}
+                  source={require('../../assets/lottie/progress.json')}
+                  style={styles.lottieProgress}
+                  progress={progress}
+                  autoPlay={false}
+                  loop={false}
+                />
                 <Text style={[styles.controlText, { fontSize: 12 }]}>
                   {Math.round(finishProgress)}%
                 </Text>
@@ -97,8 +114,8 @@ export const RunningControls = React.memo(function RunningControls({
             <Text style={[
               styles.controlText,
               { 
-                opacity: isFinishPressed ? 0.8 : 1,
-                fontSize: isFinishPressed ? 14 : 18,
+                fontSize: 18,
+                color: '#ffffff'
               }
             ]}>
               {isFinishPressed ? '종료 중...' : '종료'}
@@ -164,4 +181,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.8)',
     borderRadius: 12,
   },
+  lottieProgress: {
+    width: 30,
+    height: 30
+  }
 });
