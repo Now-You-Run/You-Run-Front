@@ -13,7 +13,7 @@ interface UserProfile {
   point: number;
   grade: string; // 'IRON', 'BRONZE' 등 영어 이름
   username: string;
-  selectedAvatar?: Avatar;  // 선택된 아바타 정보 추가
+  selectedAvatar?: Avatar; // 선택된 아바타 정보 추가
 }
 
 // 스토어의 전체 상태 및 액션 정의
@@ -21,7 +21,7 @@ interface UserState {
   profile: UserProfile | null;
   setProfile: (profile: UserProfile) => void;
   updateProfileStats: (stats: Partial<UserProfile>) => void;
-  updateSelectedAvatar: (avatar: Avatar) => void;  // 아바타 업데이트 액션 추가
+  updateSelectedAvatar: (avatar: Avatar) => void; // 아바타 업데이트 액션 추가
 }
 
 export const useUserStore = create<UserState>((set) => ({
@@ -39,10 +39,12 @@ export const useUserStore = create<UserState>((set) => ({
   updateSelectedAvatar: (avatar) => {
     console.log('updateSelectedAvatar called with:', avatar);
     set((state) => ({
-      profile: state.profile ? {
-        ...state.profile,
-        selectedAvatar: avatar
-      } : null
+      profile: state.profile
+        ? {
+            ...state.profile,
+            selectedAvatar: avatar,
+          }
+        : null,
     }));
   },
 }));
