@@ -50,7 +50,7 @@ export default function HomeScreen() {
       left: 0,
       right: 0,
       bottom: 0,
-      zIndex: 5,
+      zIndex: -1,
       pointerEvents: 'none',
     },
     snow: {
@@ -59,7 +59,7 @@ export default function HomeScreen() {
       left: 0,
       right: 0,
       bottom: 0,
-      zIndex: 5,
+      zIndex: -1,
       pointerEvents: 'none',
     },
     cloud: {
@@ -68,7 +68,7 @@ export default function HomeScreen() {
       right: 15,
       width: 130,
       height: 150,
-      zIndex: 5,
+      zIndex: -1,
       pointerEvents: 'none',
     },
     sunny: {
@@ -77,7 +77,7 @@ export default function HomeScreen() {
       left: 20,
       width: 120,
       height: 120,
-      zIndex: 5,
+      zIndex: -1,
       pointerEvents: 'none',
     },
     moon: {
@@ -86,7 +86,7 @@ export default function HomeScreen() {
       left: 10,
       width: 140,
       height: 140,
-      zIndex: 5,
+      zIndex: -1,
       pointerEvents: 'none',
     },
   };

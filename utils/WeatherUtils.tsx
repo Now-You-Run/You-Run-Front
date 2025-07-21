@@ -18,27 +18,27 @@ export const animationStyleObjects: Record<WeatherAnimationKey, object> = {
   rain: {
     position: 'absolute',
     top: 0, left: 0, right: 0, bottom: 0,
-    zIndex: 5, pointerEvents: 'none',
+    pointerEvents: 'none',
   },
   snow: {
     position: 'absolute',
     top: 0, left: 0, right: 0, bottom: 0,
-    zIndex: 5, pointerEvents: 'none',
+    pointerEvents: 'none',
   },
   cloud: {
     position: 'absolute',
     top: 0, left: 0, right: 0, bottom: 0,
-    zIndex: 5, pointerEvents: 'none',
+    pointerEvents: 'none',
   },
   sunny: {
     position: 'absolute',
     top: 50, left: 20, width: 120, height: 120,
-    zIndex: 5, pointerEvents: 'none',
+    pointerEvents: 'none',
   },
   moon: {
     position: 'absolute',
     top: 40, left: 10, width: 140, height: 140,
-    zIndex: 5, pointerEvents: 'none',
+    pointerEvents: 'none',
   },
 };
 
