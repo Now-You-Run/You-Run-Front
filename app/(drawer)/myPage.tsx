@@ -1,25 +1,45 @@
 // app/(drawer)/MyPage.tsx
 
-import BackButton from '@/components/button/BackButton'
-import { AuthAsyncStorage } from '@/repositories/AuthAsyncStorage'
-import { fetchUserProfile } from '@/repositories/UserRepository'
-import { useUserStore } from '@/stores/userStore'
-import { isAfter, parseISO, subDays } from 'date-fns'
-import { SplashScreen, useFocusEffect, useRouter } from 'expo-router'
-import React, { useEffect, useState } from 'react'
+import BackButton from '@/components/button/BackButton';
+import { AuthAsyncStorage } from '@/repositories/AuthAsyncStorage';
+import { fetchUserProfile } from '@/repositories/UserRepository';
+import { useUserStore } from '@/stores/userStore';
+import { isAfter, parseISO, subDays } from 'date-fns';
+import { SplashScreen, useFocusEffect, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Dimensions,
   FlatList,
+  Image,
   Pressable,
   SafeAreaView,
   StyleSheet,
   Text,
   View,
-} from 'react-native'
+} from 'react-native';
+const API_BASE = process.env.EXPO_PUBLIC_SERVER_API_URL;
 
-const API_BASE = process.env.EXPO_PUBLIC_SERVER_API_URL
+// 마이페이지에서 프로필 올리는데만 사용되는 하드코디입니다.
+const MY_USER_ID = 1;
+
+/*
+
+친구마다 특정 아바타 프로필로 설정해주기
+- 원래는 DB에 각 유저마다 프로필 url을 넣는 테이블이 있지만, 현재 폴리싱 단계이기 때문에,
+- 시간도 부족하지만 현재 기능에서 더 이상 버그를 발생 시키고 싶지 않아, 
+- 하드코딩 방식을 선택하게 되었습니다.
+
+*/
+const PROFILE_IMAGE_MAP: { [key: string]: any } = {
+  '1': require('../../assets/profile/1번_유저.png'),
+  '2': require('../../assets/profile/2번_유저.png'),
+  '3': require('../../assets/profile/3번_유저.png'),
+  '4': require('../../assets/profile/4번_유저.png'),
+};
+
+const DEFAULT_AVATAR = require('../../assets/profile/유저_기본_프로필.jpeg');
 
 // 화면 전용으로 사용하는 레코드 타입
 interface ScreenRecord {
@@ -72,13 +92,12 @@ export default function MyPageScreen() {
   // user store에서 프로필 불러오기
   const user = useUserStore((state) => state.profile);
 
-
   // 'track' vs 'free' 모드
   type Mode = 'track' | 'free';
   const [mode, setMode] = useState<Mode>('track');
 
-  const [rawRecords, setRawRecords] = useState<ScreenRecord[]>([])     // ← 전체 기록
-  const [records, setRecords]     = useState<ScreenRecord[]>([])     // ← 화면에 보이는 기록
+  const [rawRecords, setRawRecords] = useState<ScreenRecord[]>([]); // ← 전체 기록
+  const [records, setRecords] = useState<ScreenRecord[]>([]); // ← 화면에 보이는 기록
   const [loading, setLoading] = useState(false);
 
   const fetchRecords = async () => {
@@ -92,7 +111,7 @@ export default function MyPageScreen() {
         headers: { 'Cache-Control': 'no-cache' },
         cache: 'no-store',
       });
-      if (!res.ok) throw new Error(`status ${res.status}`)
+      if (!res.ok) throw new Error(`status ${res.status}`);
 
       // ① 서버 응답 파싱
       const json = (await res.json()) as {
@@ -108,17 +127,18 @@ export default function MyPageScreen() {
         trackName: item.trackInfoDto?.name,
       }));
 
-      setRawRecords(serverRecs)        // ← 전체 기록으로 보관
+      setRawRecords(serverRecs); // ← 전체 기록으로 보관
 
       // ② 화면에 보일 records 만 모드별로 필터
       const filtered =
         mode === 'track'
-          ? serverRecs.filter(r => r.mode === 'BOT' || r.mode === 'MATCH')
-          : serverRecs.filter(r => r.mode === 'FREE');
+          ? serverRecs.filter((r) => r.mode === 'BOT' || r.mode === 'MATCH')
+          : serverRecs.filter((r) => r.mode === 'FREE');
 
       setRecords(
         filtered.sort(
-          (a,b) => new Date(b.finishedAt).getTime() - new Date(a.finishedAt).getTime()
+          (a, b) =>
+            new Date(b.finishedAt).getTime() - new Date(a.finishedAt).getTime()
         )
       );
     } catch (e: any) {
@@ -154,51 +174,53 @@ export default function MyPageScreen() {
       label: '평균 페이스',
       value:
         runCount > 0
-         ? (() => {
-          const min = Math.floor(avgPaceSec);
-          const sec = Math.round((avgPaceSec - min) * 60);
-          return `${min}'${String(sec).padStart(2, '0')}"`;
-        })()
-      : '-',
+          ? (() => {
+              const min = Math.floor(avgPaceSec);
+              const sec = Math.round((avgPaceSec - min) * 60);
+              return `${min}'${String(sec).padStart(2, '0')}"`;
+            })()
+          : '-',
     },
     { label: '달린 거리', value: `${weeklyDistance.toFixed(2)}km` },
     { label: '횟수', value: `${runCount}회` },
   ];
 
-   // ─── 모드별 평균 페이스 계산 (rawRecords 기준) ────────────────────
-  const trackRecsAll = rawRecords.filter(r => r.mode === 'BOT' || r.mode === 'MATCH');
-  const freeRecsAll  = rawRecords.filter(r => r.mode === 'FREE');
+  // ─── 모드별 평균 페이스 계산 (rawRecords 기준) ────────────────────
+  const trackRecsAll = rawRecords.filter(
+    (r) => r.mode === 'BOT' || r.mode === 'MATCH'
+  );
+  const freeRecsAll = rawRecords.filter((r) => r.mode === 'FREE');
 
-  const trackAvgPace =
-    trackRecsAll.length
-      ? trackRecsAll.reduce((sum,r) => sum + r.averagePace, 0) / trackRecsAll.length
-      : 0;
+  const trackAvgPace = trackRecsAll.length
+    ? trackRecsAll.reduce((sum, r) => sum + r.averagePace, 0) /
+      trackRecsAll.length
+    : 0;
 
-  const freeAvgPace =
-    freeRecsAll.length
-      ? freeRecsAll.reduce((sum,r) => sum + r.averagePace, 0) / freeRecsAll.length
-      : 0;
+  const freeAvgPace = freeRecsAll.length
+    ? freeRecsAll.reduce((sum, r) => sum + r.averagePace, 0) /
+      freeRecsAll.length
+    : 0;
 
   // 두 모드 평균의 평균
   const userAvgPace = (trackAvgPace + freeAvgPace) / 2;
 
   // ─── 서버에 PATCH 요청하여 유저 평균 페이스 업데이트 ─────────────────────
   useEffect(() => {
-   if (trackRecsAll.length + freeRecsAll.length === 0) return;
+    if (trackRecsAll.length + freeRecsAll.length === 0) return;
 
-   (async () => {
-     const userId = await AuthAsyncStorage.getUserId();
-     if (!userId) return;
-     const rounded = Math.round(userAvgPace * 100) / 100;
-     await fetch(`${API_BASE}/api/user/average-pace?userId=${userId}`, {
-       method: 'PATCH',
-       headers: { 'Content-Type': 'application/json' },
-       body: JSON.stringify({ averagePace: rounded }),
-     });
-     const updated = await fetchUserProfile();
-     setProfile(updated);
-   })();
- }, [trackAvgPace, freeAvgPace]); 
+    (async () => {
+      const userId = await AuthAsyncStorage.getUserId();
+      if (!userId) return;
+      const rounded = Math.round(userAvgPace * 100) / 100;
+      await fetch(`${API_BASE}/api/user/average-pace?userId=${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ averagePace: rounded }),
+      });
+      const updated = await fetchUserProfile();
+      setProfile(updated);
+    })();
+  }, [trackAvgPace, freeAvgPace]);
 
   // ─── 최근 달리기 리스트 ────────────────────────────────────
   const recent: RecentRun[] = weekRecs.map((r) => ({
@@ -253,8 +275,14 @@ export default function MyPageScreen() {
           <>
             {/* ─── 프로필 ─────────────── */}
             <View style={styles.headerRow}>
-              <View>
-                {/* 👇 실제 유저 정보로 표시 */}
+              {/* 프로필 이미지 */}
+              <Image
+                source={PROFILE_IMAGE_MAP[String(MY_USER_ID)] ?? DEFAULT_AVATAR}
+                style={styles.profileImage}
+              />
+
+              {/* 유저 정보 */}
+              <View style={{ marginLeft: 16 }}>
                 {!user ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <ActivityIndicator size="small" />
@@ -269,7 +297,7 @@ export default function MyPageScreen() {
                       Lv.{user.level} · {user.grade} · {user.point}P
                     </Text>
                     <Text style={styles.userMeta}>
-                      총 거리: {(user.totalDistance/1000).toFixed(3)}km
+                      총 거리: {(user.totalDistance / 1000).toFixed(3)}km
                     </Text>
                   </>
                 )}
@@ -354,9 +382,9 @@ const styles = StyleSheet.create({
   // 헤더 안 탭
   headerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    //justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 40,
     paddingHorizontal: 16,
   },
   tabRow: {
@@ -436,5 +464,11 @@ const styles = StyleSheet.create({
   smallTabTextActive: {
     color: '#fff',
     fontWeight: '600',
+  },
+  profileImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#ccc', // 로딩 중 배경
   },
 });

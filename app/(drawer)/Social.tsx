@@ -39,6 +39,21 @@ const SERVER_API_URL = process.env.EXPO_PUBLIC_SERVER_API_URL;
 const MY_USER_ID = 1;
 const DEFAULT_AVATAR = require('../../assets/profile/유저_기본_프로필.jpeg');
 
+/*
+
+친구마다 특정 아바타 프로필로 설정해주기
+- 원래는 DB에 각 유저마다 프로필 url을 넣는 테이블이 있지만, 현재 폴리싱 단계이기 때문에,
+- 시간도 부족하지만 현재 기능에서 더 이상 버그를 발생 시키고 싶지 않아, 
+- 하드코딩 방식을 선택하게 되었습니다.
+
+*/
+const PROFILE_IMAGE_MAP: { [key: string]: any } = {
+  '1': require('../../assets/profile/1번_유저.png'),
+  '2': require('../../assets/profile/2번_유저.png'),
+  '3': require('../../assets/profile/3번_유저.png'),
+  '4': require('../../assets/profile/4번_유저.png'),
+};
+
 export default function Social() {
   const [myUserName, setMyUserName] = useState<string>('');
   const router = useRouter();
@@ -60,6 +75,7 @@ export default function Social() {
 
   const stompClientRef = useRef<Client | null>(null);
 
+  // 웹소켓을 위한 주소 변환
   const getWsUrl = (baseUrl: string | undefined): string | undefined => {
     if (!baseUrl) return undefined;
 
@@ -351,7 +367,7 @@ export default function Social() {
     fetchMyInfo();
   }, []);
 
-  // 친구 목록 확인하기
+  // 친구 요청 확인하기
   const fetchFriendRequests = async () => {
     try {
       const response = await fetch(
@@ -404,9 +420,7 @@ export default function Social() {
         id: item.friendId?.toString() ?? '',
         friend_id: item.friendId?.toString() ?? '',
         name: item.name ?? '이름없음',
-        image: item.profileImageUrl
-          ? { uri: item.profileImageUrl }
-          : DEFAULT_AVATAR,
+        image: PROFILE_IMAGE_MAP[item.friendId?.toString()] ?? DEFAULT_AVATAR,
         level: item.level ?? null,
         grade: item.grade ?? null,
         status: item.status ?? null,
@@ -491,8 +505,8 @@ export default function Social() {
     // 전체적인 틀 UI
     <View style={styles.container}>
       {/* ① 맨 위에 뒤로가기 버튼 */}
-     <BackButton onPress={() => router.back()} />
-       {/* 2️⃣ 가운데 타이틀 */}
+      <BackButton onPress={() => router.back()} />
+      {/* 2️⃣ 가운데 타이틀 */}
       <View style={styles.titleWrapper}>
         <Text style={styles.title}>용인시 처인구</Text>
         <Text style={styles.subTitle}>러너 그라운드</Text>
@@ -500,7 +514,10 @@ export default function Social() {
 
       {/* 3️⃣ 우측 아이콘 그룹 */}
       <View style={styles.rightIcons}>
-        <TouchableOpacity style={styles.iconButton} onPress={() => setShowRequests(!showRequests)}>
+        <TouchableOpacity
+          style={styles.iconButton}
+          onPress={() => setShowRequests(!showRequests)}
+        >
           <Ionicons name="notifications-outline" size={24} color="#333" />
           {pendingRequests > 0 && (
             <View style={styles.badge}>
@@ -510,14 +527,22 @@ export default function Social() {
             </View>
           )}
         </TouchableOpacity>
-        <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/SocialAdd')}>
-          <Image source={require('@/assets/images/profile-icon.png')} style={styles.iconImage} />
+        <TouchableOpacity
+          style={styles.iconButton}
+          onPress={() => router.push('/SocialAdd')}
+        >
+          <Image
+            source={require('@/assets/images/profile-icon.png')}
+            style={styles.iconImage}
+          />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.editButton} onPress={() => setIsEditing(!isEditing)}>
+        <TouchableOpacity
+          style={styles.editButton}
+          onPress={() => setIsEditing(!isEditing)}
+        >
           <Text style={styles.editText}>{isEditing ? '완료' : '편집'}</Text>
         </TouchableOpacity>
       </View>
-
 
       {/* 친구 수락 / 거절 창 */}
       {showRequests ? (
@@ -810,11 +835,11 @@ const styles = StyleSheet.create({
     color: '#333',
     fontWeight: '500',
   },
-  
+
   /** 2️⃣ 가운데 타이틀 **/
   titleWrapper: {
     position: 'absolute',
-    top: 20,            // status bar 아래로 내리기
+    top: 20, // status bar 아래로 내리기
     left: 0,
     right: 0,
     alignItems: 'center',
