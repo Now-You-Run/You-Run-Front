@@ -8,7 +8,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 import MapView, { Region } from 'react-native-maps';
 
@@ -32,7 +32,13 @@ interface SummaryData {
   trackId?: string;
 }
 
-function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean, setIsTestMode: (v: boolean) => void }) {
+function RunningScreenInner({
+  isTestMode,
+  setIsTestMode,
+}: {
+  isTestMode: boolean;
+  setIsTestMode: (v: boolean) => void;
+}) {
   const router = useRouter();
   const navigation = useNavigation();
 
@@ -46,12 +52,14 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
   const [testPath, setTestPath] = useState<Coord[] | null>(null);
 
   const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
-  const [isFinishModalVisible, setIsFinishModalVisible] = useState<boolean>(false);
+  const [isFinishModalVisible, setIsFinishModalVisible] =
+    useState<boolean>(false);
   const [isFinishPressed, setIsFinishPressed] = useState<boolean>(false);
   const [finishProgress, setFinishProgress] = useState<number>(0);
   const [finishCompleted, setFinishCompleted] = useState<boolean>(false);
   const [mapRegion, setMapRegion] = useState<Region | undefined>();
-  const [initialLocationLoaded, setInitialLocationLoaded] = useState<boolean>(false);
+  const [initialLocationLoaded, setInitialLocationLoaded] =
+    useState<boolean>(false);
 
   // 애니메이션 refs
   const progressAnimation = useRef(new Animated.Value(0)).current;
@@ -97,7 +105,7 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
       console.log('🧪 테스트 모드 - 트랙 경로가 없거나 부족함');
       return;
     }
-    
+
     if (fakeLocationIntervalRef.current) {
       clearInterval(fakeLocationIntervalRef.current);
     }
@@ -120,7 +128,7 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
 
     const interval = setInterval(() => {
       if (!isActive || isPaused) return;
-      
+
       let idx = testPathIdxRef.current;
       if (idx >= testPath.length - 1) {
         console.log('🧪 테스트 모드 - 트랙 경로 끝에 도달, 시뮬레이션 종료');
@@ -131,7 +139,7 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
 
       const nextCoord = testPath[idx + 1];
       const now = Date.now();
-      
+
       const dKm = haversineDistance(
         prevCoord.latitude,
         prevCoord.longitude,
@@ -140,7 +148,7 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
       );
       // 1초에 20m씩 이동 (보간)
       const moveDist = 0.02; // 20m
-      
+
       let newCoord: Coord;
       if (dKm <= moveDist) {
         // 다음 점까지 이동
@@ -153,15 +161,19 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
         // 보간 위치 계산
         const ratio = moveDist / dKm;
         newCoord = {
-          latitude: prevCoord.latitude + (nextCoord.latitude - prevCoord.latitude) * ratio,
-          longitude: prevCoord.longitude + (nextCoord.longitude - prevCoord.longitude) * ratio,
+          latitude:
+            prevCoord.latitude +
+            (nextCoord.latitude - prevCoord.latitude) * ratio,
+          longitude:
+            prevCoord.longitude +
+            (nextCoord.longitude - prevCoord.longitude) * ratio,
           timestamp: now,
         };
       }
 
       // 속도 계산 (km/h)
       const dt = (now - prevTimestamp) / 1000;
-      const speedKmh = dt > 0 ? (moveDist / (dt / 3600)) : 0;
+      const speedKmh = dt > 0 ? moveDist / (dt / 3600) : 0;
       setCurrentSpeed(speedKmh);
 
       // 경로에 추가
@@ -174,11 +186,28 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
       prevCoord = newCoord;
       prevTimestamp = now;
 
-      console.log('🧪 가짜 위치 업데이트:', newCoord, '인덱스:', testPathIdxRef.current, '속도:', speedKmh.toFixed(2), 'km/h');
+      console.log(
+        '🧪 가짜 위치 업데이트:',
+        newCoord,
+        '인덱스:',
+        testPathIdxRef.current,
+        '속도:',
+        speedKmh.toFixed(2),
+        'km/h'
+      );
     }, 1000); // 1초마다 업데이트
 
     fakeLocationIntervalRef.current = interval as any;
-  }, [isActive, isPaused, testPath, addToPath, updateAvatarPosition, setUserLocation, setCurrentSpeed, pauseRunning]);
+  }, [
+    isActive,
+    isPaused,
+    testPath,
+    addToPath,
+    updateAvatarPosition,
+    setUserLocation,
+    setCurrentSpeed,
+    pauseRunning,
+  ]);
 
   // 🧪 가짜 위치 업데이트 중지
   const stopFakeLocationUpdates = useCallback(() => {
@@ -232,22 +261,29 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
   useEffect(() => {
     if (isTestMode && !testPath && trackRecordRepository) {
       console.log('🧪 테스트 모드 - 트랙 경로 가져오기 시작');
-      trackRecordRepository.fetchTrackRecord(44).then(data => {
-        if (data?.trackInfoDto?.path) {
-          console.log('🧪 테스트 모드 - 트랙 경로 로드 완료:', data.trackInfoDto.path.length, '개 좌표');
-          // Coordinate[]를 Coord[]로 변환
-          const coordPath: Coord[] = data.trackInfoDto.path.map(coord => ({
-            latitude: coord.latitude,
-            longitude: coord.longitude,
-            timestamp: Date.now() // 현재 시간으로 설정
-          }));
-          setTestPath(coordPath);
-        } else {
-          console.log('�� 테스트 모드 - 트랙 경로 로드 실패');
-        }
-      }).catch(error => {
-        console.error('🧪 테스트 모드 - 트랙 경로 로드 오류:', error);
-      });
+      trackRecordRepository
+        .fetchTrackRecord(44)
+        .then((data) => {
+          if (data?.trackInfoDto?.path) {
+            console.log(
+              '🧪 테스트 모드 - 트랙 경로 로드 완료:',
+              data.trackInfoDto.path.length,
+              '개 좌표'
+            );
+            // Coordinate[]를 Coord[]로 변환
+            const coordPath: Coord[] = data.trackInfoDto.path.map((coord) => ({
+              latitude: coord.latitude,
+              longitude: coord.longitude,
+              timestamp: Date.now(), // 현재 시간으로 설정
+            }));
+            setTestPath(coordPath);
+          } else {
+            console.log('�� 테스트 모드 - 트랙 경로 로드 실패');
+          }
+        })
+        .catch((error) => {
+          console.error('🧪 테스트 모드 - 트랙 경로 로드 오류:', error);
+        });
     }
   }, [isTestMode, testPath, trackRecordRepository]);
 
@@ -258,7 +294,7 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
     };
   }, []);
 
-    useEffect(() => {
+  useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (e) => {
       // 러닝 기록이 없으면(시간이 0초) 아무것도 묻지 않고 바로 나갑니다.
       if (elapsedTime === 0) {
@@ -299,21 +335,24 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
   }, [navigation, elapsedTime, resetRunning]); // 의존성 배열: 이 값들이 변경될 때
 
   // ✅ 지도 준비 완료 시 mapRef 연결 및 상태 업데이트
-  const handleMapReady = useCallback((mapRef: MapView | null) => {
-    console.log('🗺️ 지도 준비 완료, mapRef 연결');
-    setMapRef(mapRef);
-    setIsMapReady(true);
+  const handleMapReady = useCallback(
+    (mapRef: MapView | null) => {
+      console.log('🗺️ 지도 준비 완료, mapRef 연결');
+      setMapRef(mapRef);
+      setIsMapReady(true);
 
-    // 아바타도 연결되었는지 확인
-    if (avatarReady) {
-      setIsAvatarConnected(true);
-    }
+      // 아바타도 연결되었는지 확인
+      if (avatarReady) {
+        setIsAvatarConnected(true);
+      }
 
-    // 🧪 지도 준비 후, userLocation이 있으면 아바타 위치 갱신
-    if (userLocation) {
-      updateAvatarPosition(userLocation, true);
-    }
-  }, [setMapRef, avatarReady, userLocation, updateAvatarPosition]);
+      // 🧪 지도 준비 후, userLocation이 있으면 아바타 위치 갱신
+      if (userLocation) {
+        updateAvatarPosition(userLocation, true);
+      }
+    },
+    [setMapRef, avatarReady, userLocation, updateAvatarPosition]
+  );
 
   // ✅ 아바타 준비 완료 시 연결 상태 업데이트
   useEffect(() => {
@@ -329,15 +368,15 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
       initialLocationLoaded,
       isMapReady,
       isAvatarConnected,
-      mapRegion: !!mapRegion
+      mapRegion: !!mapRegion,
     });
 
     // 위치 정보가 로드되지 않은 경우
     if (!initialLocationLoaded || !mapRegion) {
       Alert.alert(
-        "위치 로딩 중",
-        "현재 위치 정보를 가져오는 중입니다. 잠시만 기다려주세요.",
-        [{ text: "확인" }]
+        '위치 로딩 중',
+        '현재 위치 정보를 가져오는 중입니다. 잠시만 기다려주세요.',
+        [{ text: '확인' }]
       );
       return;
     }
@@ -345,9 +384,9 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
     // 지도가 준비되지 않은 경우
     if (!isMapReady) {
       Alert.alert(
-        "지도 로딩 중",
-        "지도를 준비하는 중입니다. 잠시만 기다려주세요.",
-        [{ text: "확인" }]
+        '지도 로딩 중',
+        '지도를 준비하는 중입니다. 잠시만 기다려주세요.',
+        [{ text: '확인' }]
       );
       return;
     }
@@ -355,9 +394,9 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
     // 아바타가 연결되지 않은 경우
     if (!isAvatarConnected) {
       Alert.alert(
-        "아바타 로딩 중",
-        "3D 아바타를 준비하는 중입니다. 잠시만 기다려주세요.",
-        [{ text: "확인" }]
+        '아바타 로딩 중',
+        '3D 아바타를 준비하는 중입니다. 잠시만 기다려주세요.',
+        [{ text: '확인' }]
       );
       return;
     }
@@ -370,7 +409,7 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
     isMapReady,
     isAvatarConnected,
     mapRegion,
-    originalOnMainPress
+    originalOnMainPress,
   ]);
 
   // ✅ 조건부 러닝 시작 함수
@@ -391,7 +430,10 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
-          Alert.alert("위치 권한 필요", "러닝을 기록하려면 위치 권한이 필요합니다.");
+          Alert.alert(
+            '위치 권한 필요',
+            '러닝을 기록하려면 위치 권한이 필요합니다.'
+          );
           return;
         }
 
@@ -402,8 +444,8 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
         const initialRegion: Region = {
           latitude: loc.coords.latitude,
           longitude: loc.coords.longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
+          latitudeDelta: 0.002,
+          longitudeDelta: 0.002,
         };
 
         setMapRegion(initialRegion);
@@ -431,10 +473,9 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
           setUserLocation(initialCoord);
           updateAvatarPosition(initialCoord, true);
         }
-
       } catch (error) {
         console.error('위치 가져오기 실패:', error);
-        Alert.alert("위치 오류", "현재 위치를 가져올 수 없습니다.");
+        Alert.alert('위치 오류', '현재 위치를 가져올 수 없습니다.');
       }
     };
 
@@ -559,7 +600,9 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
 
     // 취소 안내 메시지 (진행률에 따라 다르게)
     if (finishProgress > 10) {
-      Alert.alert('종료 취소', '러닝 종료가 취소되었습니다.', [{ text: '확인' }]);
+      Alert.alert('종료 취소', '러닝 종료가 취소되었습니다.', [
+        { text: '확인' },
+      ]);
     }
   }, [progressAnimation, scaleAnimation, finishCompleted, finishProgress]);
 
@@ -595,7 +638,10 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
   }, []);
 
   // 현재 선택된 아바타 상태 관리
-  const [currentAvatar, setCurrentAvatar] = useState<{ id: string; glbUrl: string } | null>(null);
+  const [currentAvatar, setCurrentAvatar] = useState<{
+    id: string;
+    glbUrl: string;
+  } | null>(null);
 
   // 컴포넌트 마운트 시 현재 아바타 정보 가져오기
   useEffect(() => {
@@ -604,7 +650,7 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
         const avatarData = await fetchCurrentAvatar();
         setCurrentAvatar({
           id: avatarData.id,
-          glbUrl: avatarData.glbUrl
+          glbUrl: avatarData.glbUrl,
         });
       } catch (error) {
         console.error('Failed to fetch current avatar:', error);
@@ -616,10 +662,10 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
   return (
     <View style={styles.container}>
       {/* ① 뒤로가기 버튼 */}
-        <BackButton onPress={() => router.back()} />
+      <BackButton onPress={() => router.back()} />
 
       {/* 🧪 테스트 모드 토글 버튼 - 오른쪽 상단 고정 */}
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.testModeFloatingButton}
         onPress={() => setIsTestMode(!isTestMode)}
       >
@@ -633,7 +679,9 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
         <View style={styles.loadingOverlay}>
           <View style={styles.loadingContainer}>
             <Text style={styles.loadingTitle}>위치 정보 가져오는 중...</Text>
-            <Text style={styles.loadingSubtext}>GPS 신호를 수신하고 있습니다</Text>
+            <Text style={styles.loadingSubtext}>
+              GPS 신호를 수신하고 있습니다
+            </Text>
           </View>
         </View>
       )}
@@ -642,7 +690,8 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
       {isTestMode && initialLocationLoaded && (
         <View style={styles.testModeOverlay}>
           <Text style={styles.testModeText}>
-            🧪 테스트 모드 - {testPath ? '트랙 경로 로드됨' : '트랙 경로 로딩 중...'}
+            🧪 테스트 모드 -{' '}
+            {testPath ? '트랙 경로 로드됨' : '트랙 경로 로딩 중...'}
           </Text>
         </View>
       )}
@@ -675,7 +724,10 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
           screenPos={avatarScreenPos}
           isRunning={isActive && !isPaused}
           speed={displaySpeed}
-          avatarUrl={currentAvatar?.glbUrl || "https://models.readyplayer.me/686ece0ae610780c6c939703.glb"}
+          avatarUrl={
+            currentAvatar?.glbUrl ||
+            'https://models.readyplayer.me/686ece0ae610780c6c939703.glb'
+          }
           onAvatarReady={handleAvatarReady}
         />
       )}
@@ -685,7 +737,9 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
         <View style={styles.avatarLoadingOverlay}>
           <View style={styles.loadingContainer}>
             <Text style={styles.loadingTitle}>아바타 로딩 중...</Text>
-            <Text style={styles.loadingSubtext}>3D 아바타를 준비하고 있습니다</Text>
+            <Text style={styles.loadingSubtext}>
+              3D 아바타를 준비하고 있습니다
+            </Text>
           </View>
         </View>
       )}
@@ -755,7 +809,7 @@ function RunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: boolean
               pathname: '/summary',
               params: { data: JSON.stringify(summaryData) },
             });
-            resetRunning()
+            resetRunning();
           }
           setIsFinishModalVisible(false);
         }}
@@ -768,7 +822,10 @@ export default function RunningScreen() {
   const [isTestMode, setIsTestMode] = React.useState(false);
   return (
     <RunningProvider isTestMode={isTestMode}>
-      <RunningScreenInner isTestMode={isTestMode} setIsTestMode={setIsTestMode} />
+      <RunningScreenInner
+        isTestMode={isTestMode}
+        setIsTestMode={setIsTestMode}
+      />
     </RunningProvider>
   );
 }
@@ -777,7 +834,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'flex-end',
-    alignItems: 'center'
+    alignItems: 'center',
   },
   headerBar: {
     position: 'absolute',
@@ -810,7 +867,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     alignItems: 'center',
-    zIndex: 1000
+    zIndex: 1000,
   },
   // ✅ 로딩 관련 스타일 추가
   loadingOverlay: {
