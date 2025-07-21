@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Image, Platform, StyleSheet, Text, View } from 'react-native';
 import { HomeAvatarDisplay } from './HomeAvatarDisplay';
 
@@ -7,6 +7,7 @@ interface CharacterSectionProps {
   /** 초 단위 평균 페이스 */
   averagePace: number;
   selectedAvatar?: { id: string; url: string; } | null;
+  grade: string;
 }
 
 function formatPace(min: number): string {
@@ -16,8 +17,22 @@ function formatPace(min: number): string {
   return `${m}'${s}″`.replace(/\s/g, '');  // 모든 공백 제거
 }
 
-export default function CharacterSection({ userName, averagePace, selectedAvatar }: CharacterSectionProps) { 
+// 등급별 이미지 매핑
+const gradeImages: Record<string, any> = {
+  "아이언": require('../assets/images/iron.png'),
+  "브론즈": require('../assets/images/bronze.png'),
+  "실버": require('../assets/images/silver.png'),
+  "골드": require('../assets/images/gold.png'),
+  "플래티넘": require('../assets/images/platinum.png'),
+  "다이아": require('../assets/images/diamond.png'),
+  "마스터": require('../assets/images/master.png'),
+  "그랜드 마스터": require('../assets/images/grandmaster.png'),
+  "레전드 러너": require('../assets/images/legend.png'),
+};
+
+export default function CharacterSection({ userName, averagePace, selectedAvatar, grade }: CharacterSectionProps) { 
   const formattedPace = formatPace(averagePace);
+  const [avatarDimensions, setAvatarDimensions] = useState<{ width: number; height: number } | null>(null);
   console.log('Rendering CharacterSection:', { userName, averagePace, formattedPace });  // 디버그 로그 추가
 
   const renderPaceText = () => {
@@ -144,20 +159,34 @@ export default function CharacterSection({ userName, averagePace, selectedAvatar
 
   return (
     <View style={styles.characterSection}>
-      <View style={styles.nameContainer}>
-        <Image
-          source={require('@/assets/images/diamond.png')}
-          style={styles.diamondIcon}
-        />
-        <Text style={styles.characterName}> {userName} </Text>
-      </View>
       <View style={styles.characterContainer}>
+        <View style={[
+          styles.nameContainer,
+          {
+            position: 'absolute',
+            top: Platform.select({
+              ios: 20,
+              android: 20
+            }),
+            alignSelf: 'center',
+            marginRight:100,
+            zIndex: 6
+          }
+        ]}>
+          <Image
+            source={gradeImages[grade] || gradeImages["아이언"]}
+            style={styles.GradeIcon}
+          />
+          <Text style={styles.characterName}> {userName} </Text>
+        </View>
         <View style={[styles.paceContainer]}>
           {renderPaceText()}
         </View>
         {selectedAvatar ? (
           <View style={styles.avatarContainer}>
-            <HomeAvatarDisplay avatarUrl={selectedAvatar.url} />
+            <HomeAvatarDisplay 
+              avatarUrl={selectedAvatar.url}
+            />
           </View>
         ) : (
           <Image
@@ -181,25 +210,26 @@ const styles = StyleSheet.create({
   nameContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 5,  // 20에서 5로 줄임
-    marginTop: 30,
-    right: 60,
+    justifyContent: 'center',
+    zIndex: 6,
+    marginLeft:-25,
   },
   characterContainer: {
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
+    width: '100%',
   },
   avatarContainer: {
     width: 350,
     height: 600,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -80,
-    marginLeft: -120,
+    marginTop: -5,
+    marginLeft: -120,  // -120에서 0으로 수정
     ...Platform.select({
       ios: {
-        zIndex: 2,  // iOS에서 페이스보다 앞으로
+        zIndex: 2,
       }
     })
   },
@@ -207,11 +237,11 @@ const styles = StyleSheet.create({
     width: 350,
     height: 600,
     resizeMode: 'contain',
-    marginLeft: -120,
+    marginLeft: -120,  // -120에서 0으로 수정
     marginTop: -30,
     ...Platform.select({
       ios: {
-        zIndex: 2,  // iOS에서 페이스보다 앞으로
+        zIndex: 2,
       }
     })
   },
@@ -220,14 +250,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#000',
   },
-  diamondIcon: {
-    width: 24,
-    height: 24,
-    marginRight: 5,
-  },
+  
   paceContainer: {
     position: 'absolute',
-    right: '-40%',    // -35%에서 -45%로 수정
+    right: '-20%',    // -40%에서 -20%로 수정
     bottom: '18%',
     width: 350,      
     height: 200,     
@@ -295,5 +321,11 @@ const styles = StyleSheet.create({
   frontLayer: {
     zIndex: 31,
     color: '#e7e4e4fd',
+  },
+  GradeIcon: {
+    width: 24,
+    height: 24,
+    marginRight: 5,
+    resizeMode: 'contain',
   },
 });
