@@ -736,9 +736,9 @@ function RunningScreenInner({
       {initialLocationLoaded && isMapReady && !isAvatarConnected && (
         <View style={styles.avatarLoadingOverlay}>
           <View style={styles.loadingContainer}>
-            <Text style={styles.loadingTitle}>아바타 로딩 중...</Text>
+            <Text style={styles.loadingTitle}>러닝 준비 중...</Text>
             <Text style={styles.loadingSubtext}>
-              3D 아바타를 준비하고 있습니다
+              아바타가 몸을 풀고 있어요
             </Text>
           </View>
         </View>
@@ -896,7 +896,7 @@ const styles = StyleSheet.create({
     top: 150,
     left: 20,
     right: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
     borderRadius: 10,
     padding: 15,
     zIndex: 1500,
