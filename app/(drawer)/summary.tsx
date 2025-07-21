@@ -11,7 +11,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 import MapView, { Polyline } from 'react-native-maps';
 import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
@@ -21,7 +21,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import GradeBadge from '@/components/GradeBadge';
 import { useRepositories } from '@/context/RepositoryContext';
 import { Coord } from '@/context/RunningContext';
-import { postRunningTrack, RunningTrackPayload } from '@/repositories/TrackRepository';
+import {
+  postRunningTrack,
+  RunningTrackPayload,
+} from '@/repositories/TrackRepository';
 import { useUserStore } from '@/stores/userStore';
 import { UserGrades } from '@/types/Grades';
 import { SaveRecordDto } from '@/types/ServerRecordDto';
@@ -44,7 +47,9 @@ export default function SummaryScreen() {
 
   // --- 기존 상태 관리 로직 (Repository, Modal 등) ---
   const { trackRecordRepository } = useRepositories();
-  const [modalType, setModalType] = useState<'saveNewTrack' | 'confirmSaveRecord' | null>(null);
+  const [modalType, setModalType] = useState<
+    'saveNewTrack' | 'confirmSaveRecord' | null
+  >(null);
   const [newTrackName, setNewTrackName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [showTrackNameModal, setShowTrackNameModal] = useState(false);
@@ -57,7 +62,7 @@ export default function SummaryScreen() {
 
   // 등급 랭크(순서) 비교 함수
   function getGradeRank(gradeName: string) {
-    return UserGrades.findIndex(g => g.displayName === gradeName);
+    return UserGrades.findIndex((g) => g.displayName === gradeName);
   }
 
   // --- 데이터 파싱 로직 ---
@@ -79,11 +84,15 @@ export default function SummaryScreen() {
   const botPace = parsed.botPace;
 
   // 경고 메시지 조건
-  const isPathTooShort = !userPath || userPath.length < 2 || totalDistanceKm <= 0;
+  const isPathTooShort =
+    !userPath || userPath.length < 2 || totalDistanceKm <= 0;
 
   // --- 화면 로딩 시 낙관적 UI 계산을 수행 ---
   useEffect(() => {
-    console.log('계산 시점의 userProfile:', JSON.stringify(userProfile, null, 2));
+    console.log(
+      '계산 시점의 userProfile:',
+      JSON.stringify(userProfile, null, 2)
+    );
     if (!userProfile) return;
 
     const distanceMeters = totalDistanceKm * 1000;
@@ -105,9 +114,13 @@ export default function SummaryScreen() {
     const prevLevel = userProfile.level;
     const prevGrade = calculationService.grade.getGradeByLevel(prevLevel);
     // 누적 거리 반영 후 등급/레벨
-    const newLevel = calculationService.level.calculateNewLevel(userProfile.totalDistance + distanceMeters, distanceMeters);
+    const newLevel = calculationService.level.calculateNewLevel(
+      userProfile.totalDistance + distanceMeters,
+      distanceMeters
+    );
     const newGrade = calculationService.grade.getGradeByLevel(newLevel);
-    const gainedPoints = calculationService.point.calculatePoint(distanceMeters);
+    const gainedPoints =
+      calculationService.point.calculatePoint(distanceMeters);
 
     const prevRank = getGradeRank(prevGrade);
     const newRank = getGradeRank(newGrade);
@@ -132,45 +145,63 @@ export default function SummaryScreen() {
 
     // 🚨 잠재적 위험 테스트
     console.log('🚨 잠재적 위험 테스트 시작 🚨');
-    
+
     // 1. userProfile.grade와 prevGrade 불일치 테스트
     console.log('1. Grade 불일치 테스트:');
     console.log('  userProfile.grade:', userProfile.grade);
     console.log('  prevGrade (계산된):', prevGrade);
     console.log('  일치 여부:', userProfile.grade === prevGrade);
-    
+
     // 2. getGradeRank 함수 테스트
     console.log('2. getGradeRank 함수 테스트:');
-    console.log('  UserGrades 배열:', UserGrades.map(g => g.displayName));
+    console.log(
+      '  UserGrades 배열:',
+      UserGrades.map((g) => g.displayName)
+    );
     console.log('  userProfile.grade의 rank:', getGradeRank(userProfile.grade));
     console.log('  prevGrade의 rank:', prevRank);
     console.log('  newGrade의 rank:', newRank);
-    
+
     // 3. 경계값 테스트
     console.log('3. 경계값 테스트:');
-    console.log('  아이언 마지막 레벨(9) 등급:', calculationService.grade.getGradeByLevel(9));
-    console.log('  브론즈 첫 레벨(10) 등급:', calculationService.grade.getGradeByLevel(10));
-    console.log('  브론즈 마지막 레벨(19) 등급:', calculationService.grade.getGradeByLevel(19));
-    console.log('  실버 첫 레벨(20) 등급:', calculationService.grade.getGradeByLevel(20));
-    
+    console.log(
+      '  아이언 마지막 레벨(9) 등급:',
+      calculationService.grade.getGradeByLevel(9)
+    );
+    console.log(
+      '  브론즈 첫 레벨(10) 등급:',
+      calculationService.grade.getGradeByLevel(10)
+    );
+    console.log(
+      '  브론즈 마지막 레벨(19) 등급:',
+      calculationService.grade.getGradeByLevel(19)
+    );
+    console.log(
+      '  실버 첫 레벨(20) 등급:',
+      calculationService.grade.getGradeByLevel(20)
+    );
+
     // 4. 레벨업 조건 테스트
     console.log('4. 레벨업 조건 테스트:');
     console.log('  prevLevel:', prevLevel, 'newLevel:', newLevel);
     console.log('  레벨업 조건 (newLevel > prevLevel):', newLevel > prevLevel);
-    console.log('  레벨업 조건 (newLevel !== prevLevel):', newLevel !== prevLevel);
-    
+    console.log(
+      '  레벨업 조건 (newLevel !== prevLevel):',
+      newLevel !== prevLevel
+    );
+
     // 5. 등급업 조건 테스트
     console.log('5. 등급업 조건 테스트:');
     console.log('  prevRank:', prevRank, 'newRank:', newRank);
     console.log('  등급업 조건 (newRank > prevRank):', newRank > prevRank);
     console.log('  등급업 조건 (newRank !== prevRank):', newRank !== prevRank);
-    
+
     // 6. 음수 rank 테스트
     console.log('6. 음수 rank 테스트:');
     console.log('  prevRank가 -1인지:', prevRank === -1);
     console.log('  newRank가 -1인지:', newRank === -1);
     console.log('  안전한 등급업 판정:', safeDidGradeUp);
-    
+
     console.log('🚨 잠재적 위험 테스트 완료 🚨');
 
     setResults({
@@ -186,11 +217,11 @@ export default function SummaryScreen() {
 
   // 🧪 테스트용 임시 코드 (실제 테스트 후 제거 예정)
   const setProfile = useUserStore((state) => state.setProfile);
-  
+
   useEffect(() => {
     // 🧪 테스트 시나리오 (하나씩 테스트)
-    const testScenario :number = 2; // 1, 2, 3, 4, 0(비활성화)
-    
+    const testScenario: number = 2; // 1, 2, 3, 4, 0(비활성화)
+
     if (testScenario === 1) {
       // 아이언 → 브론즈 등급업 테스트
       setProfile({
@@ -237,32 +268,33 @@ export default function SummaryScreen() {
     setIsSaving(true);
     try {
       if (!trackRecordRepository) {
-        Alert.alert("오류", "서버 통신 모듈을 찾을 수 없습니다.");
+        Alert.alert('오류', '서버 통신 모듈을 찾을 수 없습니다.');
         setIsSaving(false);
         return;
       }
 
       const now = new Date();
       const startedAt = new Date(now.getTime() - elapsedTime * 1000);
-      
+
       let isWinner = false;
-      
+
       let record: SaveRecordDto;
-      if(mode === 'MATCH'){
+      if (mode === 'MATCH') {
         record = {
           mode: 'MATCH',
           trackId: parseInt(trackId, 10),
           opponentId: parsed.opponentId,
           isWinner: parsed.isWinner ?? false,
-          averagePace: parseFloat(calculateAveragePace(totalDistanceKm, elapsedTime).replace("'", ".")),
+          averagePace: parseFloat(
+            calculateAveragePace(totalDistanceKm, elapsedTime).replace("'", '.')
+          ),
           distance: Math.round(totalDistanceKm * 1000),
           startedAt: startedAt.toISOString(),
           finishedAt: now.toISOString(),
-          userPath: userPath
-        }
-      }
-      else if(isTrackMode){
-        if(botPace){
+          userPath: userPath,
+        };
+      } else if (isTrackMode) {
+        if (botPace) {
           const botExpectedTime = botPace * totalDistanceKm;
           isWinner = elapsedTime < botExpectedTime;
         }
@@ -271,21 +303,25 @@ export default function SummaryScreen() {
           trackId: parseInt(trackId, 10),
           opponentId: 0,
           isWinner: isWinner,
-          averagePace: parseFloat(calculateAveragePace(totalDistanceKm, elapsedTime).replace("'", ".")),
+          averagePace: parseFloat(
+            calculateAveragePace(totalDistanceKm, elapsedTime).replace("'", '.')
+          ),
           distance: Math.round(totalDistanceKm * 1000),
           startedAt: startedAt.toISOString(),
           finishedAt: now.toISOString(),
-          userPath: userPath
+          userPath: userPath,
         };
-      }else{
+      } else {
         record = {
           mode: 'FREE',
           isWinner: false,
-          averagePace: parseFloat(calculateAveragePace(totalDistanceKm, elapsedTime).replace("'", ".")),
+          averagePace: parseFloat(
+            calculateAveragePace(totalDistanceKm, elapsedTime).replace("'", '.')
+          ),
           distance: Math.round(totalDistanceKm * 1000),
           startedAt: startedAt.toISOString(),
           finishedAt: now.toISOString(),
-          userPath: userPath
+          userPath: userPath,
         };
       }
       const success = await trackRecordRepository.saveRunningRecord(record);
@@ -312,7 +348,7 @@ export default function SummaryScreen() {
       return;
     }
     if (!userPath || userPath.length < 2) {
-      Alert.alert("오류", "경로가 너무 짧아 트랙으로 저장할 수 없습니다.");
+      Alert.alert('오류', '경로가 너무 짧아 트랙으로 저장할 수 없습니다.');
       return;
     }
 
@@ -326,16 +362,18 @@ export default function SummaryScreen() {
         rate: 0,
       };
       const savedTrack = await postRunningTrack(newUserTrack);
-      
+
       // [수정 1] 서버 응답에서 trackId를 제대로 받았는지 확인
       const newTrackId = savedTrack?.trackId;
       if (!newTrackId) {
         // trackId를 못 받았다면, 여기서 중단하고 사용자에게 알림
-        throw new Error('새로운 트랙을 생성했지만 서버로부터 ID를 받지 못했습니다.');
+        throw new Error(
+          '새로운 트랙을 생성했지만 서버로부터 ID를 받지 못했습니다.'
+        );
       }
 
       if (!trackRecordRepository) {
-        throw new Error("서버 통신 모듈을 찾을 수 없습니다.");
+        throw new Error('서버 통신 모듈을 찾을 수 없습니다.');
       }
 
       // 2. 위에서 받은 새 트랙 ID로 러닝 기록 저장 요청
@@ -346,21 +384,25 @@ export default function SummaryScreen() {
         trackId: newTrackId, // 새로 생성된 트랙의 ID를 사용
         opponentId: 0,
         isWinner: true,
-        averagePace: parseFloat(calculateAveragePace(totalDistanceKm, elapsedTime).replace("'", ".")),
+        averagePace: parseFloat(
+          calculateAveragePace(totalDistanceKm, elapsedTime).replace("'", '.')
+        ),
         distance: Math.round(totalDistanceKm * 1000),
         startedAt: startedAt.toISOString(),
         finishedAt: now.toISOString(),
-        userPath: userPath
+        userPath: userPath,
       };
 
-      const success = await trackRecordRepository.saveRunningRecord(newServerRecord);
+      const success = await trackRecordRepository.saveRunningRecord(
+        newServerRecord
+      );
 
       if (success) {
         setModalType(null);
         // [수정 2] 사용자에게 트랙과 기록이 모두 저장되었음을 명확히 알려줌
         Alert.alert(
-          '저장 완료', 
-          '새로운 트랙과 러닝 기록이 모두 저장되었습니다.', 
+          '저장 완료',
+          '새로운 트랙과 러닝 기록이 모두 저장되었습니다.',
           [{ text: '확인', onPress: () => router.replace('/') }]
         );
       } else {
@@ -368,7 +410,10 @@ export default function SummaryScreen() {
       }
     } catch (error) {
       console.error('저장 중 오류 발생:', error);
-      Alert.alert('오류', (error as Error).message || '데이터를 저장하는 중 문제가 발생했습니다.');
+      Alert.alert(
+        '오류',
+        (error as Error).message || '데이터를 저장하는 중 문제가 발생했습니다.'
+      );
     } finally {
       setIsSaving(false);
     }
@@ -431,161 +476,270 @@ export default function SummaryScreen() {
   const calories = Math.round(totalDistanceKm * 60);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={["bottom","left","right"]}>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: '#fff' }}
+      edges={['bottom', 'left', 'right']}
+    >
       <View style={styles.dragIndicator} />
       <ScrollView
         contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }}
         keyboardShouldPersistTaps="handled"
       >
-      {/* 상단 안내 메시지 */}
-      {isPathTooShort && (
-        <View style={styles.warningBanner}>
-          <Text style={styles.warningText}>경로가 짧아 기록하지 못했습니다.</Text>
-        </View>
-      )}
-      {/* --- 애니메이션 효과 섹션 --- */}
-      {results && userProfile && (
-        <View style={styles.resultsContainer}>
-          <Animated.Text entering={FadeIn.duration(800)} style={styles.title}>
-            러닝 완료!
-          </Animated.Text>
+        {/* 상단 안내 메시지 */}
+        {isPathTooShort && (
+          <View style={styles.warningBanner}>
+            <Text style={styles.warningText}>
+              경로가 짧아 기록하지 못했습니다.
+            </Text>
+          </View>
+        )}
+        {/* --- 애니메이션 효과 섹션 --- */}
+        {results && userProfile && (
+          <View style={styles.resultsContainer}>
+            <Animated.Text entering={FadeIn.duration(800)} style={styles.title}>
+              러닝 완료!
+            </Animated.Text>
 
-          {parsed.mode === 'MATCH' && (
-            <Animated.View entering={FadeIn.delay(100)}>
-              <Text style={{ fontSize: 20, fontWeight: '600', color: parsed.isWinner ? '#4caf50' : '#d32f2f', marginTop: 4 }}>
-                {parsed.isWinner ? "🎉 상대와의 대결에서 승리!" : "아쉽게도 패배하였습니다."}
-              </Text>
-            </Animated.View>
-          )}
-          <View style={styles.scrollHintContainer}>
-            <Text style={styles.scrollHintText}>아래로 스크롤하여 기록을 확인하세요 ↓</Text>
-          </View>
-
-          {totalDistanceKm <= 0 ? (
-            <Animated.View entering={FadeIn.delay(200)}>
-              <Text style={styles.noRecordText}>기록할 만큼 충분히 달리지 못했어요.</Text>
-            </Animated.View>
-          ) : (
-            <>
-              {/* 기존 애니메이션 섹션 (거리가 0보다 클 때만 보임) */}
-              <Animated.View entering={SlideInDown.delay(200).duration(600)}>
-                <Text style={styles.label}>획득 포인트</Text>
-                <Text style={styles.highlightText}>+{results.gainedPoints} P</Text>
-              </Animated.View>
-              {results.didLevelUp && (
-                <Animated.View entering={SlideInDown.delay(600)} style={styles.resultBox}>
-                  <Text style={styles.levelUpText}>🎉 레벨 업! 🎉</Text>
-                  <Text style={styles.levelChangeText}>Lv. {userProfile.level} → Lv. {results.newLevel}</Text>
-                </Animated.View>
-              )}
-              {results.didGradeUp && (
-                <Animated.View entering={SlideInDown.delay(1000)} style={styles.resultBox}>
-                  <Text style={styles.gradeUpText}>✨ 등급 상승! ✨</Text>
-                  <View style={styles.gradeChangeContainer}>
-                    <GradeBadge grade={userProfile.grade} level={userProfile.level} />
-                    <Text style={styles.arrowText}>→</Text>
-                    <GradeBadge grade={results.newGrade} level={results.newLevel} />
-                  </View>
-                </Animated.View>
-              )}
-            </>
-          )}
-        </View>
-      )}
-
-      {/* --- 기존 정보 표시 섹션 --- */}
-      <View style={styles.summaryContainer}>
-        <MapView
-          style={{ width: width, height: 200 }}
-          initialRegion={{
-            latitude: userPath[0]?.latitude || 37.5665,
-            longitude: userPath[0]?.longitude || 126.978,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
-          }}
-        >
-          <Polyline coordinates={userPath} strokeColor="#007aff" strokeWidth={5} />
-        </MapView>
-        <Text style={styles.distance}>{totalDistanceKm.toFixed(2)} km</Text>
-        <View style={styles.statsRow}>
-          <View style={styles.statBox}>
-            <Text style={styles.statLabel}>시간</Text>
-            <Text style={styles.statValue}>{formatTime(elapsedTime)}</Text>
-          </View>
-          <View style={styles.statBox}>
-            <Text style={styles.statLabel}>페이스</Text>
-            <Text style={styles.statValue}>{pace}</Text>
-          </View>
-          <View style={styles.statBox}>
-            <Text style={styles.statLabel}>칼로리</Text>
-            <Text style={styles.statValue}>{calories}</Text>
-          </View>
-        </View>
-        <View style={{ flex: 1 }} />
-      </View>
-      <View style={{ height: 20 }} />
-      <Pressable
-        style={[styles.completeButton, { backgroundColor: '#007aff', alignSelf: 'center', marginBottom: 20 }]}
-        onPress={() => {
-          console.log('저장하고 완료 버튼 클릭됨');
-          handleCompletePress();
-        }}
-      >
-        <Text style={styles.completeIcon}>🏁</Text>
-        <Text style={styles.completeButtonText}>저장하고 완료</Text>
-      </Pressable>
-      <View style={{ height: 20 }} />
-      {/* 커스텀 트랙 이름 입력 모달 */}
-      {showTrackNameModal && (
-        <Modal transparent visible={showTrackNameModal} animationType="fade">
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
-            <View style={{ backgroundColor: 'white', padding: 28, borderRadius: 16, width: '85%', alignItems: 'center' }}>
-              <Text style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 8 }}>트랙 이름 입력</Text>
-              <Text style={{ fontSize: 14, color: '#666', marginBottom: 16, textAlign: 'center' }}>
-                저장할 트랙의 이름을 입력해 주세요.
-              </Text>
-              <TextInput
-                value={tempTrackName}
-                onChangeText={setTempTrackName}
-                placeholder="예: 한강공원 5K"
-                style={{ borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 12, marginBottom: 18, width: '100%', fontSize: 16 }}
-                maxLength={30}
-                autoFocus
-              />
-              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', width: '100%' }}>
-                <TouchableOpacity
-                  onPress={() => {
-                    setShowTrackNameModal(false);
-                    setTempTrackName('');
-                    router.replace('/');
-                  }}
-                  style={{ paddingVertical: 10, paddingHorizontal: 18, borderRadius: 8, backgroundColor: '#eee', marginRight: 10 }}
-                >
-                  <Text style={{ color: '#333', fontWeight: 'bold', fontSize: 15 }}>기록만 저장</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => {
-                    setNewTrackName(tempTrackName);
-                    setShowTrackNameModal(false);
-                    setTempTrackName('');
-                    handleSaveNewTrackAndRecord(tempTrackName);
-                  }}
+            {parsed.mode === 'MATCH' && (
+              <Animated.View entering={FadeIn.delay(100)}>
+                <Text
                   style={{
-                    paddingVertical: 10,
-                    paddingHorizontal: 18,
-                    borderRadius: 8,
-                    backgroundColor: tempTrackName.trim() ? '#007aff' : '#b0c4de',
+                    fontSize: 20,
+                    fontWeight: '600',
+                    color: parsed.isWinner ? '#4caf50' : '#d32f2f',
+                    marginTop: 4,
                   }}
-                  disabled={!tempTrackName.trim()}
                 >
-                  <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 15 }}>저장</Text>
-                </TouchableOpacity>
-              </View>
+                  {parsed.isWinner
+                    ? '🎉 상대와의 대결에서 승리!'
+                    : '아쉽게도 패배하였습니다.'}
+                </Text>
+              </Animated.View>
+            )}
+            <View style={styles.scrollHintContainer}>
+              <Text style={styles.scrollHintText}>
+                아래로 스크롤하여 기록을 확인하세요 ↓
+              </Text>
+            </View>
+
+            {totalDistanceKm <= 0 ? (
+              <Animated.View entering={FadeIn.delay(200)}>
+                <Text style={styles.noRecordText}>
+                  기록할 만큼 충분히 달리지 못했어요.
+                </Text>
+              </Animated.View>
+            ) : (
+              <>
+                {/* 기존 애니메이션 섹션 (거리가 0보다 클 때만 보임) */}
+                <Animated.View entering={SlideInDown.delay(200).duration(600)}>
+                  <Text style={styles.label}>획득 포인트</Text>
+                  <Text style={styles.highlightText}>
+                    +{results.gainedPoints} P
+                  </Text>
+                </Animated.View>
+                {results.didLevelUp && (
+                  <Animated.View
+                    entering={SlideInDown.delay(600)}
+                    style={styles.resultBox}
+                  >
+                    <Text style={styles.levelUpText}>🎉 레벨 업! 🎉</Text>
+                    <Text style={styles.levelChangeText}>
+                      Lv. {userProfile.level} → Lv. {results.newLevel}
+                    </Text>
+                  </Animated.View>
+                )}
+                {results.didGradeUp && (
+                  <Animated.View
+                    entering={SlideInDown.delay(1000)}
+                    style={styles.resultBox}
+                  >
+                    <Text style={styles.gradeUpText}>✨ 등급 상승! ✨</Text>
+                    <View style={styles.gradeChangeContainer}>
+                      <GradeBadge
+                        grade={userProfile.grade}
+                        level={userProfile.level}
+                      />
+                      <Text style={styles.arrowText}>→</Text>
+                      <GradeBadge
+                        grade={results.newGrade}
+                        level={results.newLevel}
+                      />
+                    </View>
+                  </Animated.View>
+                )}
+              </>
+            )}
+          </View>
+        )}
+
+        {/* --- 기존 정보 표시 섹션 --- */}
+        <View style={styles.summaryContainer}>
+          <MapView
+            style={{ width: width, height: 200 }}
+            initialRegion={{
+              latitude: userPath[0]?.latitude || 37.5665,
+              longitude: userPath[0]?.longitude || 126.978,
+              latitudeDelta: 0.002,
+              longitudeDelta: 0.002,
+            }}
+          >
+            <Polyline
+              coordinates={userPath}
+              strokeColor="#007aff"
+              strokeWidth={5}
+            />
+          </MapView>
+          <Text style={styles.distance}>{totalDistanceKm.toFixed(2)} km</Text>
+          <View style={styles.statsRow}>
+            <View style={styles.statBox}>
+              <Text style={styles.statLabel}>시간</Text>
+              <Text style={styles.statValue}>{formatTime(elapsedTime)}</Text>
+            </View>
+            <View style={styles.statBox}>
+              <Text style={styles.statLabel}>페이스</Text>
+              <Text style={styles.statValue}>{pace}</Text>
+            </View>
+            <View style={styles.statBox}>
+              <Text style={styles.statLabel}>칼로리</Text>
+              <Text style={styles.statValue}>{calories}</Text>
             </View>
           </View>
-        </Modal>
-      )}
-    </ScrollView>
+          <View style={{ flex: 1 }} />
+        </View>
+        <View style={{ height: 20 }} />
+        <Pressable
+          style={[
+            styles.completeButton,
+            {
+              backgroundColor: '#007aff',
+              alignSelf: 'center',
+              marginBottom: 20,
+            },
+          ]}
+          onPress={() => {
+            console.log('저장하고 완료 버튼 클릭됨');
+            handleCompletePress();
+          }}
+        >
+          <Text style={styles.completeIcon}>🏁</Text>
+          <Text style={styles.completeButtonText}>저장하고 완료</Text>
+        </Pressable>
+        <View style={{ height: 20 }} />
+        {/* 커스텀 트랙 이름 입력 모달 */}
+        {showTrackNameModal && (
+          <Modal transparent visible={showTrackNameModal} animationType="fade">
+            <View
+              style={{
+                flex: 1,
+                justifyContent: 'center',
+                alignItems: 'center',
+                backgroundColor: 'rgba(0,0,0,0.5)',
+              }}
+            >
+              <View
+                style={{
+                  backgroundColor: 'white',
+                  padding: 28,
+                  borderRadius: 16,
+                  width: '85%',
+                  alignItems: 'center',
+                }}
+              >
+                <Text
+                  style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 8 }}
+                >
+                  트랙 이름 입력
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    color: '#666',
+                    marginBottom: 16,
+                    textAlign: 'center',
+                  }}
+                >
+                  저장할 트랙의 이름을 입력해 주세요.
+                </Text>
+                <TextInput
+                  value={tempTrackName}
+                  onChangeText={setTempTrackName}
+                  placeholder="예: 한강공원 5K"
+                  style={{
+                    borderWidth: 1,
+                    borderColor: '#ccc',
+                    borderRadius: 8,
+                    padding: 12,
+                    marginBottom: 18,
+                    width: '100%',
+                    fontSize: 16,
+                  }}
+                  maxLength={30}
+                  autoFocus
+                />
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'flex-end',
+                    width: '100%',
+                  }}
+                >
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShowTrackNameModal(false);
+                      setTempTrackName('');
+                      router.replace('/');
+                    }}
+                    style={{
+                      paddingVertical: 10,
+                      paddingHorizontal: 18,
+                      borderRadius: 8,
+                      backgroundColor: '#eee',
+                      marginRight: 10,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: '#333',
+                        fontWeight: 'bold',
+                        fontSize: 15,
+                      }}
+                    >
+                      기록만 저장
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setNewTrackName(tempTrackName);
+                      setShowTrackNameModal(false);
+                      setTempTrackName('');
+                      handleSaveNewTrackAndRecord(tempTrackName);
+                    }}
+                    style={{
+                      paddingVertical: 10,
+                      paddingHorizontal: 18,
+                      borderRadius: 8,
+                      backgroundColor: tempTrackName.trim()
+                        ? '#007aff'
+                        : '#b0c4de',
+                    }}
+                    disabled={!tempTrackName.trim()}
+                  >
+                    <Text
+                      style={{
+                        color: 'white',
+                        fontWeight: 'bold',
+                        fontSize: 15,
+                      }}
+                    >
+                      저장
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -593,40 +747,123 @@ export default function SummaryScreen() {
 // 스타일 시트
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff', paddingBottom: 140 },
-  centeredContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  resultsContainer: { paddingVertical: 20, paddingHorizontal: 20, alignItems: 'center', backgroundColor: '#f0f8ff', borderBottomLeftRadius: 30, borderBottomRightRadius: 30, elevation: 5, marginBottom: 10 },
+  centeredContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  resultsContainer: {
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    backgroundColor: '#f0f8ff',
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    elevation: 5,
+    marginBottom: 10,
+  },
   title: { fontSize: 32, fontWeight: 'bold', marginVertical: 10 },
   label: { fontSize: 16, color: '#555', marginTop: 15 },
-  highlightText: { fontSize: 42, fontWeight: 'bold', color: '#007aff', marginBottom: 15 },
-  resultBox: { width: '90%', marginVertical: 8, padding: 15, backgroundColor: 'white', borderRadius: 15, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 5 },
+  highlightText: {
+    fontSize: 42,
+    fontWeight: 'bold',
+    color: '#007aff',
+    marginBottom: 15,
+  },
+  resultBox: {
+    width: '90%',
+    marginVertical: 8,
+    padding: 15,
+    backgroundColor: 'white',
+    borderRadius: 15,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+  },
   levelUpText: { fontSize: 22, fontWeight: 'bold', color: '#4caf50' },
   levelChangeText: { fontSize: 18, color: '#333', marginTop: 5 },
   gradeUpText: { fontSize: 22, fontWeight: 'bold', color: '#ff9800' },
-  gradeChangeContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
+  gradeChangeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
   arrowText: { fontSize: 20, marginHorizontal: 15 },
-  summaryContainer: { alignItems: 'center', paddingTop: 10, marginBottom: 0, width: '100%', backgroundColor: 'transparent' },
+  summaryContainer: {
+    alignItems: 'center',
+    paddingTop: 10,
+    marginBottom: 0,
+    width: '100%',
+    backgroundColor: 'transparent',
+  },
   distance: { fontSize: 56, fontWeight: '800', marginVertical: 15 },
-  statsRow: { flexDirection: 'row', justifyContent: 'space-around', width: '90%', marginBottom: 0 },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '90%',
+    marginBottom: 0,
+  },
   statBox: { alignItems: 'center', flex: 1 },
   statLabel: { fontSize: 14, color: '#888' },
   statValue: { fontSize: 20, fontWeight: '600', marginTop: 4 },
-  completeButton: { 
-    paddingVertical: 10, 
-    borderRadius: 15, 
-    backgroundColor: '#007aff', 
-    alignItems: 'center', 
-    flexDirection: 'row', 
+  completeButton: {
+    paddingVertical: 10,
+    borderRadius: 15,
+    backgroundColor: '#007aff',
+    alignItems: 'center',
+    flexDirection: 'row',
     justifyContent: 'center',
   },
   completeIcon: { fontSize: 24 },
-  completeButtonText: { fontSize: 18, color: '#fff', fontWeight: 'bold', marginLeft: 10 },
-  modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)' },
-  modalContent: { width: '90%', backgroundColor: 'white', padding: 25, borderRadius: 15, alignItems: 'center' },
+  completeButtonText: {
+    fontSize: 18,
+    color: '#fff',
+    fontWeight: 'bold',
+    marginLeft: 10,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  modalContent: {
+    width: '90%',
+    backgroundColor: 'white',
+    padding: 25,
+    borderRadius: 15,
+    alignItems: 'center',
+  },
   modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 10 },
-  modalText: { fontSize: 16, color: '#666', textAlign: 'center', marginBottom: 20, lineHeight: 22 },
-  input: { width: '100%', borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 12, fontSize: 16 },
-  modalButtonContainer: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginTop: 20 },
-  modalButton: { flex: 1, marginHorizontal: 5, padding: 12, borderRadius: 8, alignItems: 'center' },
+  modalText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  input: {
+    width: '100%',
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+  },
+  modalButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 20,
+  },
+  modalButton: {
+    flex: 1,
+    marginHorizontal: 5,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
   modalButtonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
   noRecordText: {
     fontSize: 18,

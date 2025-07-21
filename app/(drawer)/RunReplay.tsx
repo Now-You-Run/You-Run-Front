@@ -1,24 +1,24 @@
 // RunReplayTmap.tsx
-import React, { useRef, useState } from "react";
+import { useRouter } from 'expo-router';
+import React, { useRef, useState } from 'react';
 import {
-  View,
-  StyleSheet,
-  Dimensions,
-  Button,
   Alert,
-  Text,
+  Button,
+  Dimensions,
   Pressable,
-} from "react-native";
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import MapView, {
-  Polyline,
-  Marker,
-  PROVIDER_GOOGLE,
   AnimatedRegion,
-} from "react-native-maps";
-import { useRouter } from "expo-router";
+  Marker,
+  Polyline,
+  PROVIDER_GOOGLE,
+} from 'react-native-maps';
 
 // Tmap 앱키
-const TMAP_APP_KEY = "EzfMTMu4gM21gAG6PkZzi58iap7I4qed8uUBpgiq";
+const TMAP_APP_KEY = 'EzfMTMu4gM21gAG6PkZzi58iap7I4qed8uUBpgiq';
 
 type LatLng = { latitude: number; longitude: number };
 const start: LatLng = { latitude: 37.4955, longitude: 127.0381 };
@@ -66,7 +66,11 @@ export default function RunReplayTmap() {
   const liveRef = useRef<LatLng[]>([start]);
 
   const markerRegionRef = useRef(
-    new AnimatedRegion({ ...start, latitudeDelta: 0.01, longitudeDelta: 0.01 })
+    new AnimatedRegion({
+      ...start,
+      latitudeDelta: 0.002,
+      longitudeDelta: 0.002,
+    })
   );
   const markerRegion = markerRegionRef.current;
 
@@ -79,32 +83,32 @@ export default function RunReplayTmap() {
   // 경로 로드 및 초기화
   const fetchRoute = async () => {
     const url =
-      "https://apis.openapi.sk.com/tmap/routes/pedestrian?version=1&format=json";
+      'https://apis.openapi.sk.com/tmap/routes/pedestrian?version=1&format=json';
     const body = {
       startX: start.longitude.toString(),
       startY: start.latitude.toString(),
       endX: end.longitude.toString(),
       endY: end.latitude.toString(),
-      reqCoordType: "WGS84GEO",
-      resCoordType: "WGS84GEO",
-      startName: "출발",
-      endName: "도착",
+      reqCoordType: 'WGS84GEO',
+      resCoordType: 'WGS84GEO',
+      startName: '출발',
+      endName: '도착',
     };
 
     try {
       const res = await fetch(url, {
-        method: "POST",
-        headers: { appKey: TMAP_APP_KEY, "Content-Type": "application/json" },
+        method: 'POST',
+        headers: { appKey: TMAP_APP_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       const feats: any[] = Array.isArray(json.features) ? json.features : [];
 
-      if (!feats.length) throw new Error("no route features");
+      if (!feats.length) throw new Error('no route features');
       const raw: LatLng[] = [];
       feats.forEach((f: any) => {
-        if (f.geometry?.type === "LineString") {
+        if (f.geometry?.type === 'LineString') {
           (f.geometry.coordinates as [number, number][]).forEach(([lng, lat]) =>
             raw.push({ latitude: lat, longitude: lng })
           );
@@ -118,12 +122,12 @@ export default function RunReplayTmap() {
       polyRef.current?.setNativeProps({ coordinates: liveRef.current });
       markerRegion.setValue({
         ...start,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
+        latitudeDelta: 0.002,
+        longitudeDelta: 0.002,
       });
       mapRef.current?.animateCamera({ center: start }, { duration: 0 });
     } catch (e: any) {
-      Alert.alert("경로 로드 실패", e.message);
+      Alert.alert('경로 로드 실패', e.message);
     }
   };
 
@@ -170,8 +174,8 @@ export default function RunReplayTmap() {
     polyRef.current?.setNativeProps({ coordinates: liveRef.current });
     markerRegion.setValue({
       ...start,
-      latitudeDelta: 0.01,
-      longitudeDelta: 0.01,
+      latitudeDelta: 0.002,
+      longitudeDelta: 0.002,
     });
     playStep();
   };
@@ -195,7 +199,11 @@ export default function RunReplayTmap() {
         ref={mapRef}
         provider={PROVIDER_GOOGLE}
         style={styles.map}
-        initialRegion={{ ...start, latitudeDelta: 0.01, longitudeDelta: 0.01 }}
+        initialRegion={{
+          ...start,
+          latitudeDelta: 0.002,
+          longitudeDelta: 0.002,
+        }}
       >
         <Polyline
           ref={polyRef}
@@ -228,34 +236,34 @@ export default function RunReplayTmap() {
   );
 }
 
-const { width, height } = Dimensions.get("window");
+const { width, height } = Dimensions.get('window');
 const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { width, height },
   homeBtn: {
-    position: "absolute",
+    position: 'absolute',
     top: 40,
     right: 20,
-    backgroundColor: "white",
+    backgroundColor: 'white',
     padding: 8,
     borderRadius: 20,
     elevation: 3,
   },
   homeBtnText: { fontSize: 16 },
   controls: {
-    position: "absolute",
+    position: 'absolute',
     bottom: 20,
-    alignSelf: "center",
-    backgroundColor: "rgba(255,255,255,0.9)",
+    alignSelf: 'center',
+    backgroundColor: 'rgba(255,255,255,0.9)',
     padding: 8,
     borderRadius: 6,
   },
   speedControls: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 8,
   },
   speedText: { marginHorizontal: 12, fontSize: 16 },
-  actionControls: { flexDirection: "row", justifyContent: "space-between" },
+  actionControls: { flexDirection: 'row', justifyContent: 'space-between' },
 });
