@@ -5,16 +5,17 @@ import {
   Alert,
   Dimensions,
   Modal,
+  Platform,
   Pressable,
-  ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import MapView, { Polyline } from 'react-native-maps';
-import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
+import Animated, { FadeOut, SlideInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // --- 필요한 모든 모듈들을 가져옵니다 ---
@@ -41,6 +42,13 @@ interface RunResult {
   didGradeDown: boolean;
 }
 
+// 실제 사용 가능한 화면 높이 계산
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+const STATUS_BAR_HEIGHT = StatusBar.currentHeight || 0;
+const SAFE_AREA_BOTTOM = Platform.OS === 'ios' ? 34 : 0;
+
+const AVAILABLE_HEIGHT = SCREEN_HEIGHT - STATUS_BAR_HEIGHT - SAFE_AREA_BOTTOM;
+
 export default function SummaryScreen() {
   const router = useRouter();
   const { data } = useLocalSearchParams<{ data: string }>();
@@ -55,10 +63,52 @@ export default function SummaryScreen() {
   const [showTrackNameModal, setShowTrackNameModal] = useState(false);
   const [tempTrackName, setTempTrackName] = useState('');
 
+  // 애니메이션 상태 관리
+  const [showLevelUp, setShowLevelUp] = useState(false);
+  const [showGradeUp, setShowGradeUp] = useState(false);
+
   // --- 애니메이션을 위한 상태 ---
   const userProfile = useUserStore((state) => state.profile);
   const [results, setResults] = useState<RunResult | null>(null);
   const [isCalculating, setIsCalculating] = useState(true);
+
+  // 애니메이션 타이밍 관리
+  useEffect(() => {
+    if (results?.didLevelUp) {
+      // 레벨 업 알림 표시
+      setShowLevelUp(true);
+      
+      // 3초 후에 레벨 업 알림 숨기기
+      const levelUpHideTimer = setTimeout(() => {
+        setShowLevelUp(false);
+        
+        // 레벨 업 알림이 사라진 직후 등급 상승 알림 표시 (등급 상승이 있는 경우)
+        if (results.didGradeUp) {
+          setTimeout(() => {
+            setShowGradeUp(true);
+            // 3초 후에 등급 상승 알림 숨기기
+            setTimeout(() => {
+              setShowGradeUp(false);
+            }, 3000);
+          }, 500); // 레벨 업 알림이 완전히 사라진 후 표시
+        }
+      }, 3000);
+
+      return () => {
+        clearTimeout(levelUpHideTimer);
+      };
+    } else if (results?.didGradeUp) {
+      // 레벨 업이 없는 경우 바로 등급 상승 알림 표시
+      setShowGradeUp(true);
+      const gradeUpHideTimer = setTimeout(() => {
+        setShowGradeUp(false);
+      }, 3000);
+
+      return () => {
+        clearTimeout(gradeUpHideTimer);
+      };
+    }
+  }, [results]);
 
   // 등급 랭크(순서) 비교 함수
   function getGradeRank(gradeName: string) {
@@ -480,12 +530,7 @@ export default function SummaryScreen() {
       style={{ flex: 1, backgroundColor: '#fff' }}
       edges={['bottom', 'left', 'right']}
     >
-      <View style={styles.dragIndicator} />
-      <ScrollView
-        contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* 상단 안내 메시지 */}
+      <View style={styles.container}>
         {isPathTooShort && (
           <View style={styles.warningBanner}>
             <Text style={styles.warningText}>
@@ -493,89 +538,13 @@ export default function SummaryScreen() {
             </Text>
           </View>
         )}
-        {/* --- 애니메이션 효과 섹션 --- */}
-        {results && userProfile && (
-          <View style={styles.resultsContainer}>
-            <Animated.Text entering={FadeIn.duration(800)} style={styles.title}>
-              러닝 완료!
-            </Animated.Text>
-
-            {parsed.mode === 'MATCH' && (
-              <Animated.View entering={FadeIn.delay(100)}>
-                <Text
-                  style={{
-                    fontSize: 20,
-                    fontWeight: '600',
-                    color: parsed.isWinner ? '#4caf50' : '#d32f2f',
-                    marginTop: 4,
-                  }}
-                >
-                  {parsed.isWinner
-                    ? '🎉 상대와의 대결에서 승리!'
-                    : '아쉽게도 패배하였습니다.'}
-                </Text>
-              </Animated.View>
-            )}
-            <View style={styles.scrollHintContainer}>
-              <Text style={styles.scrollHintText}>
-                아래로 스크롤하여 기록을 확인하세요 ↓
-              </Text>
-            </View>
-
-            {totalDistanceKm <= 0 ? (
-              <Animated.View entering={FadeIn.delay(200)}>
-                <Text style={styles.noRecordText}>
-                  기록할 만큼 충분히 달리지 못했어요.
-                </Text>
-              </Animated.View>
-            ) : (
-              <>
-                {/* 기존 애니메이션 섹션 (거리가 0보다 클 때만 보임) */}
-                <Animated.View entering={SlideInDown.delay(200).duration(600)}>
-                  <Text style={styles.label}>획득 포인트</Text>
-                  <Text style={styles.highlightText}>
-                    +{results.gainedPoints} P
-                  </Text>
-                </Animated.View>
-                {results.didLevelUp && (
-                  <Animated.View
-                    entering={SlideInDown.delay(600)}
-                    style={styles.resultBox}
-                  >
-                    <Text style={styles.levelUpText}>🎉 레벨 업! 🎉</Text>
-                    <Text style={styles.levelChangeText}>
-                      Lv. {userProfile.level} → Lv. {results.newLevel}
-                    </Text>
-                  </Animated.View>
-                )}
-                {results.didGradeUp && (
-                  <Animated.View
-                    entering={SlideInDown.delay(1000)}
-                    style={styles.resultBox}
-                  >
-                    <Text style={styles.gradeUpText}>✨ 등급 상승! ✨</Text>
-                    <View style={styles.gradeChangeContainer}>
-                      <GradeBadge
-                        grade={userProfile.grade}
-                        level={userProfile.level}
-                      />
-                      <Text style={styles.arrowText}>→</Text>
-                      <GradeBadge
-                        grade={results.newGrade}
-                        level={results.newLevel}
-                      />
-                    </View>
-                  </Animated.View>
-                )}
-              </>
-            )}
-          </View>
-        )}
-
-        {/* --- 기존 정보 표시 섹션 --- */}
-        <View style={styles.summaryContainer}>
+        
+        <View style={[
+          styles.mapContainer,
+          isPathTooShort && { height: AVAILABLE_HEIGHT * 0.6 - styles.warningBanner.height }
+        ]}>
           <MapView
-            style={{ width: width, height: 200 }}
+            style={styles.map}
             initialRegion={{
               latitude: userPath[0]?.latitude || 37.5665,
               longitude: userPath[0]?.longitude || 126.978,
@@ -589,43 +558,88 @@ export default function SummaryScreen() {
               strokeWidth={5}
             />
           </MapView>
-          <Text style={styles.distance}>{totalDistanceKm.toFixed(2)} km</Text>
-          <View style={styles.statsRow}>
-            <View style={styles.statBox}>
-              <Text style={styles.statLabel}>시간</Text>
-              <Text style={styles.statValue}>{formatTime(elapsedTime)}</Text>
+
+          {results && userProfile && totalDistanceKm > 0 && (
+            <View style={styles.overlayContainer}>
+              {results && totalDistanceKm > 0 && (
+                <Animated.View
+                  entering={SlideInDown.duration(500)}
+                  style={styles.pointsOverlay}
+                >
+                  <Text style={styles.points}>+{results.gainedPoints} P</Text>
+                </Animated.View>
+              )}
+              {showLevelUp && results.didLevelUp && (
+                <Animated.View
+                  entering={SlideInDown.duration(500)}
+                  exiting={FadeOut.duration(500)}
+                  style={styles.resultBox}
+                >
+                  <Text style={styles.levelUpText}>🎉 레벨 업! 🎉</Text>
+                  <Text style={styles.levelChangeText}>
+                    Lv. {userProfile.level} → Lv. {results.newLevel}
+                  </Text>
+                </Animated.View>
+              )}
+              {showGradeUp && results.didGradeUp && (
+                <Animated.View
+                  entering={SlideInDown.duration(500)}
+                  exiting={FadeOut.duration(500)}
+                  style={styles.resultBox}
+                >
+                  <Text style={styles.gradeUpText}>✨ 등급 상승! ✨</Text>
+                  <View style={styles.gradeChangeContainer}>
+                    <GradeBadge
+                      grade={userProfile.grade}
+                      level={userProfile.level}
+                    />
+                    <Text style={styles.arrowText}>→</Text>
+                    <GradeBadge
+                      grade={results.newGrade}
+                      level={results.newLevel}
+                    />
+                  </View>
+                </Animated.View>
+              )}
             </View>
-            <View style={styles.statBox}>
-              <Text style={styles.statLabel}>페이스</Text>
-              <Text style={styles.statValue}>{pace}</Text>
-            </View>
-            <View style={styles.statBox}>
-              <Text style={styles.statLabel}>칼로리</Text>
-              <Text style={styles.statValue}>{calories}</Text>
+          )}
+        </View>
+
+        <View style={[
+          styles.statsContainer,
+          isPathTooShort && { height: AVAILABLE_HEIGHT * 0.4 }
+        ]}>
+          <View style={styles.statsContent}>
+            <Text style={styles.distance}>{totalDistanceKm.toFixed(2)} km</Text>
+            <View style={styles.statsRow}>
+              <View style={styles.statBox}>
+                <Text style={styles.statLabel}>시간</Text>
+                <Text style={styles.statValue}>{formatTime(elapsedTime)}</Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={styles.statLabel}>페이스</Text>
+                <Text style={styles.statValue}>{pace}</Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={styles.statLabel}>칼로리</Text>
+                <Text style={styles.statValue}>{calories}</Text>
+              </View>
             </View>
           </View>
-          <View style={{ flex: 1 }} />
+          <View style={styles.buttonContainer}>
+            <Pressable
+              style={styles.completeButton}
+              onPress={() => {
+                console.log('저장하고 완료 버튼 클릭됨');
+                handleCompletePress();
+              }}
+            >
+              <Text style={styles.completeIcon}>🏁</Text>
+              <Text style={styles.completeButtonText}>저장하고 완료</Text>
+            </Pressable>
+          </View>
         </View>
-        <View style={{ height: 20 }} />
-        <Pressable
-          style={[
-            styles.completeButton,
-            {
-              backgroundColor: '#007aff',
-              alignSelf: 'center',
-              marginBottom: 20,
-            },
-          ]}
-          onPress={() => {
-            console.log('저장하고 완료 버튼 클릭됨');
-            handleCompletePress();
-          }}
-        >
-          <Text style={styles.completeIcon}>🏁</Text>
-          <Text style={styles.completeButtonText}>저장하고 완료</Text>
-        </Pressable>
-        <View style={{ height: 20 }} />
-        {/* 커스텀 트랙 이름 입력 모달 */}
+
         {showTrackNameModal && (
           <Modal transparent visible={showTrackNameModal} animationType="fade">
             <View
@@ -739,88 +753,179 @@ export default function SummaryScreen() {
             </View>
           </Modal>
         )}
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
 
-// 스타일 시트
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', paddingBottom: 140 },
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
   centeredContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  resultsContainer: {
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    backgroundColor: '#f0f8ff',
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    elevation: 5,
-    marginBottom: 10,
+  mapContainer: {
+    height: AVAILABLE_HEIGHT * 0.6,
+    width: '100%',
+    position: 'relative',
   },
-  title: { fontSize: 32, fontWeight: 'bold', marginVertical: 10 },
-  label: { fontSize: 16, color: '#555', marginTop: 15 },
-  highlightText: {
-    fontSize: 42,
-    fontWeight: 'bold',
+  map: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  overlayContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    pointerEvents: 'none',
+  },
+  pointsOverlay: {
+    position: 'absolute',
+    top: 20,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  points: {
+    fontSize: 28,
+    fontWeight: '600',
     color: '#007aff',
-    marginBottom: 15,
+    textAlign: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   resultBox: {
     width: '90%',
     marginVertical: 8,
     padding: 15,
-    backgroundColor: 'white',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 15,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
-  levelUpText: { fontSize: 22, fontWeight: 'bold', color: '#4caf50' },
-  levelChangeText: { fontSize: 18, color: '#333', marginTop: 5 },
-  gradeUpText: { fontSize: 22, fontWeight: 'bold', color: '#ff9800' },
+  levelUpText: { 
+    fontSize: 22, 
+    fontWeight: 'bold', 
+    color: '#4caf50' 
+  },
+  levelChangeText: { 
+    fontSize: 18, 
+    color: '#333', 
+    marginTop: 5 
+  },
+  gradeUpText: { 
+    fontSize: 22, 
+    fontWeight: 'bold', 
+    color: '#ff9800' 
+  },
   gradeChangeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 8,
   },
-  arrowText: { fontSize: 20, marginHorizontal: 15 },
-  summaryContainer: {
-    alignItems: 'center',
-    paddingTop: 10,
-    marginBottom: 0,
-    width: '100%',
-    backgroundColor: 'transparent',
+  arrowText: { 
+    fontSize: 20, 
+    marginHorizontal: 15 
   },
-  distance: { fontSize: 56, fontWeight: '800', marginVertical: 15 },
+  statsContainer: {
+    height: AVAILABLE_HEIGHT * 0.4,
+    width: '100%',
+    backgroundColor: '#fff',
+    paddingTop: 20,
+    justifyContent: 'flex-start',
+  },
+  statsContent: {
+    paddingHorizontal: 20,
+  },
+  distance: {
+    fontSize: 48,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 5,
+  },
   statsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '90%',
-    marginBottom: 0,
-  },
-  statBox: { alignItems: 'center', flex: 1 },
-  statLabel: { fontSize: 14, color: '#888' },
-  statValue: { fontSize: 20, fontWeight: '600', marginTop: 4 },
-  completeButton: {
+    justifyContent: 'space-between',
+    width: '100%',
     paddingVertical: 10,
-    borderRadius: 15,
-    backgroundColor: '#007aff',
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
+    marginBottom: 30,
   },
-  completeIcon: { fontSize: 24 },
+  statBox: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statLabel: {
+    fontSize: 14,
+    color: '#888',
+    marginBottom: 4,
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  buttonContainer: {
+    width: '100%',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  completeButton: {
+    backgroundColor: '#007aff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 15,
+    paddingHorizontal: 24,
+    borderRadius: 15,
+    width: '100%',
+  },
+  completeIcon: {
+    fontSize: 24,
+    marginRight: 8,
+  },
   completeButtonText: {
-    fontSize: 18,
     color: '#fff',
+    fontSize: 18,
     fontWeight: 'bold',
-    marginLeft: 10,
+  },
+  warningBanner: {
+    width: '100%',
+    height: 37, // paddingVertical: 10 + borderBottomWidth: 1 + text height
+    backgroundColor: '#ffe0e0',
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ffbdbd',
+    zIndex: 10,
+  },
+  warningText: {
+    color: '#d32f2f',
+    fontWeight: 'bold',
+    fontSize: 15,
   },
   modalContainer: {
     flex: 1,
@@ -835,21 +940,17 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     alignItems: 'center',
   },
-  modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 10 },
+  modalTitle: { 
+    fontSize: 22, 
+    fontWeight: 'bold', 
+    marginBottom: 10 
+  },
   modalText: {
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
     marginBottom: 20,
     lineHeight: 22,
-  },
-  input: {
-    width: '100%',
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
   },
   modalButtonContainer: {
     flexDirection: 'row',
@@ -864,12 +965,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
   },
-  modalButtonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
-  noRecordText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#666',
-    paddingVertical: 40, // 공간 확보
+  modalButtonText: { 
+    color: 'white', 
+    fontSize: 16, 
+    fontWeight: 'bold' 
   },
   loadingText: {
     marginTop: 20,
@@ -877,40 +976,4 @@ const styles = StyleSheet.create({
     color: '#555',
     fontWeight: '600',
   },
-  warningBanner: {
-    width: '100%',
-    backgroundColor: '#ffe0e0',
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#ffbdbd',
-    zIndex: 10,
-  },
-  warningBannerBottom: {
-    width: '100%',
-    backgroundColor: '#ffe0e0',
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#ffbdbd',
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-  },
-  warningText: {
-    color: '#d32f2f',
-    fontWeight: 'bold',
-    fontSize: 15,
-  },
-  dragIndicator: {
-    alignSelf: 'center',
-    width: 40,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: '#e0e0e0',
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  scrollHintContainer: { alignItems: 'center', marginVertical: 8 },
-  scrollHintText: { color: '#aaa', fontSize: 13 },
 });
