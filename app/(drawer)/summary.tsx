@@ -707,13 +707,13 @@ export default function SummaryScreen() {
                       paddingVertical: 10,
                       paddingHorizontal: 18,
                       borderRadius: 8,
-                      backgroundColor: '#eee',
+                      backgroundColor: '#rgba(209, 209, 209, 0.61)',
                       marginRight: 10,
                     }}
                   >
                     <Text
                       style={{
-                        color: '#333',
+                        color: '#555',
                         fontWeight: 'bold',
                         fontSize: 15,
                       }}
@@ -733,14 +733,15 @@ export default function SummaryScreen() {
                       paddingHorizontal: 18,
                       borderRadius: 8,
                       backgroundColor: tempTrackName.trim()
-                        ? '#007aff'
-                        : '#b0c4de',
+                        ? '#5EFFAE'
+                        : '#5effaf43',
+
                     }}
                     disabled={!tempTrackName.trim()}
                   >
                     <Text
                       style={{
-                        color: 'white',
+                        color: 'black',
                         fontWeight: 'bold',
                         fontSize: 15,
                       }}
@@ -894,7 +895,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   completeButton: {
-    backgroundColor: '#007aff',
+    backgroundColor: '#5EFFAE',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -908,7 +909,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   completeButtonText: {
-    color: '#fff',
+    color: '#black',
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -918,8 +919,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffe0e0',
     paddingVertical: 10,
     alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#ffbdbd',
     zIndex: 10,
   },
   warningText: {
