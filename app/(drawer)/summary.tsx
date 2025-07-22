@@ -677,7 +677,7 @@ export default function SummaryScreen() {
                 <TextInput
                   value={tempTrackName}
                   onChangeText={setTempTrackName}
-                  placeholder="예: 한강공원 5K"
+                  placeholder="예: 한강공원 5km"
                   style={{
                     borderWidth: 1,
                     borderColor: '#ccc',
