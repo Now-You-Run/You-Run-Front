@@ -1,6 +1,7 @@
 import { Coordinate } from '@/types/TrackDto';
 import { bearing } from '@/utils/PathTools';
 import { haversineDistance } from '@/utils/RunningUtils';
+import LottieView from 'lottie-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Circle, Marker, Polyline, Region } from 'react-native-maps';
@@ -273,14 +274,30 @@ export const RunningMap: React.FC<RunningMapProps> = React.memo(({
           </Marker>
         )}
 
-        {/* ✅ 봇 마커 (빨간색 점) */}
+        {/* ✅ 봇 마커 */}
         {botPosition && (
           <Marker
             coordinate={botPosition}
-            anchor={{ x: 0.5, y: 0.5 }}
-            zIndex={9}
+            anchor={{ x: 0.5, y: 1.0 }}
+            zIndex={999}
           >
-            <View style={styles.botMarker} />
+            {/* <View style={{
+                width: 100, height: 100,       // 💡 더 큰 투명 박스
+                justifyContent: 'center',
+                alignItems: 'center',
+                overflow: 'visible',           // ✅ 중요!
+              }}> */}
+           
+              <LottieView
+                source={require('@/assets/lottie/bot1.json')}
+                autoPlay
+                loop
+                renderMode="HARDWARE"
+                style={{ width: 40, height: 40, 
+                  
+                 }}
+              />
+      
           </Marker>
         )}
 
