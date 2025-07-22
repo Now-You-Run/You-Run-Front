@@ -1,26 +1,24 @@
 import BackButton from '@/components/button/BackButton';
 import { usePace } from '@/context/PaceContext';
 import { saveBotPace } from '@/repositories/appStorage';
-import { Picker } from '@react-native-picker/picker';
 import { router, useLocalSearchParams } from 'expo-router';
+import LottieView from 'lottie-react-native';
 import React, { useEffect, useState } from 'react';
 import {
   Dimensions,
-  Image,
   Platform,
   SafeAreaView,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
+import WheelPicker from 'react-native-wheel-picker-expo';
+import type { ItemType, RenderItemProps } from 'react-native-wheel-picker-expo/lib/typescript/types';
 import { SourceType } from './TrackDetailScreen';
 
-
-const { width, height } = Dimensions.get('window');
-const PICKER_HEIGHT = Math.max(100, Math.min(height * 0.1, 110));
+const { width } = Dimensions.get('window');
 
 const FacePaceScreen: React.FC = () => {
   const { trackId, source } = useLocalSearchParams<{ trackId?: string; source: SourceType }>();
@@ -30,13 +28,40 @@ const FacePaceScreen: React.FC = () => {
   const [seconds, setSeconds] = useState(0);
   const [showMessage, setShowMessage] = useState(true);
   const [isHelpMode, setIsHelpMode] = useState(false);
+  const [minutesIndex, setMinutesIndex] = useState(0);
+  const [secondsIndex, setSecondsIndex] = useState(0);
+
+  const minuteItems: ItemType[] = Array.from({ length: 60 }, (_, i) => ({
+    label: i.toString().padStart(2, '0'),
+    value: i
+  }));
+
+  const secondItems: ItemType[] = Array.from({ length: 60 }, (_, i) => ({
+    label: i.toString().padStart(2, '0'),
+    value: i
+  }));
+
+  useEffect(() => {
+    // minutes가 변경될 때마다 해당 값의 인덱스를 찾아서 설정
+    const index = minuteItems.findIndex(item => item.value === minutes);
+    if (index !== -1) {
+      setMinutesIndex(index);
+    }
+  }, [minutes, minuteItems]);
+
+  useEffect(() => {
+    // seconds가 변경될 때마다 해당 값의 인덱스를 찾아서 설정
+    const index = secondItems.findIndex(item => item.value === seconds);
+    if (index !== -1) {
+      setSecondsIndex(index);
+    }
+  }, [seconds, secondItems]);
 
   useEffect(() => {
     const t = setTimeout(() => setShowMessage(false), 2500);
     return () => clearTimeout(t);
   }, []);
 
-  const fmt = (n: number) => n.toString().padStart(2, '0');
   const handleComplete = async () => {
     if (!trackId) return console.warn('Missing trackId');
     setBotPace({ minutes, seconds });
@@ -44,92 +69,131 @@ const FacePaceScreen: React.FC = () => {
     router.push({ pathname: '/RunningWithBot', params: { trackId, botMin: `${minutes}`, botSec: `${seconds}`, source } });
   };
 
+  const renderPickerItem = (props: RenderItemProps) => (
+    <View style={styles.pickerItemContainer}>
+      <Text style={styles.pickerItemText}>{props.label}</Text>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fafafa" />
-
-      {/* ScrollView로 감싸기 */}
-      <ScrollView
-       contentContainerStyle={styles.scrollContainer}
-       showsVerticalScrollIndicator={false}
-      >
-      {/* header */}
-      <View style={styles.header}>
-        {/* 절대위치: 뒤로가기 */}
+      <StatusBar barStyle="dark-content" backgroundColor="#FAFAFA" />
+      <View style={styles.scrollContainer}>
+        {/* header */}
+        <View style={styles.header}>
           <View style={styles.backWrapper}>
             <BackButton onPress={() => router.back()} />
           </View>
-          {/* 절대위치: 물음표 */}
           <TouchableOpacity
             style={styles.helpWrapper}
             onPress={() => setIsHelpMode(h => !h)}
           >
             <Text style={styles.helpIcon}>?</Text>
           </TouchableOpacity>
-      </View>
+        </View>
 
-      {/* bot & message */}
-     
-        <Image source={require('@/assets/images/bot.png')} style={styles.botImg} resizeMode="contain" />
-        {(showMessage || isHelpMode) && (
-          <View style={[styles.tooltip, isHelpMode ? styles.tooltipHelp : styles.tooltipInit]}>
-            <Text style={[styles.tooltipText, isHelpMode && styles.tooltipTextHelp]}>
-              {isHelpMode
-                ? '설정하신 페이스대로 \n봇이 움직일 예정입니다.\n실력에 맞게 설정하고, 따라가세요!'
-                : '봇의 페이스를 설정해주세요.'}
-            </Text>
-          </View>
-        )}
-      
-
-      {/* picker */}
-      <View style={styles.pickerRow}>
-        {['분', '초'].map((lbl, idx) => (
-          <View key={lbl} style={styles.pickerBlock}>
-            <Text style={styles.pickerLabel}>{lbl}</Text>
-            <View style={styles.pickerWrap}>
-              <Picker
-                selectedValue={idx === 0 ? minutes : seconds}
-                style={styles.picker}
-                onValueChange={v => idx === 0 ? setMinutes(v) : setSeconds(v)}
-                mode={Platform.OS === 'android' ? 'dropdown' : 'dialog'}
-              >
-                {Array.from({ length: 60 }, (_, i) => (
-                  <Picker.Item key={i} label={fmt(i)} value={i} />
-                ))}
-              </Picker>
+        {/* bot animation */}
+        <View style={styles.botContainer}>
+          <LottieView
+            source={require('@/assets/lottie/bot1.json')}
+            autoPlay
+            loop
+            style={styles.botAnimation}
+          />
+          {(showMessage || isHelpMode) && (
+            <View style={[styles.tooltip, isHelpMode ? styles.tooltipHelp : styles.tooltipInit]}>
+              <Text style={[styles.tooltipText, isHelpMode && styles.tooltipTextHelp]}>
+                {isHelpMode
+                  ? '설정하신 페이스대로 \n봇이 움직일 예정입니다.\n실력에 맞게 설정하고, 따라가세요!'
+                  : '봇의 페이스를 설정해주세요.'}
+              </Text>
             </View>
+          )}
+        </View>
+
+        {/* wheel picker */}
+        <View style={styles.pickerContainer}>
+          <View style={styles.pickerWrapper}>
+            <View style={styles.pickerWrap}>
+              <WheelPicker
+                items={minuteItems}
+                onChange={({ item }) => setMinutes(item.value)}
+                height={120}
+                width={width * 0.3}
+                backgroundColor="#FFFFFF"
+                selectedStyle={{
+                  borderColor: '#007AFF',
+                  borderWidth: 1,
+                }}
+                renderItem={renderPickerItem}
+                haptics={true}
+                flatListProps={{
+                  contentContainerStyle: {
+                    paddingTop: 1,
+                    paddingBottom: 120
+                  }
+                }}
+                initialSelectedIndex={minutes}
+                key={`minutes-${minutes}`}
+              />
+            </View>
+            <Text style={styles.pickerLabel}>분</Text>
           </View>
-        ))}
-      </View>
+          <View style={styles.pickerWrapper}>
+            <View style={styles.pickerWrap}>
+              <WheelPicker
+                items={secondItems}
+                onChange={({ item }) => setSeconds(item.value)}
+                height={120}
+                width={width * 0.3}
+                backgroundColor="#FFFFFF"
+                selectedStyle={{
+                  borderColor: '#007AFF',
+                  borderWidth: 1,
+                }}
+                renderItem={renderPickerItem}
+                haptics={true}
+                flatListProps={{
+                  contentContainerStyle: {
+                    paddingTop: 1,
+                    paddingBottom: 120
+                  }
+                }}
+                initialSelectedIndex={seconds}
+                key={`seconds-${seconds}`}
+              />
+            </View>
+            <Text style={styles.pickerLabel}>초</Text>
+          </View>
+        </View>
 
-      {/* presets */}
-      <View style={styles.presets}>
-        {[{ m:10, s:0, label:'초급자\n(10분)' , bg:'#d0f0fc'},
-          { m:7,  s:0, label:'중급자\n(7분)'  , bg:'#ffe7b3'},
-          { m:5,  s:0, label:'고급자\n(5분)'  , bg:'#ffccd4'}].map(p => (
+        {/* presets */}
+        <View style={styles.presets}>
           <TouchableOpacity
-            key={p.label}
-            style={[styles.presetBtn, { backgroundColor: p.bg }]}
-            onPress={() => { setMinutes(p.m); setSeconds(p.s); }}
+            style={[styles.presetBtn, { backgroundColor: '#D0F0FC' }]}
+            onPress={() => { setMinutes(10); setSeconds(0); }}
           >
-            <Text style={styles.presetText}>{p.label}</Text>
+            <Text style={styles.presetText}>초</Text>
           </TouchableOpacity>
-        ))}
-      </View>
+          <TouchableOpacity
+            style={[styles.presetBtn, { backgroundColor: '#FFE7B3' }]}
+            onPress={() => { setMinutes(7); setSeconds(0); }}
+          >
+            <Text style={styles.presetText}>중</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.presetBtn, { backgroundColor: '#FFCCD4' }]}
+            onPress={() => { setMinutes(5); setSeconds(0); }}
+          >
+            <Text style={styles.presetText}>고</Text>
+          </TouchableOpacity>
+        </View>
 
-      {/* selected */}
-      <View style={styles.selected}>
-        <Text style={styles.selectedText}>
-          봇의 페이스: {fmt(minutes)}분 {fmt(seconds)}초
-        </Text>
+        {/* run button */}
+        <TouchableOpacity style={styles.runBtn} onPress={handleComplete}>
+          <Text style={styles.runText}>달리기</Text>
+        </TouchableOpacity>
       </View>
-
-      {/* run */}
-      <TouchableOpacity style={styles.runBtn} onPress={handleComplete}>
-        <Text style={styles.runText}>달리기</Text>
-      </TouchableOpacity>
-      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -137,22 +201,19 @@ const FacePaceScreen: React.FC = () => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#fafafa',
-    alignItems: 'center',
-    paddingTop: 12,
-    paddingHorizontal: 16,
+    backgroundColor: '#FAFAFA',
   },
   scrollContainer: {
+    flex: 1,
     alignItems: 'center',
-    paddingTop: 12,
+    paddingTop: 10,
     paddingHorizontal: 16,
-    // 필요에 따라 paddingBottom 추가
     paddingBottom: 40,
   },
   header: {
     width: '100%',
-    height:44,
-    position:'relative',
+    height: 44,
+    position: 'relative',
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
@@ -166,31 +227,19 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
   },
-  iconBtn: {
-    padding: 8,
-    borderRadius: 20,
-  },
   helpIcon: {
     fontSize: 30,
     fontWeight: 'bold',
     color: '#e91e63',
     right: 0,
-    top:10
+    top: 10
   },
-
-  botCard: {
-    width: '100%',
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    paddingVertical: 20,
+  botContainer: {
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 4,
-    marginTop: 12,
+    marginTop: 20,
+    marginBottom: 20,
   },
-  botImg: {
+  botAnimation: {
     width: 200,
     height: 200,
   },
@@ -218,96 +267,108 @@ const styles = StyleSheet.create({
   tooltipTextHelp: {
     color: '#f57c00',
   },
-
-  pickerRow: {
+  pickerContainer: {
     flexDirection: 'row',
-    width: '100%',
-    justifyContent: 'space-around',
-    marginTop: 24,
-  },
-  pickerBlock: {
+    justifyContent: 'center',
     alignItems: 'center',
-    flex: 1,
+    marginTop: 20,
+    marginBottom: 20,
   },
-  pickerLabel: {
-    fontSize: 16,
-    color: '#555',
-    marginBottom: 6,
-    fontWeight: '500',
+  pickerWrapper: {
+    alignItems: 'center',
+    marginHorizontal: 10,
   },
   pickerWrap: {
     width: width * 0.3,
-    height: Platform.OS === 'android' ? 10 : PICKER_HEIGHT + 80,    // 카드 높이 좀 더
+    height: 120,
     backgroundColor: '#ffffff',
-    borderRadius: 20,                // 좀 더 둥글게
-    borderWidth: 1,
-    borderColor: '#ececec',          // 은은한 테두리
+    borderRadius: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
+    overflow: 'hidden',
+  },
+  pickerItemContainer: {
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
-    overflow: 'hidden',
-    paddingBottom: 50
   },
-  picker: {
-    width: '100%',
-    height: Platform.OS === 'android' ? 200 : '100%',
-    marginTop: Platform.OS === 'android' ? 50 : 0, // 숫자가 중심에 오도록
-    transform: Platform.OS === 'android' ? [] : [{ scaleY: 0.85 }],
+  pickerItemText: {
+    fontSize: 18,
+    color: '#333',
+    textAlign: 'center',
   },
-
+  pickerLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginTop: 8,
+  },
   presets: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
     marginTop: 32,
+    marginRight: 20,
+    marginLeft: 25,
   },
   presetBtn: {
-    flex: 1,
-    marginHorizontal: 4,
-    paddingVertical: 14,
-    borderRadius: 24,
+    width: 80,
+    height: 80,
+    borderRadius: 60,
     alignItems: 'center',
     justifyContent: 'center',
+    marginHorizontal: 20,
+    
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0,
+        shadowRadius: 3.84,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
   },
   presetText: {
-    textAlign: 'center',
-    fontSize: 15,
+    fontSize: 20,
     fontWeight: '600',
     color: '#333',
-    lineHeight: 20,
   },
-
-  selected: {
-    marginTop: 28,
-    backgroundColor: '#e8f5e9',
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-  },
-  selectedText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#388e3c',
-  },
-
   runBtn: {
-    marginTop: 24,
-    backgroundColor: '#a8e6cf',
+    height: 90,
+    marginTop: 50,
+    backgroundColor: '#5EFFAE',
     paddingVertical: 18,
     paddingHorizontal: 80,
     borderRadius: 50,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 3,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0.05, height: 0.05 },
+        shadowOpacity: 0,
+        shadowRadius: 3.0,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
   },
   runText: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#22543d',
+    color: 'black',
+    marginTop: 17,
   },
 });
 
