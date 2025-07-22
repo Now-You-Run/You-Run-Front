@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface FinishModalProps {
@@ -14,6 +14,29 @@ export const FinishModal: React.FC<FinishModalProps> = ({
   onClose,
   onConfirm
 }) => {
+  const [userName, setUserName] = useState('');
+
+  useEffect(() => {
+    const fetchUserName = async () => {
+      try {
+        const response = await fetch(
+          `${process.env.EXPO_PUBLIC_SERVER_API_URL}/api/user?userId=1`
+        );
+        if (!response.ok) {
+          throw new Error('네트워크 오류');
+        }
+        const json = await response.json();
+        setUserName(json.data.name);
+      } catch (e) {
+        console.error('유저 이름 로드 실패:', e);
+      }
+    };
+
+    if (visible) {
+      fetchUserName();
+    }
+  }, [visible]);
+
   return (
     <Modal
       transparent
@@ -25,7 +48,7 @@ export const FinishModal: React.FC<FinishModalProps> = ({
         <View style={styles.modalContent}>
           <Text style={styles.modalTitle}>러닝 종료</Text>
           <Text style={styles.modalText}>
-            수고하셨습니다!{'\n'}러닝이 안전하게 종료되었습니다.
+            수고하셨어요 {userName}님!{'\n'}러닝이 안전하게 종료되었습니다.
           </Text>
           <TouchableOpacity
             style={styles.confirmButton}
