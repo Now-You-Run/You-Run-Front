@@ -25,13 +25,13 @@ export const FinishModal: React.FC<FinishModalProps> = ({
         <View style={styles.modalContent}>
           <Text style={styles.modalTitle}>러닝 종료</Text>
           <Text style={styles.modalText}>
-            수고하셨습니다! 러닝이 안전하게 종료되었습니다.
+            수고하셨습니다!{'\n'}러닝이 안전하게 종료되었습니다.
           </Text>
           <TouchableOpacity
             style={styles.confirmButton}
             onPress={onConfirm}
           >
-            <Text style={styles.confirmButtonText}>결과 확인하기</Text>
+            <Text style={styles.confirmButtonText}>결과 확인</Text>
           </TouchableOpacity>
         </View>
       </View>
