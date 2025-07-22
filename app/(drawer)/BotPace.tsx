@@ -1,4 +1,3 @@
-import BackButton from '@/components/button/BackButton';
 import { usePace } from '@/context/PaceContext';
 import { saveBotPace } from '@/repositories/appStorage';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -6,6 +5,7 @@ import LottieView from 'lottie-react-native';
 import React, { useEffect, useState } from 'react';
 import {
   Dimensions,
+  Image,
   Platform,
   SafeAreaView,
   StatusBar,
@@ -30,6 +30,31 @@ const FacePaceScreen: React.FC = () => {
   const [isHelpMode, setIsHelpMode] = useState(false);
   const [minutesIndex, setMinutesIndex] = useState(0);
   const [secondsIndex, setSecondsIndex] = useState(0);
+  const [showGuideMessage, setShowGuideMessage] = useState(false);
+  const [currentBot, setCurrentBot] = useState('bot1');  // 현재 표시할 봇 애니메이션
+  const [guideText, setGuideText] = useState('');  // 안내 메시지 텍스트
+  const [showStar, setShowStar] = useState(false);
+  const [userName, setUserName] = useState('');
+
+  // 사용자 이름 가져오기
+  useEffect(() => {
+    const fetchUserName = async () => {
+      try {
+        const response = await fetch(
+          `${process.env.EXPO_PUBLIC_SERVER_API_URL}/api/user?userId=1`
+        );
+        if (!response.ok) {
+          throw new Error('네트워크 오류');
+        }
+        const json = await response.json();
+        setUserName(json.data.name);
+      } catch (e) {
+        console.error('유저 이름 로드 실패:', e);
+      }
+    };
+
+    fetchUserName();
+  }, []);
 
   const minuteItems: ItemType[] = Array.from({ length: 60 }, (_, i) => ({
     label: i.toString().padStart(2, '0'),
@@ -62,11 +87,79 @@ const FacePaceScreen: React.FC = () => {
     return () => clearTimeout(t);
   }, []);
 
+  // 시간에 따른 봇 변경만 처리
+  useEffect(() => {
+    const totalSeconds = minutes * 60 + seconds;
+    if (totalSeconds >= 600) { // 10분 00초 이상
+      setCurrentBot('bot1');
+      setShowStar(false);
+    } else if (totalSeconds >= 420) { // 7분 00초 이상
+      setCurrentBot('bot1');
+      setShowStar(true);
+    } else if (totalSeconds >= 300) { // 5분 00초 이상
+      setCurrentBot('bot2');
+      setShowStar(false);
+    }
+  }, [minutes, seconds]);
+
   const handleComplete = async () => {
     if (!trackId) return console.warn('Missing trackId');
     setBotPace({ minutes, seconds });
     await saveBotPace({ minutes, seconds });
     router.push({ pathname: '/RunningWithBot', params: { trackId, botMin: `${minutes}`, botSec: `${seconds}`, source } });
+  };
+
+  const handleBeginnerPress = () => {
+    setMinutes(10);
+    setSeconds(0);
+    setCurrentBot('bot1');
+    setShowStar(false);
+    setGuideText('초급자 모드예요.\n10분에 1km를 달리는\n속도로 함께 달릴게요.');
+    setShowGuideMessage(true);
+    setTimeout(() => {
+      setShowGuideMessage(false);
+    }, 5000);  
+  };
+
+  const handleIntermediatePress = () => {
+    setMinutes(7);
+    setSeconds(0);
+    setCurrentBot('bot1');
+    setShowStar(true);
+    setGuideText('중급자 모드예요.\n7분에 1km를 달리는\n속도로 함께 달릴게요.');
+    setShowGuideMessage(true);
+    setTimeout(() => {
+      setShowGuideMessage(false);
+    }, 5000);  
+  };
+
+  const handleAdvancedPress = () => {
+    setMinutes(5);
+    setSeconds(0);
+    setCurrentBot('bot2');
+    setShowStar(false);
+    setGuideText('고급자 모드예요.\n5분에 1km를 달리는\n속도로 함께 달릴게요.');
+    setShowGuideMessage(true);
+    setTimeout(() => {
+      setShowGuideMessage(false);
+    }, 5000); 
+  };
+
+
+  const handleMinutesChange = ({ item }: { item: ItemType }) => {
+    setMinutes(item.value);
+    setShowGuideMessage(true);
+    setTimeout(() => {
+      setShowGuideMessage(false);
+    }, 3000);
+  };
+
+  const handleSecondsChange = ({ item }: { item: ItemType }) => {
+    setSeconds(item.value);
+    setShowGuideMessage(true);
+    setTimeout(() => {
+      setShowGuideMessage(false);
+    }, 3000);
   };
 
   const renderPickerItem = (props: RenderItemProps) => (
@@ -81,32 +174,56 @@ const FacePaceScreen: React.FC = () => {
       <View style={styles.scrollContainer}>
         {/* header */}
         <View style={styles.header}>
-          <View style={styles.backWrapper}>
-            <BackButton onPress={() => router.back()} />
-          </View>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Image source={require('@/assets/images/backButton.png')} style={styles.backButton} />
+          </TouchableOpacity>
           <TouchableOpacity
-            style={styles.helpWrapper}
-            onPress={() => setIsHelpMode(h => !h)}
+            style={styles.helpIconContainer}
+            onPress={() => setIsHelpMode(!isHelpMode)}
           >
-            <Text style={styles.helpIcon}>?</Text>
+            <Image
+              source={require('@/assets/images/helpbutton.png')}
+              style={styles.helpIcon}
+            />
           </TouchableOpacity>
         </View>
 
         {/* bot animation */}
         <View style={styles.botContainer}>
           <LottieView
-            source={require('@/assets/lottie/bot1.json')}
+            source={currentBot === 'bot1' 
+              ? require('@/assets/lottie/bot1.json')
+              : require('@/assets/lottie/bot2.json')}
             autoPlay
             loop
             style={styles.botAnimation}
           />
+          {showStar && (
+            <LottieView
+              source={require('@/assets/lottie/star.json')}
+              autoPlay
+              loop
+              style={styles.starAnimation}
+            />
+          )}
           {(showMessage || isHelpMode) && (
-            <View style={[styles.tooltip, isHelpMode ? styles.tooltipHelp : styles.tooltipInit]}>
-              <Text style={[styles.tooltipText, isHelpMode && styles.tooltipTextHelp]}>
+            <View style={[
+              styles.messageBox,
+              isHelpMode ? styles.helpMessageBox : styles.initialMessageBox
+            ]}>
+              <Text style={[
+                styles.guideText,
+                isHelpMode ? styles.helpGuideText : styles.initialGuideText
+              ]}>
                 {isHelpMode
-                  ? '설정하신 페이스대로 \n봇이 움직일 예정입니다.\n실력에 맞게 설정하고, 따라가세요!'
-                  : '봇의 페이스를 설정해주세요.'}
+                  ? `저는 ${userName}님의 옆에서 함께 달리며\n속도를 맞춰주는 페이스메이커예요.\n1km를 몇 분에 달리고 싶은지 설정하면 \n 제가 그 속도로 달릴게요.`
+                  : `어떤 속도로 달려볼까요?`}
               </Text>
+            </View>
+          )}
+          {showGuideMessage && (
+            <View style={styles.guideMessage}>
+              <Text style={styles.guideText}>{guideText}</Text>
             </View>
           )}
         </View>
@@ -122,7 +239,7 @@ const FacePaceScreen: React.FC = () => {
                 width={width * 0.3}
                 backgroundColor="#FFFFFF"
                 selectedStyle={{
-                  borderColor: '#007AFF',
+                  borderColor: '#CCCCCC',
                   borderWidth: 1,
                 }}
                 renderItem={renderPickerItem}
@@ -148,7 +265,7 @@ const FacePaceScreen: React.FC = () => {
                 width={width * 0.3}
                 backgroundColor="#FFFFFF"
                 selectedStyle={{
-                  borderColor: '#007AFF',
+                  borderColor: '#CCCCCC',
                   borderWidth: 1,
                 }}
                 renderItem={renderPickerItem}
@@ -170,20 +287,20 @@ const FacePaceScreen: React.FC = () => {
         {/* presets */}
         <View style={styles.presets}>
           <TouchableOpacity
-            style={[styles.presetBtn, { backgroundColor: '#D0F0FC' }]}
-            onPress={() => { setMinutes(10); setSeconds(0); }}
+            style={[styles.presetBtn, { backgroundColor: '#5EFFAE' }]}
+            onPress={handleBeginnerPress}
           >
             <Text style={styles.presetText}>초</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.presetBtn, { backgroundColor: '#FFE7B3' }]}
-            onPress={() => { setMinutes(7); setSeconds(0); }}
+            style={[styles.presetBtn, { backgroundColor: '#FFF79A' }]}
+            onPress={handleIntermediatePress}
           >
             <Text style={styles.presetText}>중</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.presetBtn, { backgroundColor: '#FFCCD4' }]}
-            onPress={() => { setMinutes(5); setSeconds(0); }}
+            style={[styles.presetBtn, { backgroundColor: '#FF9CF8' }]}
+            onPress={handleAdvancedPress}
           >
             <Text style={styles.presetText}>고</Text>
           </TouchableOpacity>
@@ -191,7 +308,7 @@ const FacePaceScreen: React.FC = () => {
 
         {/* run button */}
         <TouchableOpacity style={styles.runBtn} onPress={handleComplete}>
-          <Text style={styles.runText}>달리기</Text>
+          <Text style={styles.runText}>START</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -206,42 +323,45 @@ const styles = StyleSheet.create({
   scrollContainer: {
     flex: 1,
     alignItems: 'center',
-    paddingTop: 10,
-    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingHorizontal: 20,
     paddingBottom: 40,
   },
   header: {
     width: '100%',
-    height: 44,
+    height: 56,
     position: 'relative',
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  backWrapper: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
+  backButton: {
+    width: 24,
+    height: 24,
+    resizeMode: 'contain',
   },
-  helpWrapper: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
+  helpIconContainer: {
+    padding: 8,
   },
   helpIcon: {
-    fontSize: 30,
-    fontWeight: 'bold',
-    color: '#e91e63',
-    right: 0,
-    top: 10
+    width: 24,
+    height: 24,
+    resizeMode: 'contain',
   },
   botContainer: {
     alignItems: 'center',
     marginTop: 20,
     marginBottom: 20,
+    marginLeft: -180,  
   },
   botAnimation: {
     width: 200,
     height: 200,
+  },
+  starAnimation: {
+    position: 'absolute',
+    width: 250,  
+    height: 250,  
+    opacity: 0.8,
   },
   tooltip: {
     position: 'absolute',
@@ -255,17 +375,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#e3f2fd',
   },
   tooltipHelp: {
-    backgroundColor: '#fff9c4',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   tooltipText: {
     textAlign: 'center',
     fontSize: 16,
-    color: '#1976d2',
+    color: '#000000',
     fontWeight: '600',
     lineHeight: 22,
   },
   tooltipTextHelp: {
-    color: '#f57c00',
+    color: '#000000',
   },
   pickerContainer: {
     flexDirection: 'row',
@@ -303,13 +431,12 @@ const styles = StyleSheet.create({
   },
   pickerItemText: {
     fontSize: 18,
-    color: '#333',
-    textAlign: 'center',
+    color: '#000000',
   },
   pickerLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: '#000000',
     marginTop: 8,
   },
   presets: {
@@ -343,21 +470,24 @@ const styles = StyleSheet.create({
   presetText: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#333',
+    color: '#000000',
   },
   runBtn: {
     height: 90,
     marginTop: 50,
-    backgroundColor: '#5EFFAE',
+    backgroundColor: '#DDDDDD',
     paddingVertical: 18,
     paddingHorizontal: 80,
     borderRadius: 50,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0.05, height: 0.05 },
-        shadowOpacity: 0,
-        shadowRadius: 3.0,
+        shadowOffset: {
+          width: 0,
+          height: 2,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
       },
       android: {
         elevation: 5,
@@ -369,6 +499,77 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: 'black',
     marginTop: 17,
+  },
+  guideMessage: {
+    position: 'absolute',
+    right: -170,
+    top: '40%',
+    transform: [{ translateY: -40 }],
+    backgroundColor: 'rgba(248, 248, 248, 0.54)',
+    padding: 20,
+    paddingVertical: 25,
+    borderRadius: 12,
+    minWidth: 200,
+    minHeight: 120,
+    borderColor: '#DDDDDD',
+    borderWidth: 1,
+  },
+  guideText: {
+    fontSize: 18,
+    color: '#000000',
+    textAlign: 'center',
+    fontWeight: 'semibold',
+    lineHeight: 30,
+  },
+  initialGuideMessage: {
+    position: 'absolute',
+    right: -170,
+    top: '40%',
+    transform: [{ translateY: -40 }],
+    backgroundColor: 'rgba(248, 248, 248, 0.54)',
+    padding: 20,
+    paddingVertical: 25,
+    borderRadius: 12,
+    minWidth: 200,
+    minHeight: 80,
+    borderColor: '#DDDDDD',
+    borderWidth: 1,
+  },
+  messageBox: {
+    position: 'absolute',
+    right: -170,
+    top: '40%',
+    transform: [{ translateY: -40 }],
+    padding: 20,
+    paddingVertical: 25,
+    borderRadius: 12,
+    minWidth: 200,
+  },
+  initialMessageBox: {
+    backgroundColor: 'rgba(248, 248, 248, 0.54)',
+    minHeight: 80,
+    borderColor: '#DDDDDD',
+    borderWidth: 1,
+  },
+  helpMessageBox: {
+    top: '10%',
+    backgroundColor: '#FFFFFF',
+    minHeight: 120,
+    shadowColor: '#000000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  initialGuideText: {
+    color: '#000000',
+  },
+  helpGuideText: {
+    color: '#000000',
+    fontSize: 18,
   },
 });
 
