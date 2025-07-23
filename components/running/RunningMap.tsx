@@ -2,7 +2,7 @@ import { Coordinate } from '@/types/TrackDto';
 import { bearing } from '@/utils/PathTools';
 import { haversineDistance } from '@/utils/RunningUtils';
 import LottieView from 'lottie-react-native';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Circle, Marker, Polyline, Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -26,11 +26,12 @@ interface RunningMapProps {
   // 상위 컴포넌트와 통신하기 위한 콜백 함수
   onAvatarPositionUpdate: (coord: Coordinate, force?: boolean) => void;
   onMapReady?: (mapRef: MapView | null) => void;
+  onPress?: () => void;  // 지도 클릭 이벤트 핸들러 추가
 }
 
 
 
-export const RunningMap: React.FC<RunningMapProps> = React.memo(({
+export const RunningMap = forwardRef<MapView, RunningMapProps>(({
   path,
   isActive,
   initialRegion,
@@ -44,9 +45,9 @@ export const RunningMap: React.FC<RunningMapProps> = React.memo(({
   isSimulating,
   userLocation,
   opponentLivePath,
-  opponentGhost
-}) => {
-  const mapRef = useRef<MapView>(null);
+  opponentGhost,
+  onPress
+}, ref) => {
   const insets = useSafeAreaInsets();
   const lastUpdateRef = useRef<number>(0);
 
@@ -70,7 +71,8 @@ export const RunningMap: React.FC<RunningMapProps> = React.memo(({
 
   // ✅ 조건부 카메라 업데이트 함수 (방향 포함, 보간 및 임계값 적용)
   const updateCameraIfNeeded = useCallback((coord: Coordinate) => {
-    if (!autoCenter) return;
+    if (!autoCenter || !ref || !('current' in ref)) return;
+    
     const now = Date.now();
     const prev = lastCameraCoordRef.current;
     const moved = !prev ? Infinity :
@@ -100,19 +102,19 @@ export const RunningMap: React.FC<RunningMapProps> = React.memo(({
       now - lastCameraUpdateRef.current > CAMERA_UPDATE_INTERVAL
     ) {
       if (typeof heading === 'number' && !isNaN(heading)) {
-        mapRef.current?.animateCamera({
+        ref.current?.animateCamera({
           center: coord,
           heading: heading,
         }, { duration: 500 });
       } else {
-        mapRef.current?.animateCamera({
+        ref.current?.animateCamera({
           center: coord,
         }, { duration: 500 });
       }
       lastCameraUpdateRef.current = now;
       lastCameraCoordRef.current = coord;
     }
-  }, [autoCenter, path]);
+  }, [autoCenter, path, ref]);
 
   // ✅ 실시간 위치 업데이트 (카메라 추적 제한)
   useEffect(() => {
@@ -131,7 +133,7 @@ export const RunningMap: React.FC<RunningMapProps> = React.memo(({
     if (path.length === 0) return;
 
     const lastCoord = path[path.length - 1];
-    mapRef.current?.animateCamera({
+    (ref as React.RefObject<MapView>).current?.animateCamera({
       center: lastCoord,
       zoom: 17,
     }, { duration: 500 });
@@ -140,12 +142,12 @@ export const RunningMap: React.FC<RunningMapProps> = React.memo(({
     setTimeout(() => {
       onAvatarPositionUpdate(lastCoord, true);
     }, 600);
-  }, [path, onAvatarPositionUpdate]);
+  }, [path, onAvatarPositionUpdate, ref]);
 
   return (
     <View style={StyleSheet.absoluteFill}>
       <MapView
-        ref={mapRef}
+        ref={ref}
         style={StyleSheet.absoluteFill}
         initialRegion={initialRegion}
         region={region || initialRegion}
@@ -156,10 +158,11 @@ export const RunningMap: React.FC<RunningMapProps> = React.memo(({
         pitchEnabled={false}
         zoomEnabled={true}
         scrollEnabled={true}
+        onPress={onPress}  // 지도 클릭 이벤트 핸들러 연결
         onMapReady={() => {
           console.log('🗺️ 지도 준비 완료');
-          if (onMapReady && mapRef.current) {
-            onMapReady(mapRef.current);
+          if (onMapReady && ref && 'current' in ref) {
+            onMapReady(ref.current);
           }
         }}
         onRegionChangeComplete={() => {
