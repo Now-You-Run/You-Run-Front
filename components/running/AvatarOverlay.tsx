@@ -33,10 +33,10 @@ export const AvatarOverlay = React.memo(({
   // 최적화: style 객체를 useMemo로 캐싱
   const containerStyle = useMemo(() => ({
     position: "absolute" as const,
-    left: screenPos ? screenPos.x - 35 : -100,
-    top: screenPos ? screenPos.y - 90 : -100, // -70에서 -90으로 수정
-    width: 70,
-    height: 100, // 80에서 100으로 증가
+    left: screenPos ? screenPos.x - 60 : -100,
+    top: screenPos ? screenPos.y - 200 : -100, // -70에서 -90으로 수정
+    width: 120,
+    height: 250, // 80에서 100으로 증가
     zIndex: 900, // RunningControls의 zIndex(1500)보다 낮게 설정
     opacity: screenPos ? 1 : 0,
     pointerEvents: "none" as const,
