@@ -23,6 +23,8 @@ interface RunningMapProps {
   endPosition?: Coordinate | null;
   isSimulating?: boolean;
   opponentGhost?: Coordinate | null;
+  isControlsVisible?: boolean; // 컨트롤 표시 여부 prop 추가
+  
   // 상위 컴포넌트와 통신하기 위한 콜백 함수
   onAvatarPositionUpdate: (coord: Coordinate, force?: boolean) => void;
   onMapReady?: (mapRef: MapView | null) => void;
@@ -46,7 +48,8 @@ export const RunningMap = forwardRef<MapView, RunningMapProps>(({
   userLocation,
   opponentLivePath,
   opponentGhost,
-  onPress
+  onPress,
+  isControlsVisible = true
 }, ref) => {
   const insets = useSafeAreaInsets();
   const lastUpdateRef = useRef<number>(0);
@@ -331,7 +334,8 @@ export const RunningMap = forwardRef<MapView, RunningMapProps>(({
       <TouchableOpacity
         style={[
           styles.myLocationButton,
-          { bottom: 260 + insets.bottom }
+          { bottom: isControlsVisible ? 20 + insets.bottom : 20 + insets.bottom, marginRight: 15
+            , }
         ]}
         onPress={handleMyLocationPress}
       >
@@ -349,10 +353,18 @@ const styles = StyleSheet.create({
   myLocationButton: {
     position: 'absolute',
     right: 15,
-    backgroundColor: 'rgba(246, 246, 246, 0.5)',
-    padding: 10,
+    backgroundColor: 'white',
+    padding: 12,
     borderRadius: 80,
     zIndex: 1100,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   myLocationIcon: {
     width: 20,
