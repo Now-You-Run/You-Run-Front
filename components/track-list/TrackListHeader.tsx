@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     marginRight: 10,
   },
-  pickerWrapper: { borderWidth: 1, borderColor: '#4a90e2', borderRadius: 12, overflow: 'hidden', width: 125,height:40 },
+  pickerWrapper: { borderWidth: 1, borderColor: '#666', borderRadius: 12, overflow: 'hidden', width: 120,height:40 },
   // picker: {
   //   height: 50,
   //   width: 140,
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
     right : 8
   },
   pickerItemIOS: {
-    color: '#4a90e2',
+    color: '#222',
     fontSize: 13,
     fontWeight: '600',
   },
