@@ -125,7 +125,7 @@ export const RunningControls = React.memo(function RunningControls({
       )}
       <Pressable
         onPress={onMainPress}
-        style={[styles.controlButton, { backgroundColor: isActive ? '#ff4d4d' : '#5EFFAE' }]}
+        style={[styles.controlButton, { backgroundColor: isActive ? '#FF9CF8' : '#5EFFAE' }]}
       >
         <Text style={[styles.controlText, {color:isActive?'white':'black'}]}>{mainLabel}</Text>
       </Pressable>

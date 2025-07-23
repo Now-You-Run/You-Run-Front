@@ -90,13 +90,13 @@ const styles = StyleSheet.create({
     lineHeight: 22
   },
   confirmButton: {
-    backgroundColor: 'rgba(184, 182, 182, 0.65)',
+    backgroundColor: '#DDDDDD',
     paddingVertical: 12,
     paddingHorizontal: 40,
     borderRadius: 8
   },
   confirmButtonText: {
-    color: 'white',
+    color: 'black',
     fontSize: 16,
     fontWeight: 'bold'
   }

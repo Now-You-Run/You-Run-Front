@@ -14,7 +14,7 @@ function calculateAveragePace(elapsedTime: number, totalDistance: number): strin
   const paceSecPerKm = elapsedTime / totalDistance;
   const min = Math.floor(paceSecPerKm / 60);
   const sec = Math.round(paceSecPerKm % 60);
-  return `${min}'${sec.toString().padStart(2, '0')}`;
+  return `${min}'${sec.toString().padStart(2, '0')}"`;
 }
 
 export const RunningStats = React.memo(function RunningStats({
