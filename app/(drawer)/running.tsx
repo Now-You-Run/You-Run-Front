@@ -60,6 +60,7 @@ function RunningScreenInner({
   const [mapRegion, setMapRegion] = useState<Region | undefined>();
   const [initialLocationLoaded, setInitialLocationLoaded] =
     useState<boolean>(false);
+  const [isControlsVisible, setIsControlsVisible] = useState<boolean>(true);
 
   // 애니메이션 refs
   const progressAnimation = useRef(new Animated.Value(0)).current;
@@ -98,6 +99,9 @@ function RunningScreenInner({
     updateAvatarPosition,
     setMapRef,
   } = useAvatarPosition();
+
+  const mapRef = useRef<MapView>(null);
+  const [currentZoom, setCurrentZoom] = useState<number>(17);
 
   // 🧪 개선된 가짜 위치 업데이트 시작 (실제 트랙 경로 따라가기)
   const startFakeLocationUpdates = useCallback(() => {
@@ -345,6 +349,17 @@ function RunningScreenInner({
       if (avatarReady) {
         setIsAvatarConnected(true);
       }
+
+      // 초기 줌 레벨 설정
+      mapRef?.getCamera().then(camera => {
+        const initialZoom = 17;
+        setCurrentZoom(initialZoom);
+        mapRef?.animateCamera({
+          zoom: initialZoom,
+          pitch: 0,
+          altitude: 0,
+        }, { duration: 0 });
+      });
 
       // 🧪 지도 준비 후, userLocation이 있으면 아바타 위치 갱신
       if (userLocation) {
@@ -659,6 +674,34 @@ function RunningScreenInner({
     loadCurrentAvatar();
   }, []);
 
+  // 지도 클릭 이벤트 핸들러
+  const handleMapPress = useCallback(() => {
+    setIsControlsVisible(prev => {
+      const willHide = prev; // prev가 true면 컨트롤이 사라질 예정
+      if (!willHide) {
+        // 컨트롤이 나타날 때 (지도 축소)
+        mapRef.current?.getCamera().then(camera => {
+          setCurrentZoom(camera.zoom || 17);
+          mapRef.current?.animateCamera({
+            zoom: Math.max(10, (camera.zoom || 17) - 3), // 줌 레벨 감소 = 확대
+            center: camera.center,
+            pitch: 60, // 더 큰 기울기 추가
+            heading: camera.heading, // 현재 방향 유지
+          }, { duration: 700 });
+        });
+      } else {
+        // 컨트롤이 사라질 때 (지도 원래대로)
+        mapRef.current?.animateCamera({
+          zoom: currentZoom,
+          pitch: 0,
+        }, { duration: 700 });
+      }
+      return !prev;
+    });
+  }, [currentZoom]);
+
+
+
   return (
     <View style={styles.container}>
       {/* ① 뒤로가기 버튼 */}
@@ -670,7 +713,7 @@ function RunningScreenInner({
         onPress={() => setIsTestMode(!isTestMode)}
       >
         <Text style={styles.testModeButtonText}>
-          {isTestMode ? '🧪 테스트 ON' : '🧪 테스트 OFF'}
+          {isTestMode ? '시연 ON' : '시연 OFF'}
         </Text>
       </TouchableOpacity>
 
@@ -686,7 +729,7 @@ function RunningScreenInner({
         </View>
       )}
 
-      {/* 🧪 테스트 모드 상태 표시 */}
+      {/* 🧪 테스트 모드 상태 표시
       {isTestMode && initialLocationLoaded && (
         <View style={styles.testModeOverlay}>
           <Text style={styles.testModeText}>
@@ -694,19 +737,27 @@ function RunningScreenInner({
             {testPath ? '트랙 경로 로드됨' : '트랙 경로 로딩 중...'}
           </Text>
         </View>
-      )}
+      )} */}
 
-      {/* 지도 */}
-      {initialLocationLoaded && mapRegion && (
-        <RunningMap
-          path={path}
-          isActive={isActive}
-          initialRegion={mapRegion}
-          onAvatarPositionUpdate={updateAvatarPosition}
-          onMapReady={handleMapReady}
-          userLocation={userLocation}
-        />
-      )}
+      {/* 지도 영역 */}
+      <View style={[
+        styles.mapContainer,
+        !isControlsVisible && styles.mapContainerExpanded
+      ]}>
+        {initialLocationLoaded && mapRegion && (
+          <RunningMap
+            ref={mapRef}
+            path={path}
+            isActive={isActive}
+            initialRegion={mapRegion}
+            region={mapRegion}
+            userLocation={userLocation}
+            onAvatarPositionUpdate={updateAvatarPosition}
+            onMapReady={handleMapReady}
+            onPress={handleMapPress}
+          />
+        )}
+      </View>
 
       {/* ✅ 지도 로딩 상태 표시 */}
       {initialLocationLoaded && !isMapReady && (
@@ -724,10 +775,7 @@ function RunningScreenInner({
           screenPos={avatarScreenPos}
           isRunning={isActive && !isPaused}
           speed={displaySpeed}
-          avatarUrl={
-            currentAvatar?.glbUrl ||
-            'https://models.readyplayer.me/686ece0ae610780c6c939703.glb'
-          }
+          avatarUrl={currentAvatar?.glbUrl || "https://models.readyplayer.me/686ece0ae610780c6c939703.glb"}
           onAvatarReady={handleAvatarReady}
         />
       )}
@@ -744,59 +792,31 @@ function RunningScreenInner({
         </View>
       )}
 
-      {/* 디버깅용 마커 */}
-      {__DEV__ && avatarScreenPos && (
-        <View>
-          <View
-            style={{
-              position: 'absolute',
-              left: avatarScreenPos.x - 5,
-              top: avatarScreenPos.y - 5,
-              width: 10,
-              height: 10,
-              backgroundColor: 'red',
-              borderRadius: 5,
-              zIndex: 1000,
-            }}
-          />
-          <Text
-            style={{
-              position: 'absolute',
-              left: avatarScreenPos.x + 10,
-              top: avatarScreenPos.y - 20,
-              color: 'red',
-              fontSize: 12,
-              fontWeight: 'bold',
-              zIndex: 1001,
-            }}
-          >
-            GPS
-          </Text>
-        </View>
-      )}
 
       {/* 하단 오버레이 */}
-      <View style={[styles.overlay, { paddingBottom: 40 }]}>
-        <RunningStats
-          totalDistance={totalDistance}
-          displaySpeed={displaySpeed}
-          elapsedTime={elapsedTime}
-        />
+      {isControlsVisible && (
+        <View style={[styles.overlay, { height: '30%' }]}>
+          <RunningStats
+            totalDistance={totalDistance}
+            displaySpeed={displaySpeed}
+            elapsedTime={elapsedTime}
+          />
 
-        <RunningControls
-          isActive={isActive}
-          isPaused={isPaused}
-          elapsedTime={elapsedTime}
-          isFinishPressed={isFinishPressed}
-          finishProgress={finishProgress}
-          progressAnimation={progressAnimation}
-          scaleAnimation={scaleAnimation}
-          onMainPress={onMainPress} // ✅ 수정된 함수 사용
-          onFinishPressIn={startFinishPress}
-          onFinishPressOut={cancelFinishPress}
-          isReady={initialLocationLoaded && isMapReady && isAvatarConnected} // ✅ 준비 상태 전달
-        />
-      </View>
+          <RunningControls
+            isActive={isActive}
+            isPaused={isPaused}
+            elapsedTime={elapsedTime}
+            isFinishPressed={isFinishPressed}
+            finishProgress={finishProgress}
+            progressAnimation={progressAnimation}
+            scaleAnimation={scaleAnimation}
+            onMainPress={onMainPress}
+            onFinishPressIn={startFinishPress}
+            onFinishPressOut={cancelFinishPress}
+            isReady={initialLocationLoaded && isMapReady && isAvatarConnected}
+          />
+        </View>
+      )}
 
       {/* 완료 모달 */}
       <FinishModal
@@ -833,8 +853,7 @@ export default function RunningScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'flex-end',
-    alignItems: 'center',
+    backgroundColor: '#fff',
   },
   headerBar: {
     position: 'absolute',
@@ -861,13 +880,16 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   overlay: {
-    width: '100%',
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: 'rgba(255,255,255,0.9)',
-    padding: 20,
+    paddingTop: 20,
+    paddingHorizontal: 20,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    alignItems: 'center',
-    zIndex: 1000,
+    zIndex: 2,
   },
   // ✅ 로딩 관련 스타일 추가
   loadingOverlay: {
@@ -944,5 +966,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  mapContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: '30%', // 기본적으로 하단 30% 공간 확보
+    zIndex: 1,
+  },
+  mapContainerExpanded: {
+    bottom: 0, // 확장 시 전체 화면
   },
 });
