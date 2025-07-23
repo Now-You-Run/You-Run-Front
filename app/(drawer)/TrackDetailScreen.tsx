@@ -28,6 +28,12 @@ interface DisplayableTrackDetail {
   ranking?: (ServerRankingRecord | MyTrackRecordDto)[];
 }
 
+function toKSTLocaleString(utcString: string) {
+  const date = new Date(utcString);
+  const kstDate = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+  return kstDate.toLocaleString('ko-KR', { hour12: false });
+}
+
 export default function TrackDetailScreen() {
   const router = useRouter();
   const { trackId, source } = useLocalSearchParams<{
@@ -225,7 +231,7 @@ export default function TrackDetailScreen() {
                   <View key={record.recordId || idx} style={styles.rankItem}>
                     {/* ✅ 3. '나의 기록'에서는 유저 이름 대신 날짜를 보여주도록 수정 (예시) */}
                     <Text style={styles.rankUsername}>
-                      {new Date(record.finishedAt).toLocaleString()}
+                      {toKSTLocaleString(record.finishedAt)}
                     </Text>
                     <Text style={styles.rankDuration}>
                       {formatDuration(record.resultTime)}

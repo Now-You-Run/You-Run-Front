@@ -440,7 +440,7 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
   const defaultSpeedMps = 10 / 3.6; // 10km/h
 
   // 테스트 모드 속도 상태 추가
-  const [testSpeedKmh, setTestSpeedKmh] = useState(10); // 기본 10km/h
+  const [testSpeedKmh, setTestSpeedKmh] = useState(15); // 기본 10km/h
 
   // 🧪 트랙 path 자동 이동 setInterval만 시작 (진행 상태는 건드리지 않음)
   const startFakeTrackInterval = useCallback(() => {
