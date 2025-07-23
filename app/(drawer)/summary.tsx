@@ -707,7 +707,7 @@ export default function SummaryScreen() {
                       paddingVertical: 10,
                       paddingHorizontal: 18,
                       borderRadius: 8,
-                      backgroundColor: '#rgba(209, 209, 209, 0.61)',
+                      backgroundColor: '#DDDDDD',
                       marginRight: 10,
                     }}
                   >

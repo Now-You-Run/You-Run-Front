@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 8 },
   footer: { padding: 16, marginTop: 'auto' },
   botButton: {
-    backgroundColor: '#ff6666',
+    backgroundColor: '#FF9CF8',
     padding: 14,
     borderRadius: 10,
     alignItems: 'center',

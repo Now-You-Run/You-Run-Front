@@ -153,8 +153,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row', 
     justifyContent: 'center', 
     zIndex: 5,   },
-  tabButton: { paddingVertical: 10, paddingHorizontal: 24, borderRadius: 20, backgroundColor: '#f0f0f0', borderWidth: 1, borderColor: '#e0e0e0', marginHorizontal: 5 },
-  tabButtonActive: { backgroundColor: '#4a90e2', borderColor: '#4a90e2' },
+  tabButton: { paddingVertical: 10, paddingHorizontal: 24, borderRadius: 17, backgroundColor: '#f0f0f0', borderWidth: 0, borderColor: '#e0e0e0', marginHorizontal: 5 },
+  tabButtonActive: { backgroundColor: '#5EFFAE', borderColor: '#4a90e2' },
   tabButtonText: { fontSize: 16, fontWeight: '600', color: '#333' },
   tabButtonTextActive: { color: '#fff' },
   pickerContainer: {
