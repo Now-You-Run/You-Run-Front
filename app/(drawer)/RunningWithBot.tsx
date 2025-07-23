@@ -672,16 +672,6 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
         isSimulating={isSimulating}
       />
 
-      {avatarScreenPos && (
-        <AvatarOverlay
-          screenPos={avatarScreenPos}
-          isRunning={isActive && !isPaused}
-          speed={displaySpeed}
-          avatarUrl={currentAvatar?.glbUrl || "https://models.readyplayer.me/686ece0ae610780c6c939703.glb"}
-          onAvatarReady={handleAvatarReady}
-        />
-      )}
-
       <View style={styles.overlay}>
         {trackInfo && (
           <>
@@ -713,6 +703,16 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
           isReady={isMapReady}
         />
       </View>
+
+      {avatarScreenPos && (
+        <AvatarOverlay
+          screenPos={avatarScreenPos}
+          isRunning={isActive && !isPaused}
+          speed={displaySpeed}
+          avatarUrl={currentAvatar?.glbUrl || "https://models.readyplayer.me/686ece0ae610780c6c939703.glb"}
+          onAvatarReady={handleAvatarReady}
+        />
+      )}
 
       {/* 오버레이: 트랙/지도 준비 중이거나, 3D 아바타 준비 중일 때 메시지 */}
       {!isMapReady && (
@@ -799,7 +799,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     alignItems: 'center',
-    zIndex: 5,
+    zIndex: 1000,
     paddingBottom: 40,
   },
   errorContainer: {
