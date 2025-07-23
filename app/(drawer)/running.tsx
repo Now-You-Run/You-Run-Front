@@ -755,6 +755,7 @@ function RunningScreenInner({
             onAvatarPositionUpdate={updateAvatarPosition}
             onMapReady={handleMapReady}
             onPress={handleMapPress}
+            isControlsVisible={isControlsVisible}  // 컨트롤 표시 여부 전달
           />
         )}
       </View>
@@ -889,7 +890,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    zIndex: 2,
+    zIndex: 1500, // 아바타의 zIndex보다 높게 설정
   },
   // ✅ 로딩 관련 스타일 추가
   loadingOverlay: {
