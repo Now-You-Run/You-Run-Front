@@ -291,12 +291,12 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 8 },
   footer: { padding: 16, marginTop: 'auto' },
   botButton: {
-    backgroundColor: '#FF9CF8',
+    backgroundColor: '#5EFFAE',
     padding: 14,
     borderRadius: 10,
     alignItems: 'center',
   },
-  botButtonText: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  botButtonText: { color: 'black', fontSize: 18, fontWeight: '700' },
 
   rankItem: {
     flexDirection: 'row',
