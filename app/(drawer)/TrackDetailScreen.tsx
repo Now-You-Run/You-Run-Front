@@ -2,7 +2,8 @@ import BackButton from '@/components/button/BackButton';
 import GradeBadge from '@/components/GradeBadge';
 import { useRepositories } from '@/context/RepositoryContext';
 import { saveTrackInfo, TrackInfo } from '@/repositories/appStorage';
-import { MyTrackRecordDto } from '@/types/response/RunningTrackResponse';
+import { AuthAsyncStorage } from '@/repositories/AuthAsyncStorage';
+import type { MyTrackRecordDto } from '@/types/response/RunningTrackResponse';
 import { ServerRankingRecord } from '@/types/ServerRecordDto';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
@@ -40,6 +41,7 @@ export default function TrackDetailScreen() {
     trackId: string;
     source: SourceType;
   }>();
+  const [myServerRecord, setMyServerRecord] = useState<ServerRankingRecord | null>(null);
 
   // [2. 수정] localRunningRecordRepository도 가져옵니다.
   const { trackRecordRepository } = useRepositories();
@@ -100,28 +102,30 @@ export default function TrackDetailScreen() {
               };
             }
           } else {
-            // 'server'일 경우 (기존 로직)
-            const serverData = await trackRecordRepository.fetchTrackRecord(
-              trackId
-            );
-            if (serverData) {
-              fetchedData = {
-                id: trackId,
-                name: serverData.trackInfoDto.name,
-                path: serverData.trackInfoDto.path,
-                distance: serverData.trackInfoDto.totalDistance,
-                rate: serverData.trackInfoDto.rate,
-                ranking: serverData.trackRecordDto,
-              };
-            }
+            // 서버 랭킹 + 내 레코드 추출
+          const serverData = await trackRecordRepository.fetchTrackRecord(trackId);
+          if (serverData) {
+            const ranking = serverData.trackRecordDto as ServerRankingRecord[];
+            // 로그인된 유저 ID 가져오기
+            const userId = Number(await AuthAsyncStorage.getUserId());
+            // 전체 랭킹 중 내 레코드를 찾고
+            const me = ranking.find(r => r.userId === userId) ?? null;
+            setMyServerRecord(me);
+
+            fetchedData = {
+              id: trackId,
+              name: serverData.trackInfoDto.name,
+              path: serverData.trackInfoDto.path,
+              distance: serverData.trackInfoDto.totalDistance,
+              rate: serverData.trackInfoDto.rate,
+              ranking,
+            };
           }
         }
+      }
         setTrack(fetchedData);
-      } catch (error) {
-        console.error(
-          `Failed to load track detail for id ${trackId} (source: ${source}):`,
-          error
-        );
+      } catch (err) {
+        console.error('Failed to load track detail:', err);
       } finally {
         setIsLoading(false);
       }
@@ -173,9 +177,53 @@ export default function TrackDetailScreen() {
           <Text>총 거리: {(track.distance / 1000).toFixed(2)} km</Text>
           {/* {track.rate != null && <Text>평점: {track.rate}</Text>} */}
         </View>
+         {/* ── 내 기록 (서버 랭킹에서 뽑아온 내 레코드) ── */}
+        {source === 'server' && myServerRecord && (
+          <View style={styles.content}>
+            <Text style={styles.subtitle}>내 기록</Text>
+            <View style={styles.rankItem}>
+              {/* 등수 · 이름 · 등급 */}
+              <View style={styles.rankUserInfo}>
+                <Text style={styles.rankUsername}>
+                  { /* 내 위치(1-based) */ }
+                  {(track.ranking as ServerRankingRecord[]).findIndex(
+                    r => r.userId === myServerRecord.userId
+                  ) + 1}
+                  . {myServerRecord.username}
+                </Text>
+                <GradeBadge grade={myServerRecord.grade} level={myServerRecord.level} />
+              </View>
+              {/* 시간 */}
+              <Text style={styles.rankDuration}>
+                {formatDuration(myServerRecord.duration)}
+              </Text>
+              {/* 도전하기 */}
+              <TouchableOpacity
+                style={styles.challengeButton}
+                onPress={() =>
+                  router.push({
+                    pathname: './MatchRunningScreen',
+                    params: {
+                      recordId: myServerRecord.recordId,
+                      trackId: track.id,
+                      trackInfo: JSON.stringify({
+                        id: track.id,
+                        path: track.path,
+                        origin: track.path[0],
+                        distance: track.distance,
+                      }),
+                    },
+                  })
+                }
+              >
+                <Text style={styles.challengeText}>도전하기</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
         <View style={styles.content}>
           <Text style={styles.subtitle}>
-            {source === 'server' ? '서버 랭킹' : '나의 기록'}
+            {source === 'server' ? '전체 랭킹' : '나의 기록'}
           </Text>
 
           {track.ranking && track.ranking.length > 0 ? (
@@ -321,5 +369,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     // No changes are needed here. It will now stay aligned to the right.
+  },
+  challengeButton: {
+    backgroundColor: '#007aff',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    marginLeft: 10,
+  },
+  challengeText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });

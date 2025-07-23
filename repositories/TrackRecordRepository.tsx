@@ -88,6 +88,20 @@ export class TrackRecordRepository {
       return null;
     }
   }
+
+
+  public async fetchMyPersonalBestRecord(
+   trackId: number | string
+ ): Promise<MyTrackRecordData['trackRecordDto'][0] | null> {
+   // 1) 전체 내 기록 리스트 호출
+   const data = await this.fetchMyTrackRecord(trackId);
+   if (!data) return null;
+
+   // 2) 배열이 비어있지 않으면 첫 번째 요소를 반환
+   const records = data.trackRecordDto;
+   return records.length > 0 ? records[0] : null;
+ }
+
   public async fetchTrackList(): Promise<Track[]> {
     try {
       const response = await fetch(`${SERVER_API_URL}/api/track/list`, {
