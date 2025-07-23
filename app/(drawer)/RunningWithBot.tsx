@@ -657,6 +657,7 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
         </View>
       </View>
 
+      {/* 1. 지도 */}
       <RunningMap
         path={path}
         isActive={isActive}
@@ -672,6 +673,7 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
         isSimulating={isSimulating}
       />
 
+      {/* 2. 아바타 */}
       {avatarScreenPos && (
         <AvatarOverlay
           screenPos={avatarScreenPos}
@@ -682,6 +684,7 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
         />
       )}
 
+      {/* 3. 하단 오버레이 */}
       <View style={styles.overlay}>
         {trackInfo && (
           <>
@@ -714,7 +717,7 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
         />
       </View>
 
-      {/* 오버레이: 트랙/지도 준비 중이거나, 3D 아바타 준비 중일 때 메시지 */}
+      {/* 로딩 오버레이들 */}
       {!isMapReady && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#007aff" />
@@ -727,7 +730,6 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
           </Text>
         </View>
       )}
-      {/* 3D 아바타 준비 중 메시지는 별도로 */}
       {isMapReady && !avatarScreenPos && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#007aff" />
@@ -739,7 +741,7 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
         visible={isFinishModalVisible}
         summaryData={summaryData}
         onClose={() => {
-          Speech.stop(); // 모든 음성 안내 중단
+          Speech.stop();
           Speech.speak('러닝이 종료되었습니다.');
           resetRunning();
           stopSimulation();
@@ -748,7 +750,7 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
         }}
         onConfirm={() => {
           if (summaryData) {
-            Speech.stop(); // 모든 음성 안내 중단
+            Speech.stop();
             Speech.speak('러닝이 종료되었습니다.');
             resetRunning();
             stopSimulation();
@@ -799,7 +801,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     alignItems: 'center',
-    zIndex: 5,
+    zIndex: 1000,
     paddingBottom: 40,
   },
   errorContainer: {
