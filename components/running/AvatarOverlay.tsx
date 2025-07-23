@@ -37,7 +37,7 @@ export const AvatarOverlay = React.memo(({
     top: screenPos ? screenPos.y - 90 : -100, // -70에서 -90으로 수정
     width: 70,
     height: 100, // 80에서 100으로 증가
-    zIndex: 999,
+    zIndex: 900, // RunningControls의 zIndex(1500)보다 낮게 설정
     opacity: screenPos ? 1 : 0,
     pointerEvents: "none" as const,
   }), [screenPos]);
