@@ -958,8 +958,8 @@ const styles = StyleSheet.create({
   },
   testModeFloatingButton: {
     position: 'absolute',
-    top: 50,
-    right: 20,
+    top: 60,
+    right: 10,
     zIndex: 10,
     backgroundColor: 'rgba(255,255,255,0.8)',
     borderRadius: 20,

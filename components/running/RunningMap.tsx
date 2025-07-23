@@ -185,9 +185,22 @@ export const RunningMap = forwardRef<MapView, RunningMapProps>(({
             anchor={{ x: 0.5, y: 0.5 }}
             zIndex={10}
           >
-            <View style={{ alignItems: 'center' }}>
-              <View style={styles.userMarker} />
-              <Text style={{ color: '#007aff', fontWeight: 'bold', fontSize: 12, marginTop: 2 }}>나</Text>
+            <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+              <LottieView
+                source={require('@/assets/lottie/marker.json')}
+                autoPlay
+                loop
+                style={{
+                  width: 28,
+                  height: 28,
+                  transform: [
+                    { scaleX: 1.4 },   // 타원형
+                    { scaleY: 0.7 },   // 타원형
+                    { rotate: '15deg' } // 15도 회전
+                  ]
+                }}
+              />
+              <Text style={{ color: '#007aff', fontWeight: 'bold', fontSize: 12, marginTop: -8 }}>나</Text>
             </View>
           </Marker>
         )}
@@ -197,7 +210,7 @@ export const RunningMap = forwardRef<MapView, RunningMapProps>(({
           <Polyline
             coordinates={path}
             strokeColor="#007aff"
-            strokeWidth={6}
+            strokeWidth={12} // 기존 6에서 12로 굵게
             zIndex={3}
           />
         )}
