@@ -31,6 +31,7 @@ import { UserGrades } from '@/types/Grades';
 import { SaveRecordDto } from '@/types/ServerRecordDto';
 import { calculateAveragePace, formatTime } from '@/utils/RunningUtils';
 import { calculationService } from '@/utils/UserDataCalculator';
+import LottieView from 'lottie-react-native';
 
 // 예측된 결과의 형태 정의
 interface RunResult {
@@ -66,6 +67,8 @@ export default function SummaryScreen() {
   // 애니메이션 상태 관리
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [showGradeUp, setShowGradeUp] = useState(false);
+  const [showGradeBadge, setShowGradeBadge] = useState(false);
+  const [showCoinPoint, setShowCoinPoint] = useState(false);
 
   // --- 애니메이션을 위한 상태 ---
   const userProfile = useUserStore((state) => state.profile);
@@ -75,35 +78,40 @@ export default function SummaryScreen() {
   // 애니메이션 타이밍 관리
   useEffect(() => {
     if (results?.didLevelUp) {
-      // 레벨 업 알림 표시
-      setShowLevelUp(true);
-      
-      // 3초 후에 레벨 업 알림 숨기기
-      const levelUpHideTimer = setTimeout(() => {
-        setShowLevelUp(false);
-        
-        // 레벨 업 알림이 사라진 직후 등급 상승 알림 표시 (등급 상승이 있는 경우)
-        if (results.didGradeUp) {
-          setTimeout(() => {
-            setShowGradeUp(true);
-            // 3초 후에 등급 상승 알림 숨기기
-            setTimeout(() => {
-              setShowGradeUp(false);
-            }, 3000);
-          }, 500); // 레벨 업 알림이 완전히 사라진 후 표시
-        }
-      }, 3000);
-
-      return () => {
-        clearTimeout(levelUpHideTimer);
-      };
+      setShowCoinPoint(true);
+      setTimeout(() => {
+        setShowCoinPoint(false);
+        setTimeout(() => {
+          setShowLevelUp(true);
+          const levelUpHideTimer = setTimeout(() => {
+            setShowLevelUp(false);
+            if (results.didGradeUp) {
+              setTimeout(() => {
+                setShowGradeUp(true);
+                setTimeout(() => {
+                  setShowGradeUp(false);
+                  setShowGradeBadge(false);
+                }, 2000);
+                setTimeout(() => {
+                  setShowGradeBadge(true);
+                }, 500);
+              }, 700);
+            }
+          }, 2000);
+          return () => {
+            clearTimeout(levelUpHideTimer);
+          };
+        }, 700);
+      }, 2000);
     } else if (results?.didGradeUp) {
-      // 레벨 업이 없는 경우 바로 등급 상승 알림 표시
       setShowGradeUp(true);
+      setTimeout(() => {
+        setShowGradeBadge(true);
+      }, 500);
       const gradeUpHideTimer = setTimeout(() => {
         setShowGradeUp(false);
-      }, 3000);
-
+        setShowGradeBadge(false);
+      }, 2000);
       return () => {
         clearTimeout(gradeUpHideTimer);
       };
@@ -561,13 +569,22 @@ export default function SummaryScreen() {
 
           {results && userProfile && totalDistanceKm > 0 && (
             <View style={styles.overlayContainer}>
-              {results && totalDistanceKm > 0 && (
-                <Animated.View
-                  entering={SlideInDown.duration(500)}
-                  style={styles.pointsOverlay}
-                >
-                  <Text style={styles.points}>+{results.gainedPoints} P</Text>
-                </Animated.View>
+              {showCoinPoint && (
+                <View style={{ alignItems: 'center', marginTop: 16 }}>
+                  <LottieView
+                    source={require('../../assets/lottie/coin.json')}
+                    autoPlay
+                    loop={false}
+                    style={{ width: 80, height: 80, marginBottom: 0 }}
+                    speed={1.2}
+                  />
+                  <Animated.Text
+                    entering={SlideInDown.duration(600)}
+                    style={styles.points}
+                  >
+                    +{results.gainedPoints}P
+                  </Animated.Text>
+                </View>
               )}
               {showLevelUp && results.didLevelUp && (
                 <Animated.View
@@ -575,30 +592,46 @@ export default function SummaryScreen() {
                   exiting={FadeOut.duration(500)}
                   style={styles.resultBox}
                 >
-                  <Text style={styles.levelUpText}>🎉 레벨 업! 🎉</Text>
+                  <Text style={styles.levelUpText}>LEVEL UP!</Text>
+                  <LottieView
+                    source={require('../../assets/lottie/levelup.json')}
+                    autoPlay
+                    loop={false}
+                    style={{ width: 200, height: 200, position: 'absolute', top: -40, left: '50%', marginLeft: -100, zIndex: -1, transform: [{ scaleY: -1 }] }}
+                    speed={1.2}
+                  />
                   <Text style={styles.levelChangeText}>
                     Lv. {userProfile.level} → Lv. {results.newLevel}
                   </Text>
                 </Animated.View>
               )}
-              {showGradeUp && results.didGradeUp && (
+              {showGradeUp && (
                 <Animated.View
                   entering={SlideInDown.duration(500)}
                   exiting={FadeOut.duration(500)}
                   style={styles.resultBox}
                 >
-                  <Text style={styles.gradeUpText}>✨ 등급 상승! ✨</Text>
-                  <View style={styles.gradeChangeContainer}>
-                    <GradeBadge
-                      grade={userProfile.grade}
-                      level={userProfile.level}
-                    />
-                    <Text style={styles.arrowText}>→</Text>
-                    <GradeBadge
-                      grade={results.newGrade}
-                      level={results.newLevel}
-                    />
-                  </View>
+                  <Text style={styles.gradeUpText}> RANK UP </Text>
+                  <LottieView
+                    source={require('../../assets/lottie/grade.json')}
+                    autoPlay
+                    loop={false}
+                    style={{ width: 320, height: 200, position: 'absolute', top: -40, left: '50%', marginLeft: -160, zIndex: -1 }}
+                    speed={1.2}
+                  />
+                  {showGradeBadge && (
+                    <View style={styles.gradeChangeContainer}>
+                      <GradeBadge
+                        grade={userProfile.grade}
+                        level={userProfile.level}
+                      />
+                      <Text style={styles.arrowText}>→</Text>
+                      <GradeBadge
+                        grade={results.newGrade}
+                        level={results.newLevel}
+                      />
+                    </View>
+                  )}
                 </Animated.View>
               )}
             </View>
@@ -795,29 +828,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   points: {
-    fontSize: 28,
-    fontWeight: '600',
-    color: '#007aff',
+    fontSize: 40,
+    fontWeight: '700',
+    color: '#fff',
     textAlign: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
   resultBox: {
     width: '90%',
     marginVertical: 8,
     padding: 15,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 15,
     alignItems: 'center',
     shadowColor: '#000',
@@ -830,19 +849,19 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   levelUpText: { 
-    fontSize: 22, 
-    fontWeight: 'bold', 
-    color: '#4caf50' 
+    fontSize: 60, 
+    fontWeight: '900', 
+    color: '#ffffffff' 
   },
   levelChangeText: { 
-    fontSize: 18, 
-    color: '#333', 
+    fontSize: 25, 
+    color: 'black', 
     marginTop: 5 
   },
   gradeUpText: { 
-    fontSize: 22, 
-    fontWeight: 'bold', 
-    color: '#ff9800' 
+    fontSize: 50, 
+    fontWeight: '800', 
+    color: '#ffffff' 
   },
   gradeChangeContainer: {
     flexDirection: 'row',
