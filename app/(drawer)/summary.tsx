@@ -597,7 +597,7 @@ export default function SummaryScreen() {
                     source={require('../../assets/lottie/levelup.json')}
                     autoPlay
                     loop={false}
-                    style={{ width: 200, height: 200, position: 'absolute', top: -40, left: '50%', marginLeft: -100, zIndex: -1, transform: [{ scaleY: -1 }] }}
+                    style={{ width: 200, height: 200, position: 'absolute', top: -40, left: '50%', marginLeft: -90, zIndex: -1, transform: [{ scaleY: -1 }] }}
                     speed={1.2}
                   />
                   <Text style={styles.levelChangeText}>
@@ -616,7 +616,7 @@ export default function SummaryScreen() {
                     source={require('../../assets/lottie/grade.json')}
                     autoPlay
                     loop={false}
-                    style={{ width: 320, height: 200, position: 'absolute', top: -40, left: '50%', marginLeft: -160, zIndex: -1 }}
+                    style={{ width: 320, height: 200, position: 'absolute', top: -40, left: '50%', marginLeft: -140, zIndex: -1 }}
                     speed={1.2}
                   />
                   {showGradeBadge && (
@@ -830,7 +830,7 @@ const styles = StyleSheet.create({
   points: {
     fontSize: 40,
     fontWeight: '700',
-    color: '#fff',
+    color: 'black',
     textAlign: 'center',
   },
   resultBox: {
