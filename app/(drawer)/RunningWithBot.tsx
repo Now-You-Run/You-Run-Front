@@ -43,6 +43,9 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
   // 아바타 포지션
   const { avatarScreenPos, handleAvatarReady, updateAvatarPosition, setMapRef, avatarReady } = useAvatarPosition();
 
+  // RunningMap에 ref 전달용
+  const mapRef = useRef(null);
+  
   // 🆕 위치 업데이트 중복 방지를 위한 디바운싱
   const locationUpdateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
@@ -659,6 +662,7 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
 
       {/* 1. 지도 */}
       <RunningMap
+        ref={mapRef}
         path={path}
         isActive={isActive}
         initialRegion={mapRegion}
