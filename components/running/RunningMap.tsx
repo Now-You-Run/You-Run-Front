@@ -219,8 +219,8 @@ export const RunningMap = forwardRef<MapView, RunningMapProps>(({
           <Polyline
             coordinates={memoizedExternalPath}
             strokeColor="rgba(255, 159, 28, 0.7)"
-            strokeWidth={4}
-            lineDashPattern={[8, 6]}
+            strokeWidth={10}
+            lineDashPattern={[8, 14]}
             zIndex={2}
           />
         )}
@@ -299,23 +299,23 @@ export const RunningMap = forwardRef<MapView, RunningMapProps>(({
             anchor={{ x: 0.5, y: 1.0 }}
             zIndex={999}
           >
-            {/* <View style={{
-                width: 100, height: 100,       // 💡 더 큰 투명 박스
+            <View
+              style={{
+                width: 30,
+                height: 43,
                 justifyContent: 'center',
                 alignItems: 'center',
-                overflow: 'visible',           // ✅ 중요!
-              }}> */}
-           
+                overflow: 'visible',
+              }}
+            >
               <LottieView
                 source={require('@/assets/lottie/bot1.json')}
                 autoPlay
                 loop
                 renderMode="HARDWARE"
-                style={{ width: 40, height: 40, 
-                  
-                 }}
+                style={{ width: 65, height: 60 }}
               />
-      
+            </View>
           </Marker>
         )}
 

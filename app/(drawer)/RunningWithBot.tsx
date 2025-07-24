@@ -617,7 +617,7 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
         {/* 테스트 모드 UI */}
         <View style={styles.testModeBox}>
           <View style={styles.testModeRow}>
-            <Text style={styles.testModeLabel}>🧪 테스트 모드</Text>
+            <Text style={styles.testModeLabel}>시연 </Text>
             <TouchableOpacity
               style={[
                 styles.testModeToggle,
