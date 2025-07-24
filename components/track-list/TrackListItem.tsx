@@ -32,6 +32,7 @@ export function TrackListItem({ item, sourceTab, deleteMode = false, checked = f
 
   return (
     <View key={item.id} style={{ width: '48%', marginBottom: 14 }}>
+     <View style={styles.cardShadow}>
       <TouchableOpacity
         style={[
           styles.card,
@@ -83,10 +84,22 @@ export function TrackListItem({ item, sourceTab, deleteMode = false, checked = f
         </View>
       </TouchableOpacity>
     </View>
+  </View>
   );
 }
 
 const styles = StyleSheet.create({
+
+  cardShadow: {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.15,
+  shadowRadius: 6,
+  elevation: 4,
+  borderRadius: 14,
+  marginBottom: 0,  // 필요시 조정
+  },
+
   card: {
     width: '100%',
     aspectRatio: 1,

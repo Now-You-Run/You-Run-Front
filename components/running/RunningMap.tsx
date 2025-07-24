@@ -200,7 +200,6 @@ export const RunningMap = forwardRef<MapView, RunningMapProps>(({
                   ]
                 }}
               />
-              <Text style={{ color: '#007aff', fontWeight: 'bold', fontSize: 12, marginTop: -8 }}>나</Text>
             </View>
           </Marker>
         )}

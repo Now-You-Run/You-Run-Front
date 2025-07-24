@@ -40,78 +40,9 @@ export function TrackListHeader({ tab, distanceSortOption, sortOrder, onTabChang
           <Text style={[styles.tabButtonText, tab === 'server' && styles.tabButtonTextActive]}>전국 트랙</Text>
         </TouchableOpacity>
       </View>
-      <View style={styles.pickerContainer}>
-        {/* 삭제 모드 진입/해제 버튼을 가장 왼쪽에 배치 (내 트랙일 때만)
-        {tab === 'my' && (
-          <TouchableOpacity style={styles.deleteModeButton} onPress={onDeleteModeToggle}>
-            <Text style={styles.deleteModeButtonText}>{deleteMode ? '취소' : '삭제 모드'}</Text>
-          </TouchableOpacity>
-        )} */}
-        {/* 선택 삭제 버튼 제거 */}
-        <View style={{ flex: 1, alignItems: 'flex-end' }}>
-          {/* <View style={styles.pickerWrapper}>
-            <Picker
-              selectedValue={distanceSortOption}
-              onValueChange={onSortChange}
-              mode="dropdown"
-              style={[styles.picker,styles.pickerSmallText]}
-              itemStyle={styles.pickerItem} 
-              dropdownIconColor="#4a90e2"
-            >
-              {DISTANCE_SORT_OPTIONS.map(opt => (
-                <Picker.Item key={opt.value} label={opt.label} value={opt.value} style={styles.pickerItem} />
-              ))}
-            </Picker>
-          </View> */}
-          {Platform.OS === 'ios' ? (
-           // ─── iOS: 우리가 디자인한 동그란 박스에 넣기 ───
-           <View style={styles.pickerWrapper}>
-             <Picker
-               selectedValue={distanceSortOption}
-               onValueChange={onSortChange}
-               mode="dropdown"
-               style={styles.pickerIOS}
-               itemStyle={styles.pickerItemIOS}
-               dropdownIconColor="#4a90e2"
-             >
-               {DISTANCE_SORT_OPTIONS.map(opt => (
-                 <Picker.Item
-                   key={opt.value}
-                   label={opt.label}
-                   value={opt.value}
-                   style={styles.pickerItemIOS}
-                 />
-               ))}
-             </Picker>
-           </View>
-         ) : (
-           // ─── Android: 네이티브 Spinner 형태 ───
-           <Picker
-             selectedValue={distanceSortOption}
-             onValueChange={onSortChange}
-             mode="dropdown"
-             style={styles.pickerAndroid}
-           >
-             {DISTANCE_SORT_OPTIONS.map(opt => (
-               <Picker.Item key={opt.value} label={opt.label} value={opt.value} />
-             ))}
-           </Picker>
-         )}
-          <View style={styles.toggleRow}>
-            {distanceSortOption === 'trackDistance' ? (
-              <TouchableOpacity
-                style={styles.orderToggle}
-                onPress={() => onOrderChange(sortOrder === 'asc' ? 'desc' : 'asc')}
-              >
-                <Text style={styles.orderToggleText}>
-                  {sortOrder === 'asc' ? '⬆️ 오름차순' : '⬇️ 내림차순'}
-                </Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.orderTogglePlaceholder} />
-            )}
-
-            {/* 삭제 모드 아이콘 */}
+      <View style={[styles.pickerContainer, { flexDirection: 'row', alignItems: 'center', width: '100%'}]}>
+   
+            {/* 1. 삭제 모드 아이콘 */}
             {tab === 'my' && (
               <TouchableOpacity style={styles.iconButton} onPress={onDeleteModeToggle}>
                 {deleteMode
@@ -120,9 +51,57 @@ export function TrackListHeader({ tab, distanceSortOption, sortOrder, onTabChang
                 }
               </TouchableOpacity>
             )}
+
+            <View style={{ flex: 1}} />
+
+            {/* 2. 정렬 토큰 버튼*/}
+            {distanceSortOption === 'trackDistance' ? (
+              <TouchableOpacity
+                style={styles.orderToggle}
+                onPress={() => onOrderChange(sortOrder === 'asc' ? 'desc' : 'asc')}
+              >
+                <Text style={styles.orderToggleText}>
+                  {sortOrder === 'asc' ? '↑ 오름차순' : '↓ 내림차순'}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+          
+            {/*3. 드롭다운(Picker)*/}
+            {Platform.OS === 'ios' ? (
+            // ─── iOS: 우리가 디자인한 동그란 박스에 넣기 ───
+            <View style={styles.pickerWrapper}>
+              <Picker
+                selectedValue={distanceSortOption}
+                onValueChange={onSortChange}
+                mode="dropdown"
+                style={styles.pickerIOS}
+                itemStyle={styles.pickerItemIOS}
+                dropdownIconColor="#4a90e2"
+              >
+                {DISTANCE_SORT_OPTIONS.map(opt => (
+                  <Picker.Item
+                    key={opt.value}
+                    label={opt.label}
+                    value={opt.value}
+                    style={styles.pickerItemIOS}
+                  />
+                ))}
+              </Picker>
+            </View>
+          ) : (
+            // ─── Android: 네이티브 Spinner 형태 ───
+            <Picker
+              selectedValue={distanceSortOption}
+              onValueChange={onSortChange}
+              mode="dropdown"
+              style={styles.pickerAndroid}
+            >
+              {DISTANCE_SORT_OPTIONS.map(opt => (
+                <Picker.Item key={opt.value} label={opt.label} value={opt.value} />
+              ))}
+            </Picker>
+          )}
           </View>
-        </View>
-      </View>
     </>
   );
 }
@@ -141,13 +120,16 @@ const styles = StyleSheet.create({
   },
   iconButton: {
     padding: 8,
+    marginRight: 110,
+    backgroundColor: '#ededed4b',
+    borderRadius: 50,
   },
   deleteModeButton: { marginLeft: 10, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#f0f0f0', borderRadius: 16 },
   deleteModeButtonText: { color: '#e74c3c', fontWeight: '600', fontSize: 14 },
   deleteSelectedButton: { marginLeft: 10, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#e74c3c', borderRadius: 16 },
   deleteSelectedButtonText: { color: '#fff', fontWeight: '600', fontSize: 14 },
   tabContainer: {  position: 'absolute',   // ← 절대 위치
-    top: 20,                // ← BackButton.top(10) + button.height(40)
+    top: 13,                // ← BackButton.top(10) + button.height(40)
     left: 0, 
     right: 0,
     flexDirection: 'row', 
@@ -162,9 +144,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 40,
     marginBottom: 10,
-    marginRight: 10,
+    marginRight: 5,
   },
-  pickerWrapper: { borderWidth: 1, borderColor: '#666', borderRadius: 12, overflow: 'hidden', width: 120,height:40 },
+  pickerWrapper: { borderWidth: 0, borderColor: '#d1cfcfff', borderRadius: 12, overflow: 'hidden', width: 120,height:40 },
   // picker: {
   //   height: 50,
   //   width: 140,
@@ -173,14 +155,14 @@ const styles = StyleSheet.create({
   //   right: 8
   // },
   pickerIOS: {
-    width: 140,
-    height: 40,
-    bottom: 90,
-    right : 8
+    width: 130,
+    height: 35,
+    bottom: 85,
+    right : 0,
   },
   pickerItemIOS: {
     color: '#222',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
   },
   pickerAndroid: {
@@ -195,25 +177,24 @@ const styles = StyleSheet.create({
   },
   orderToggle: {
     marginTop: 6,
-    alignSelf: 'flex-end',
+    alignSelf: 'flex-start',
     paddingVertical: 8,
     paddingHorizontal: 14,
-    borderRadius: 16,
-    backgroundColor: '#f0f0f0',
-    borderWidth: 1,
+    borderRadius: 14,
+    backgroundColor: '#fffdfdff',
+    borderWidth: 0.5,
     borderColor: '#e0e0e0',
   },
   orderToggleText: {
-    color: '#4a90e2',
+    color: '#0073f6ff',
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: 13,
   },
   inlineDeleteButton: {
     backgroundColor: '#e74c3c',
     borderRadius: 16,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    marginRight: 10,
     alignSelf: 'flex-start',
   },
   inlineDeleteButtonDisabled: {
