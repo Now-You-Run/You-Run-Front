@@ -17,6 +17,38 @@ export const getAvatarHtml = (avatarUrl: string) => `
       <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
       <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
       <script>
+        // 모든 console.log를 React Native로 브릿지
+        console.log = function(...args) {
+          window.ReactNativeWebView?.postMessage(JSON.stringify({ type: 'log', log: args }));
+        };
+        // Android WebView 메시지 브릿지 대응
+        window.document.addEventListener("message", function(event) {
+          try {
+            console.log('[AvatarHtml] document.message event:', event.data);
+            const data = JSON.parse(event.data);
+            if (data.type === "setAnimation") {
+              const animName = data.isRunning ? "run" : "idle";
+              console.log('[AvatarHtml] setAnimation message received: isRunning=' + data.isRunning + ', animName=' + animName);
+              playAction(animName);
+            }
+          } catch (e) {
+            console.error("메시지 파싱 실패:", e);
+          }
+        });
+        window.ReactNativeWebView = window.ReactNativeWebView || {};
+        window.ReactNativeWebView.onMessage = function(data) {
+          try {
+            console.log('[AvatarHtml] onMessage event:', data);
+            const parsed = JSON.parse(data);
+            if (parsed.type === "setAnimation") {
+              const animName = parsed.isRunning ? "run" : "idle";
+              console.log('[AvatarHtml] setAnimation message received: isRunning=' + parsed.isRunning + ', animName=' + animName);
+              playAction(animName);
+            }
+          } catch (e) {
+            console.error("onMessage 메시지 파싱 실패:", e);
+          }
+        };
         const avatarUrl = "${avatarUrl}"; // 이제 전체 URL을 직접 받음
         const animUrls = {
           idle: "https://euns0o.github.io/mixamo-animations/idle.glb",
@@ -29,6 +61,7 @@ export const getAvatarHtml = (avatarUrl: string) => `
         let clock = new THREE.Clock();
 
         function init() {
+          console.log('[AvatarHtml] init() called');
           scene = new THREE.Scene();
           camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.01, 1000);
           
@@ -57,6 +90,7 @@ export const getAvatarHtml = (avatarUrl: string) => `
         }
 
         async function loadGLTF(url) {
+          console.log('[AvatarHtml] loadGLTF:', url);
           const loader = new THREE.GLTFLoader();
           return new Promise((resolve, reject) => {
             loader.load(url, resolve, undefined, reject);
@@ -65,6 +99,7 @@ export const getAvatarHtml = (avatarUrl: string) => `
 
         async function loadAvatar() {
           try {
+            console.log('[AvatarHtml] loadAvatar() called');
             const gltf = await loadGLTF(avatarUrl);
             
             avatar = gltf.scene;
@@ -94,7 +129,7 @@ export const getAvatarHtml = (avatarUrl: string) => `
             await loadAnimations();
             playAction("idle");
             animate();
-            
+            console.log('[AvatarHtml] avatarReady postMessage');
             window.ReactNativeWebView?.postMessage(JSON.stringify({ type: "avatarReady" }));
           } catch (e) {
             console.error("아바타 로딩 실패:", e);
@@ -104,6 +139,7 @@ export const getAvatarHtml = (avatarUrl: string) => `
         async function loadAnimations() {
           for (const [name, url] of Object.entries(animUrls)) {
             try {
+              console.log('[AvatarHtml] loadAnimations: ' + name + ' ' + url);
               const gltf = await loadGLTF(url);
               if (gltf.animations && gltf.animations.length > 0) {
                 const originalClip = gltf.animations[0];
@@ -113,10 +149,11 @@ export const getAvatarHtml = (avatarUrl: string) => `
                   const action = mixer.clipAction(remappedClip);
                   action.setLoop(THREE.LoopRepeat);
                   actions[name] = action;
+                  console.log('[AvatarHtml] Animation loaded: ' + name);
                 }
               }
             } catch (e) {
-              console.error(\`\${name} 애니메이션 로딩 실패:\`, e);
+              console.error(name + ' 애니메이션 로딩 실패:', e);
             }
           }
         }
@@ -182,8 +219,12 @@ export const getAvatarHtml = (avatarUrl: string) => `
         }
 
         function playAction(name) {
+          console.log('[AvatarHtml] playAction: ' + name);
           const action = actions[name];
-          if (!action) return;
+          if (!action) {
+            console.warn('[AvatarHtml] playAction: action not found for', name);
+            return;
+          }
           
           if (currentAction) {
             currentAction.fadeOut(0.3);
@@ -199,18 +240,6 @@ export const getAvatarHtml = (avatarUrl: string) => `
           if (mixer) mixer.update(delta);
           renderer.render(scene, camera);
         }
-
-        window.addEventListener("message", (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            if (data.type === "setAnimation") {
-              const animName = data.isRunning ? "run" : "idle";
-              playAction(animName);
-            }
-          } catch (e) {
-            console.error("메시지 파싱 실패:", e);
-          }
-        });
 
         init();
       </script>

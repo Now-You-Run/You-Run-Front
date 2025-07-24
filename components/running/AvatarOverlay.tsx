@@ -45,7 +45,10 @@ export const AvatarOverlay = React.memo(({
   const handleMessage = useCallback((event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-      console.log('Received message from WebView:', data);
+      if (data.type === 'log') {
+        console.log('[WebView]', ...data.log);
+        return;
+      }
       if (data.type === 'avatarReady') {
         console.log('Avatar is ready');
         setAvatarLoaded(true);
@@ -60,6 +63,7 @@ export const AvatarOverlay = React.memo(({
 
   useEffect(() => {
     if (avatarLoaded && webViewRef.current) {
+      console.log('[AvatarOverlay] postMessage setAnimation', isRunning);
       webViewRef.current.postMessage(JSON.stringify({
         type: 'setAnimation',
         isRunning: isRunning,
