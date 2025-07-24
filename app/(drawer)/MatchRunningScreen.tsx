@@ -8,8 +8,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, BackHandler, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Region } from 'react-native-maps';
 
-import BackButton from '@/components/button/BackButton';
 import { fetchCurrentAvatar } from '@/api/user';
+import BackButton from '@/components/button/BackButton';
 import { AvatarOverlay } from '@/components/running/AvatarOverlay';
 import { BotDistanceDisplay } from '@/components/running/BotDistanceDisplay';
 import { FinishModal } from '@/components/running/FinishModal';
@@ -49,6 +49,9 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
   // 아바타 포지션 (봇 모드와 동일하게 추가)
   const { avatarScreenPos, handleAvatarReady, updateAvatarPosition, setMapRef, avatarReady } = useAvatarPosition();
 
+  // RunningMap에 ref 전달용
+  const mapRef = useRef(null);
+  
   // 🆕 위치 업데이트 중복 방지를 위한 디바운싱
   const locationUpdateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
@@ -681,6 +684,7 @@ function MatchRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bo
 
       {/* 지도/러닝 경로 */}
       <RunningMap
+        ref={mapRef}
         path={path}
         isActive={isActive}
         initialRegion={mapRegion}
