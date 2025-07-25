@@ -1,3 +1,4 @@
+import { AuthAsyncStorage } from '@/repositories/AuthAsyncStorage';
 import axios from 'axios';
 
 export const getUserById = async (userId: number) => {
@@ -12,7 +13,8 @@ export const getUserById = async (userId: number) => {
 
 // 아바타 전체 목록 조회 (소유 여부 포함)
 export const fetchAvatars = async () => {
-  const response = await axios.get(`${process.env.EXPO_PUBLIC_SERVER_API_URL}/avatars`);
+  const userId = await AuthAsyncStorage.getUserId();
+  const response = await axios.get(`${process.env.EXPO_PUBLIC_SERVER_API_URL}/avatars?userId=${userId}`);
   return response.data;
 };
 
@@ -29,7 +31,8 @@ interface CurrentAvatar {
 
 export const fetchCurrentAvatar = async (): Promise<CurrentAvatar> => {
   try {
-    const response = await fetch(`${SERVER_API_URL}/avatars/current`);
+    const userId = await AuthAsyncStorage.getUserId();
+    const response = await fetch(`${SERVER_API_URL}/avatars/current?userId=${userId}`);
     if (!response.ok) {
       throw new Error('Failed to fetch current avatar');
     }
@@ -50,12 +53,14 @@ export const fetchCurrentAvatar = async (): Promise<CurrentAvatar> => {
 
 // 아바타 구매
 export const purchaseAvatar = async (avatarId: number) => {
-  return axios.post(`${process.env.EXPO_PUBLIC_SERVER_API_URL}/avatars/${avatarId}/purchase`);
+  const userId = await AuthAsyncStorage.getUserId();
+  return axios.post(`${process.env.EXPO_PUBLIC_SERVER_API_URL}/avatars/${avatarId}/purchase?userId=${userId}`);
 };
 
 // 아바타 선택(장착)
 export const selectAvatar = async (avatarId: number) => {
-  const url = `${process.env.EXPO_PUBLIC_SERVER_API_URL}/avatars/${avatarId}/select`;
+  const userId = await AuthAsyncStorage.getUserId();
+  const url = `${process.env.EXPO_PUBLIC_SERVER_API_URL}/avatars/${avatarId}/select?userId=${userId}`;
   console.log('selectAvatar 요청 URL:', url);
   return axios.post(url);
 };

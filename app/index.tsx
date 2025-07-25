@@ -1,6 +1,7 @@
 import { fetchCurrentAvatar } from '@/api/user';
 import CharacterSection from '@/components/CharacterSection';
 import { useDrawer } from '@/context/DrawerContext';
+import { AuthAsyncStorage } from '@/repositories/AuthAsyncStorage';
 import { useUserStore } from '@/stores/userStore';
 import {
   getTimeBasedColors,
@@ -28,7 +29,6 @@ import {
 } from 'react-native';
 
 const SERVER_API_URL = process.env.EXPO_PUBLIC_SERVER_API_URL;
-const MY_USER_ID = 1;
 
 // Splash screen for font loading
 SplashScreen.preventAutoHideAsync();
@@ -149,10 +149,11 @@ export default function HomeScreen() {
   };
 
   // User profile fetch
-  const fetchUserProfile = async (userId: number) => {
+  const fetchUserProfile = async () => {
     try {
+      const userId = await AuthAsyncStorage.getUserId();
       const response = await fetch(
-        `${SERVER_API_URL}/api/user?userId=${MY_USER_ID}`
+        `${SERVER_API_URL}/api/user?userId=${userId}`
       );
       if (!response.ok) {
         throw new Error('네트워크 오류');
@@ -201,7 +202,7 @@ export default function HomeScreen() {
       SplashScreen.hideAsync();
       updateWeather();
       loadCurrentAvatar();  // 초기 로딩
-      fetchUserProfile(MY_USER_ID);
+      fetchUserProfile();
     }
   }, [fontsLoaded, loadCurrentAvatar]);
 
@@ -268,6 +269,7 @@ export default function HomeScreen() {
               id: currentAvatar.id,
               url: currentAvatar.glbUrl
             } : null}
+            grade='아이언'
           />
         </View>
 
