@@ -88,14 +88,11 @@ export function useTrackList(): UseTrackListReturn & {
     );
     console.log('내 트랙 응답 pageToFetch:', pageToFetch, 'tracks:', newMyTracks.map(t => t.id));
     if (tab !== currentTab || distanceSortOption !== currentSortOption) return;
-    const sortedTracks = distanceSortOption === 'trackDistance' ? sortTracks(newMyTracks, sortOrder) : newMyTracks;
+    const deduped = Array.from(new Map((isRefresh ? newMyTracks : [...tracks, ...newMyTracks]).map(t => [t.id, t])).values());
+    setTracks(distanceSortOption === 'trackDistance' ? sortTracks(deduped, sortOrder) : deduped);
     if (pageToFetch >= totalPages - 1) setCanLoadMore(false);
-    setTracks(prev => {
-      const all = isRefresh ? sortedTracks : [...prev, ...sortedTracks];
-      return Array.from(new Map(all.map(t => [t.id, t])).values());
-    });
     finishLoading(start);
-  }, [isPaginating, userLocation, trackRecordRepository, tab, distanceSortOption, sortOrder]);
+  }, [isPaginating, userLocation, trackRecordRepository, tab, distanceSortOption, sortOrder, tracks]);
 
   const fetchAllServerTracksOrderByClose = useCallback(async (pageToFetch: number, isRefresh: boolean) => {
     if (!trackRecordRepository || !userLocation || (isPaginating && !isRefresh)) return;
@@ -108,14 +105,11 @@ export function useTrackList(): UseTrackListReturn & {
     );
     console.log('서버 응답 pageToFetch:', pageToFetch, 'tracks:', newServerTracks.map(t => t.id));
     if (tab !== currentTab || distanceSortOption !== currentSortOption) return;
-    const sortedTracks = distanceSortOption === 'trackDistance' ? sortTracks(newServerTracks, sortOrder) : newServerTracks;
+    const deduped = Array.from(new Map((isRefresh ? newServerTracks : [...tracks, ...newServerTracks]).map(t => [t.id, t])).values());
+    setTracks(distanceSortOption === 'trackDistance' ? sortTracks(deduped, sortOrder) : deduped);
     if (pageToFetch >= totalPages - 1) setCanLoadMore(false);
-    setTracks(prev => {
-      const all = isRefresh ? sortedTracks : [...prev, ...sortedTracks];
-      return Array.from(new Map(all.map(t => [t.id, t])).values());
-    });
     finishLoading(start);
-  }, [isPaginating, userLocation, trackRecordRepository, tab, distanceSortOption, sortOrder]);
+  }, [isPaginating, userLocation, trackRecordRepository, tab, distanceSortOption, sortOrder, tracks]);
   
   // handleRefresh에서 page=0으로 fetch
   const handleRefresh = useCallback(() => {
