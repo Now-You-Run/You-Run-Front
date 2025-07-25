@@ -1,18 +1,18 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  Modal,
-  Platform,
-  Pressable,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    Modal,
+    Platform,
+    Pressable,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import MapView, { Polyline } from 'react-native-maps';
 import Animated, { FadeOut, SlideInDown } from 'react-native-reanimated';
@@ -23,8 +23,8 @@ import GradeBadge from '@/components/GradeBadge';
 import { useRepositories } from '@/context/RepositoryContext';
 import { Coord } from '@/context/RunningContext';
 import {
-  postRunningTrack,
-  RunningTrackPayload,
+    postRunningTrack,
+    RunningTrackPayload,
 } from '@/repositories/TrackRepository';
 import { useUserStore } from '@/stores/userStore';
 import { UserGrades } from '@/types/Grades';
@@ -592,7 +592,7 @@ export default function SummaryScreen() {
                     source={require('../../assets/lottie/coin.json')}
                     autoPlay
                     loop={false}
-                    style={{ width: 80, height: 80, marginBottom: 0 }}
+                    style={{ width: 200, height: 200, marginBottom: 0 }}
                     speed={1.2}
                   />
                   <Animated.Text
@@ -609,7 +609,9 @@ export default function SummaryScreen() {
                   exiting={FadeOut.duration(500)}
                   style={styles.resultBox}
                 >
-                  <Text style={styles.levelUpText}>LEVEL UP!</Text>
+                  <View style={styles.levelUpBg}>
+                    <Text style={styles.levelUpText}>LEVEL UP!</Text>
+                  </View>
                   <LottieView
                     source={require('../../assets/lottie/levelup.json')}
                     autoPlay
@@ -856,14 +858,14 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 15,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    // shadowColor: '#000',
+    // shadowOffset: {
+    //   width: 0,
+    //   height: 2,
+    // },
+    // shadowOpacity: 0.25,
+    // shadowRadius: 3.84,
+    // elevation: 5,
   },
   levelUpText: { 
     fontSize: 60, 
@@ -1010,5 +1012,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#555',
     fontWeight: '600',
+  },
+  levelUpBg: {
+    // backgroundColor: 'rgba(255,255,255,0.7)',
+    // borderRadius: 20,
+    // paddingHorizontal: 15,
+    // paddingVertical: 8,
+    // alignItems: 'center',
+    // justifyContent: 'center',
+    // marginBottom: 8,
   },
 });
