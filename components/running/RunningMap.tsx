@@ -72,6 +72,63 @@ export const RunningMap = forwardRef<MapView, RunningMapProps>(({
     return externalPath && externalPath.length > 0 ? [...externalPath] : [];
   }, [externalPath ? JSON.stringify(externalPath) : '']);
 
+  // 그라데이션 색상 배열 (파랑-보라-핑크)
+  const gradientStops = [
+    { color: '#00D4FF', pos: 0 },   // 파랑
+    { color: '#8A2BE2', pos: 0.5 }, // 보라
+    { color: '#FF1493', pos: 1 }    // 핑크
+  ];
+
+  // 색상 보간 함수
+  function lerpColor(a: string, b: string, t: number) {
+    const ah = parseInt(a.replace('#', ''), 16);
+    const bh = parseInt(b.replace('#', ''), 16);
+    const ar = (ah >> 16) & 0xff, ag = (ah >> 8) & 0xff, ab = ah & 0xff;
+    const br = (bh >> 16) & 0xff, bg = (bh >> 8) & 0xff, bb = bh & 0xff;
+    const rr = Math.round(ar + (br - ar) * t);
+    const rg = Math.round(ag + (bg - ag) * t);
+    const rb = Math.round(ab + (bb - ab) * t);
+    return `#${((1 << 24) + (rr << 16) + (rg << 8) + rb).toString(16).slice(1)}`;
+  }
+
+  // 트랙 경로(외부 경로) 그라데이션 Polyline 분할 (더 부드럽게)
+  const gradientPolylines = useMemo(() => {
+    if (!memoizedExternalPath || memoizedExternalPath.length < 2) return null;
+    const n = 30; // 구간 수를 30개로 늘림
+    const polylines = [];
+    for (let i = 0; i < n; i++) {
+      const t = i / (n - 1);
+      // 보간 구간 찾기
+      let c1, c2, t2;
+      if (t < 0.5) {
+        c1 = gradientStops[0].color;
+        c2 = gradientStops[1].color;
+        t2 = t / 0.5;
+      } else {
+        c1 = gradientStops[1].color;
+        c2 = gradientStops[2].color;
+        t2 = (t - 0.5) / 0.5;
+      }
+      const color = lerpColor(c1, c2, t2);
+      // 좌표 구간
+      const startIdx = Math.floor(i * (memoizedExternalPath.length - 1) / n);
+      const endIdx = Math.floor((i + 1) * (memoizedExternalPath.length - 1) / n) + 1;
+      const coords = memoizedExternalPath.slice(startIdx, endIdx);
+      if (coords.length >= 2) {
+        polylines.push(
+          <Polyline
+            key={`gradient-track-${i}`}
+            coordinates={coords}
+            strokeColor={color}
+            strokeWidth={8}
+            zIndex={2}
+          />
+        );
+      }
+    }
+    return polylines;
+  }, [memoizedExternalPath]);
+
   // ✅ 조건부 카메라 업데이트 함수 (방향 포함, 보간 및 임계값 적용)
   const updateCameraIfNeeded = useCallback((coord: Coordinate) => {
     if (!autoCenter || !ref || !('current' in ref)) return;
@@ -204,26 +261,18 @@ export const RunningMap = forwardRef<MapView, RunningMapProps>(({
           </Marker>
         )}
 
-        {/* ✅ 사용자 경로 (실선) */}
+        {/* ✅ 사용자 경로 (아주 연한 회색) */}
         {path.length > 0 && (
           <Polyline
             coordinates={path}
-            strokeColor="#007aff"
-            strokeWidth={12} // 기존 6에서 12로 굵게
+            strokeColor="#6fffa4ff"
+            strokeWidth={10}
             zIndex={3}
           />
         )}
 
-        {/* ✅ 트랙 경로 (점선) */}
-        {memoizedExternalPath.length > 0 && (
-          <Polyline
-            coordinates={memoizedExternalPath}
-            strokeColor="rgba(255, 159, 28, 0.7)"
-            strokeWidth={10}
-            lineDashPattern={[8, 14]}
-            zIndex={2}
-          />
-        )}
+        {/* ✅ 트랙 경로 (부드러운 그라데이션) */}
+        {gradientPolylines}
 
         {/* 3. **상대 경로(빨간 실선)** */}
         {opponentLivePath && opponentLivePath.length > 0 && (
@@ -262,34 +311,52 @@ export const RunningMap = forwardRef<MapView, RunningMapProps>(({
           </Marker>
         )}
 
-        {/* ✅ 시작점 마커 */}
+        {/* ✅ 시작점 마커 (투명 회색 + 이미지) */}
         {startPosition && (
-          <Marker
-            coordinate={startPosition}
-            anchor={{ x: 0.5, y: 0.5 }}
-            zIndex={4}
-          >
-            <Image
-              source={require('@/assets/images/start-line.png')}
-              style={styles.startMarker}
-              resizeMode="contain"
+          <>
+            <Circle
+              center={startPosition}
+              radius={10}
+              strokeColor="rgba(160,160,160,0.7)"
+              fillColor="rgba(160,160,160,0.3)"
+              zIndex={4}
             />
-          </Marker>
+            <Marker
+              coordinate={startPosition}
+              anchor={{ x: 0.5, y: 0.5 }}
+              zIndex={5}
+            >
+              <Image
+                source={require('@/assets/images/start.png')}
+                style={{ width: 32, height: 32 }}
+                resizeMode="contain"
+              />
+            </Marker>
+          </>
         )}
 
-        {/* ✅ 도착점 마커 */}
+        {/* ✅ 도착점 마커 (투명 핑크 + 이미지) */}
         {endPosition && (
-          <Marker
-            coordinate={endPosition}
-            anchor={{ x: 0.5, y: 0.5 }}
-            zIndex={4}
-          >
-            <Image
-              source={require('@/assets/images/finish-line.png')}
-              style={styles.endMarker}
-              resizeMode="contain"
+          <>
+            <Circle
+              center={endPosition}
+              radius={10}
+              strokeColor="rgba(255,20,147,0.7)"
+              fillColor="rgba(255,20,147,0.3)"
+              zIndex={4}
             />
-          </Marker>
+            <Marker
+              coordinate={endPosition}
+              anchor={{ x: 0.5, y: 0.5 }}
+              zIndex={5}
+            >
+              <Image
+                source={require('@/assets/images/end.png')}
+                style={{ width: 32, height: 32 }}
+                resizeMode="contain"
+              />
+            </Marker>
+          </>
         )}
 
         {/* ✅ 봇 마커 */}

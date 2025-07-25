@@ -21,34 +21,53 @@ export const getAvatarHtml = (avatarUrl: string) => `
         console.log = function(...args) {
           window.ReactNativeWebView?.postMessage(JSON.stringify({ type: 'log', log: args }));
         };
-        // Android WebView 메시지 브릿지 대응
-        window.document.addEventListener("message", function(event) {
-          try {
-            console.log('[AvatarHtml] document.message event:', event.data);
-            const data = JSON.parse(event.data);
-            if (data.type === "setAnimation") {
-              const animName = data.isRunning ? "run" : "idle";
-              console.log('[AvatarHtml] setAnimation message received: isRunning=' + data.isRunning + ', animName=' + animName);
-              playAction(animName);
+        // 플랫폼별 메시지 브릿지 분기
+        const isIOS = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent);
+        if (isIOS) {
+          // iOS: window.addEventListener("message", ...)
+          window.addEventListener("message", function(event) {
+            try {
+              console.log('[AvatarHtml] iOS window.message event:', event.data);
+              const data = JSON.parse(event.data);
+              if (data.type === "setAnimation") {
+                const animName = data.isRunning ? "run" : "idle";
+                console.log('[AvatarHtml] setAnimation message received: isRunning=' + data.isRunning + ', animName=' + animName);
+                playAction(animName);
+              }
+            } catch (e) {
+              console.error("메시지 파싱 실패:", e);
             }
-          } catch (e) {
-            console.error("메시지 파싱 실패:", e);
-          }
-        });
-        window.ReactNativeWebView = window.ReactNativeWebView || {};
-        window.ReactNativeWebView.onMessage = function(data) {
-          try {
-            console.log('[AvatarHtml] onMessage event:', data);
-            const parsed = JSON.parse(data);
-            if (parsed.type === "setAnimation") {
-              const animName = parsed.isRunning ? "run" : "idle";
-              console.log('[AvatarHtml] setAnimation message received: isRunning=' + parsed.isRunning + ', animName=' + animName);
-              playAction(animName);
+          });
+        } else {
+          // Android: document.addEventListener("message", ...) + onMessage
+          window.document.addEventListener("message", function(event) {
+            try {
+              console.log('[AvatarHtml] Android document.message event:', event.data);
+              const data = JSON.parse(event.data);
+              if (data.type === "setAnimation") {
+                const animName = data.isRunning ? "run" : "idle";
+                console.log('[AvatarHtml] setAnimation message received: isRunning=' + data.isRunning + ', animName=' + animName);
+                playAction(animName);
+              }
+            } catch (e) {
+              console.error("메시지 파싱 실패:", e);
             }
-          } catch (e) {
-            console.error("onMessage 메시지 파싱 실패:", e);
-          }
-        };
+          });
+          window.ReactNativeWebView = window.ReactNativeWebView || {};
+          window.ReactNativeWebView.onMessage = function(data) {
+            try {
+              console.log('[AvatarHtml] Android onMessage event:', data);
+              const parsed = JSON.parse(data);
+              if (parsed.type === "setAnimation") {
+                const animName = parsed.isRunning ? "run" : "idle";
+                console.log('[AvatarHtml] setAnimation message received: isRunning=' + parsed.isRunning + ', animName=' + animName);
+                playAction(animName);
+              }
+            } catch (e) {
+              console.error("onMessage 메시지 파싱 실패:", e);
+            }
+          };
+        }
         const avatarUrl = "${avatarUrl}"; // 이제 전체 URL을 직접 받음
         const animUrls = {
           idle: "https://euns0o.github.io/mixamo-animations/idle.glb",
