@@ -4,10 +4,10 @@ import { useDrawer } from '@/context/DrawerContext';
 import { AuthAsyncStorage } from '@/repositories/AuthAsyncStorage';
 import { useUserStore } from '@/stores/userStore';
 import {
-  getTimeBasedColors,
-  getWeatherAnimationKey,
-  getWeatherData,
-  WeatherAnimationKey,
+    getTimeBasedColors,
+    getWeatherAnimationKey,
+    getWeatherData,
+    WeatherAnimationKey,
 } from '@/utils/WeatherUtils';
 import { Entypo, FontAwesome5, Fontisto } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
@@ -18,14 +18,15 @@ import * as SplashScreen from 'expo-splash-screen';
 import LottieView from 'lottie-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Alert,
-  Modal,
-  Pressable,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    Alert,
+    Modal,
+    Pressable,
+    SafeAreaView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+    Platform
 } from 'react-native';
 
 const SERVER_API_URL = process.env.EXPO_PUBLIC_SERVER_API_URL;
@@ -50,7 +51,7 @@ export default function HomeScreen() {
       left: 0,
       right: 0,
       bottom: 0,
-      zIndex: -1,
+      zIndex: Platform.OS === 'android' ? 1:-1,
       pointerEvents: 'none',
     },
     snow: {
@@ -59,7 +60,7 @@ export default function HomeScreen() {
       left: 0,
       right: 0,
       bottom: 0,
-      zIndex: -1,
+      zIndex: Platform.OS === 'android' ? 1:-1,
       pointerEvents: 'none',
     },
     cloud: {
@@ -68,7 +69,7 @@ export default function HomeScreen() {
       right: 15,
       width: 130,
       height: 150,
-      zIndex: -1,
+      zIndex: Platform.OS === 'android' ? 1:-1,
       pointerEvents: 'none',
     },
     sunny: {
@@ -77,7 +78,7 @@ export default function HomeScreen() {
       left: 20,
       width: 120,
       height: 120,
-      zIndex: -1,
+      zIndex: Platform.OS === 'android' ? 1:-1,
       pointerEvents: 'none',
     },
     moon: {
@@ -86,7 +87,7 @@ export default function HomeScreen() {
       left: 10,
       width: 140,
       height: 140,
-      zIndex: -1,
+      zIndex: Platform.OS === 'android' ? 1:-1,
       pointerEvents: 'none',
     },
   };
