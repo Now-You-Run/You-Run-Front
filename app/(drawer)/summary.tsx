@@ -609,9 +609,9 @@ export default function SummaryScreen() {
                   exiting={FadeOut.duration(500)}
                   style={styles.resultBox}
                 >
-                  <View style={styles.levelUpBg}>
+                
                     <Text style={styles.levelUpText}>LEVEL UP!</Text>
-                  </View>
+                
                   <LottieView
                     source={require('../../assets/lottie/levelup.json')}
                     autoPlay
@@ -1012,14 +1012,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#555',
     fontWeight: '600',
-  },
-  levelUpBg: {
-    // backgroundColor: 'rgba(255,255,255,0.7)',
-    // borderRadius: 20,
-    // paddingHorizontal: 15,
-    // paddingVertical: 8,
-    // alignItems: 'center',
-    // justifyContent: 'center',
-    // marginBottom: 8,
   },
 });
