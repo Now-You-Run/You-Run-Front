@@ -29,6 +29,7 @@ interface RunningMapProps {
   onAvatarPositionUpdate: (coord: Coordinate, force?: boolean) => void;
   onMapReady?: (mapRef: MapView | null) => void;
   onPress?: () => void;  // 지도 클릭 이벤트 핸들러 추가
+  myLocationButtonBottom?: number; // 내 위치 버튼 bottom 값
 }
 
 
@@ -49,7 +50,8 @@ export const RunningMap = forwardRef<MapView, RunningMapProps>(({
   opponentLivePath,
   opponentGhost,
   onPress,
-  isControlsVisible = true
+  isControlsVisible = true,
+  myLocationButtonBottom = 100, // 기본값 100
 }, ref) => {
   const insets = useSafeAreaInsets();
   const lastUpdateRef = useRef<number>(0);
@@ -413,8 +415,7 @@ export const RunningMap = forwardRef<MapView, RunningMapProps>(({
       <TouchableOpacity
         style={[
           styles.myLocationButton,
-          { bottom: isControlsVisible ? 20 + insets.bottom : 20 + insets.bottom, marginRight: 15
-            , }
+          { bottom: myLocationButtonBottom + insets.bottom, marginRight: 15 }
         ]}
         onPress={handleMyLocationPress}
       >
