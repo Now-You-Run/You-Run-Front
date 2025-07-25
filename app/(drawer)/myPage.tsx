@@ -157,7 +157,7 @@ export default function MyPageScreen() {
 
   // ─── 이번 주 통계 ──────────────────────────────────────────
   const weekRecs = records.filter((r) =>
-    isAfter(parseISO(r.finishedAt), subDays(new Date(), 7))
+    isAfter(parseISO(r.finishedAt), subDays(new Date(), 30))
   );
   const weeklyDistance = weekRecs.reduce(
     (sum, r) => sum + r.distance / 1000,
@@ -306,7 +306,7 @@ export default function MyPageScreen() {
 
             {/* ─── 이번 주 통계 ─────────────────────── */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>이번 주</Text>
+              <Text style={styles.sectionTitle}>이번 달</Text>
               <View style={styles.statRow}>
                 {stats.map((s) => (
                   <View
