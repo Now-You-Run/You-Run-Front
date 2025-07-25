@@ -83,7 +83,7 @@ const FacePaceScreen: React.FC = () => {
   }, [seconds, secondItems]);
 
   useEffect(() => {
-    const t = setTimeout(() => setShowMessage(false), 2500);
+    const t = setTimeout(() => setShowMessage(false), 2000);
     return () => clearTimeout(t);
   }, []);
 
@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
         shadowRadius: 3.84,
       },
       android: {
-        elevation: 5,
+        elevation: 2,
       },
     }),
   },
@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
   },
   runBtn: {
     height: 90,
-    marginTop: 50,
+    marginTop: 40,
     backgroundColor: '#DDDDDD',
     paddingVertical: 18,
     paddingHorizontal: 80,
