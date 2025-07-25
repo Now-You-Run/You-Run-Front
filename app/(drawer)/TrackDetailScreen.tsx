@@ -334,15 +334,16 @@ const styles = StyleSheet.create({
   inner: { flex: 1 },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   map: { width: '100%', height: 300 },
-  content: { padding: 16 },
+  content: { padding: 8 },
   title: { fontSize: 22, fontWeight: 'bold' },
   subtitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 8 },
   footer: { padding: 16, marginTop: 'auto' },
   botButton: {
     backgroundColor: '#5EFFAE',
-    padding: 14,
+    padding: 10,
     borderRadius: 10,
     alignItems: 'center',
+    marginBottom: 10,
   },
   botButtonText: { color: 'black', fontSize: 18, fontWeight: '700' },
 

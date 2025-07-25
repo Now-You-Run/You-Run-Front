@@ -4,10 +4,10 @@ import { useDrawer } from '@/context/DrawerContext';
 import { AuthAsyncStorage } from '@/repositories/AuthAsyncStorage';
 import { useUserStore } from '@/stores/userStore';
 import {
-    getTimeBasedColors,
-    getWeatherAnimationKey,
-    getWeatherData,
-    WeatherAnimationKey,
+  getTimeBasedColors,
+  getWeatherAnimationKey,
+  getWeatherData,
+  WeatherAnimationKey,
 } from '@/utils/WeatherUtils';
 import { Entypo, FontAwesome5, Fontisto } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
@@ -18,15 +18,15 @@ import * as SplashScreen from 'expo-splash-screen';
 import LottieView from 'lottie-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-    Alert,
-    Modal,
-    Pressable,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-    Platform
+  Alert,
+  Modal,
+  Platform,
+  Pressable,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 const SERVER_API_URL = process.env.EXPO_PUBLIC_SERVER_API_URL;
@@ -270,7 +270,7 @@ export default function HomeScreen() {
               id: currentAvatar.id,
               url: currentAvatar.glbUrl
             } : null}
-            grade='아이언'
+            grade='실버'
           />
         </View>
 
