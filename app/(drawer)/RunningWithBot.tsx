@@ -676,7 +676,7 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
         endPosition={endCoursePosition}
         isSimulating={isSimulating}
         isControlsVisible={true}
-        myLocationButtonBottom={240}
+        myLocationButtonBottom={330}
       />
 
       {/* 2. 아바타 */}
@@ -692,7 +692,7 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
 
       {/* 3. 하단 오버레이 */}
       {true && (
-        <View style={[styles.overlay, { height: '30%' }]}>
+        <View style={styles.overlay}>
           {trackInfo && (
             <>
               <BotDistanceDisplay
@@ -810,7 +810,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     alignItems: 'center',
     zIndex: 1000,
-    paddingBottom: 40,
+    paddingBottom: 50,
   },
   errorContainer: {
     flex: 1,

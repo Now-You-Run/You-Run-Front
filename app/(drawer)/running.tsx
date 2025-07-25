@@ -3,12 +3,12 @@ import * as Location from 'expo-location';
 import { useNavigation, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    Alert,
-    Animated,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  Animated,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import MapView, { Region } from 'react-native-maps';
 
@@ -756,7 +756,7 @@ function RunningScreenInner({
             onMapReady={handleMapReady}
             onPress={handleMapPress}
             isControlsVisible={isControlsVisible}
-            myLocationButtonBottom={20}
+            myLocationButtonBottom={10}
           />
         )}
       </View>
