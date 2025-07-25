@@ -675,6 +675,8 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
         startPosition={startCoursePosition}
         endPosition={endCoursePosition}
         isSimulating={isSimulating}
+        isControlsVisible={true}
+        myLocationButtonBottom={240}
       />
 
       {/* 2. 아바타 */}
@@ -689,37 +691,39 @@ function BotRunningScreenInner({ isTestMode, setIsTestMode }: { isTestMode: bool
       )}
 
       {/* 3. 하단 오버레이 */}
-      <View style={styles.overlay}>
-        {trackInfo && (
-          <>
-            <BotDistanceDisplay
-              distanceMeters={botTrackDistance.distanceMeters}
-              isAhead={botTrackDistance.isAhead}
-              userProgress={botTrackDistance.userProgress}
-              totalDistance={trackInfo.distanceMeters}
-              isOffCourse={isOffCourse}
-            />
-            <RunningStats
-              totalDistance={totalDistance}
-              displaySpeed={displaySpeed}
-              elapsedTime={elapsedTime}
-            />
-          </>
-        )}
-        <RunningControls
-          isActive={isActive}
-          isPaused={isPaused}
-          elapsedTime={elapsedTime}
-          isFinishPressed={isFinishPressed}
-          finishProgress={0}
-          progressAnimation={finishProgressAnimation}
-          scaleAnimation={scaleAnimation}
-          onMainPress={customOnMainPress}
-          onFinishPressIn={handleFinishPressIn}
-          onFinishPressOut={handleFinishPressOut}
-          isReady={isMapReady}
-        />
-      </View>
+      {true && (
+        <View style={[styles.overlay, { height: '30%' }]}>
+          {trackInfo && (
+            <>
+              <BotDistanceDisplay
+                distanceMeters={botTrackDistance.distanceMeters}
+                isAhead={botTrackDistance.isAhead}
+                userProgress={botTrackDistance.userProgress}
+                totalDistance={trackInfo.distanceMeters}
+                isOffCourse={isOffCourse}
+              />
+              <RunningStats
+                totalDistance={totalDistance}
+                displaySpeed={displaySpeed}
+                elapsedTime={elapsedTime}
+              />
+            </>
+          )}
+          <RunningControls
+            isActive={isActive}
+            isPaused={isPaused}
+            elapsedTime={elapsedTime}
+            isFinishPressed={isFinishPressed}
+            finishProgress={0}
+            progressAnimation={finishProgressAnimation}
+            scaleAnimation={scaleAnimation}
+            onMainPress={customOnMainPress}
+            onFinishPressIn={handleFinishPressIn}
+            onFinishPressOut={handleFinishPressOut}
+            isReady={isMapReady}
+          />
+        </View>
+      )}
 
       {/* 로딩 오버레이들 */}
       {!isMapReady && (
