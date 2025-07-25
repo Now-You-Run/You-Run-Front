@@ -141,6 +141,28 @@ export default function SummaryScreen() {
   const opponentId = parsed.opponentId ?? 0;
   const botPace = parsed.botPace;
 
+  // 중심 좌표 계산 함수 추가
+  function getCenterOfPath(points: Coord[]) {
+    let minLat: number | undefined, maxLat: number | undefined, minLng: number | undefined, maxLng: number | undefined;
+    points.forEach(point => {
+      minLat = minLat !== undefined ? Math.min(minLat, point.latitude) : point.latitude;
+      maxLat = maxLat !== undefined ? Math.max(maxLat, point.latitude) : point.latitude;
+      minLng = minLng !== undefined ? Math.min(minLng, point.longitude) : point.longitude;
+      maxLng = maxLng !== undefined ? Math.max(maxLng, point.longitude) : point.longitude;
+    });
+    return {
+      latitude: ((minLat ?? 0) + (maxLat ?? 0)) / 2,
+      longitude: ((minLng ?? 0) + (maxLng ?? 0)) / 2,
+    };
+  }
+
+  const center = userPath.length > 0 ? getCenterOfPath(userPath) : { latitude: 37.5665, longitude: 126.978 };
+  const mapRegion = {
+    latitude: center.latitude,
+    longitude: center.longitude,
+    latitudeDelta: 0.001, // 아주 작게 (확대)
+    longitudeDelta: 0.001,
+  };
   // 경고 메시지 조건
   const isPathTooShort =
     !userPath || userPath.length < 2 || totalDistanceKm <= 0;
@@ -553,12 +575,7 @@ export default function SummaryScreen() {
         ]}>
           <MapView
             style={styles.map}
-            initialRegion={{
-              latitude: userPath[0]?.latitude || 37.5665,
-              longitude: userPath[0]?.longitude || 126.978,
-              latitudeDelta: 0.002,
-              longitudeDelta: 0.002,
-            }}
+            region={mapRegion}
           >
             <Polyline
               coordinates={userPath}
@@ -851,7 +868,7 @@ const styles = StyleSheet.create({
   levelUpText: { 
     fontSize: 60, 
     fontWeight: '900', 
-    color: '#ffffffff' 
+    color: '#000000' 
   },
   levelChangeText: { 
     fontSize: 25, 
@@ -861,7 +878,7 @@ const styles = StyleSheet.create({
   gradeUpText: { 
     fontSize: 50, 
     fontWeight: '800', 
-    color: '#ffffff' 
+    color: '#00000-' 
   },
   gradeChangeContainer: {
     flexDirection: 'row',
