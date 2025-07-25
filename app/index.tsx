@@ -51,7 +51,7 @@ export default function HomeScreen() {
       left: 0,
       right: 0,
       bottom: 0,
-      zIndex: 1,
+      zIndex: Platform.OS === 'android' ? 1:-1,
       pointerEvents: 'none',
     },
     snow: {
@@ -60,7 +60,7 @@ export default function HomeScreen() {
       left: 0,
       right: 0,
       bottom: 0,
-      zIndex: 1,
+      zIndex: Platform.OS === 'android' ? 1:-1,
       pointerEvents: 'none',
     },
     cloud: {
@@ -69,7 +69,7 @@ export default function HomeScreen() {
       right: 15,
       width: 130,
       height: 150,
-      zIndex: 1,
+      zIndex: Platform.OS === 'android' ? 1:-1,
       pointerEvents: 'none',
     },
     sunny: {
@@ -78,7 +78,7 @@ export default function HomeScreen() {
       left: 20,
       width: 120,
       height: 120,
-      zIndex: 1,
+      zIndex: Platform.OS === 'android' ? 1:-1,
       pointerEvents: 'none',
     },
     moon: {
